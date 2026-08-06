@@ -1,30 +1,34 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import {
-  getDb, logEvent, complete, notNow, type Task,
-  getStreak, bumpStreak, resetStreaks, softness,
+  getDb, logEvent, complete, notNow, markActed, softnessAt, smallestTask,
+  ANCHOR_SLOTS, type Task,
 } from './db';
+import { nextEvent } from './calendar';
 
 /**
  * The nudge engine.
  *
  * iOS allows only 64 PENDING scheduled local-notification requests at a time.
  * The limit is on *requests*, not deliveries — a repeating calendar trigger is
- * one request that fires forever. So:
+ * one request that fires forever. The split:
  *
- *    3 requests  -> daily anchors (repeating, infinite fires)
- *   ~55 requests -> nearest deadline + follow-through nudges
- *    6 requests  -> headroom
+ *    1 request  -> the morning re-entry, repeating, fires forever
+ *   14 requests -> a week of midday/evening anchors, each pre-softened
+ *  ~40 requests -> nearest deadline nudges
+ *    9 requests -> headroom
  *
- * iOS also won't reliably run our code in the background, so we can't top the
- * queue up from a background job. Everything is reconciled on foreground and on
- * every task mutation instead. Because the anchors repeat, the app still nudges
- * correctly even if you don't open it for a week — that property is what makes
- * it trustworthy, and it's the thing worth writing a test for.
+ * iOS won't reliably run our code in the background, so the queue can't be
+ * topped up by a background job; everything is reconciled on foreground and on
+ * every task mutation. The morning anchor repeats, so the app still nudges
+ * correctly if you don't open it for a week — that property is what makes it
+ * trustworthy, and it's the thing worth writing a test for.
  */
 
-const BUDGET = 58;
+const BUDGET = 40;
 export const CATEGORY = 'nura.task';
+/** How far ahead the pre-softened anchors are written. */
+const ANCHOR_DAYS = 7;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -65,34 +69,89 @@ function body(t: Task) {
 
 type Desired = { id: string; fireAt: number; title: string; body: string; taskId?: string };
 
-/** Anchors are repeating triggers — one request each, fires forever. */
-const ANCHORS = [
-  { id: 'anchor.morning',  hour: 9,  minute: 0,  title: 'Pick 3 for today',   body: 'What are the three?' },
-  { id: 'anchor.midday',   hour: 13, minute: 30, title: 'Still going?',        body: 'Here are your three.' },
-  { id: 'anchor.shutdown', hour: 20, minute: 0,  title: 'What did you actually do?', body: 'Nothing is too small to count.' },
-];
+const ANCHOR_COPY: Record<string, { title: string; body: string }> = {
+  'anchor.morning':  { title: 'Pick one for today',   body: 'Just one. The rest can wait.' },
+  'anchor.midday':   { title: 'Still going?',          body: 'There is one thing waiting.' },
+  'anchor.shutdown': { title: 'What did you actually do?', body: 'Nothing is too small to count.' },
+};
 
+/**
+ * The softening ladder, made real.
+ *
+ * The morning anchor is a single repeating request: it fires forever, it is
+ * never silenced, and its copy makes no reference to yesterday — that's the
+ * re-entry point after a bad week, and it has to survive the app not being
+ * opened.
+ *
+ * The other two are written as a week of individual dated requests, each one
+ * evaluated at the volume it *will* deserve when it fires, assuming you do
+ * nothing between now and then. That's what makes the de-escalation real
+ * without a background task: by the fourth ignored slot the queue simply
+ * contains nothing more, so the app goes quiet on its own. Any action at all
+ * calls markActed(), which resets the projection the next time we reconcile.
+ */
 export async function scheduleAnchors() {
-  for (const a of ANCHORS) {
-    await Notifications.cancelScheduledNotificationAsync(a.id).catch(() => {});
-    // level 4 mutes the midday prompt but never the morning re-entry, which is
-    // deliberately written to make no reference to yesterday
-    const soft = softness(await getStreak('anchor'));
-    if (soft.silent && a.id !== 'anchor.morning') continue;
-    const offer = soft.offer && a.id !== 'anchor.morning';
-    await Notifications.scheduleNotificationAsync({
-      identifier: a.id,
-      content: {
-        title: offer ? 'No pressure' : a.title,
-        body: offer ? 'There\'s something small here if you want it.' : a.body,
-        categoryIdentifier: CATEGORY,
-        data: { kind: 'anchor', anchor: a.id },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: a.hour, minute: a.minute,
-      },
-    });
+  if (Platform.OS === 'web') return;
+
+  const morning = ANCHOR_SLOTS.find(s => s.id === 'anchor.morning')!;
+  await Notifications.scheduleNotificationAsync({
+    identifier: morning.id,
+    content: {
+      ...ANCHOR_COPY[morning.id],
+      categoryIdentifier: CATEGORY,
+      data: { kind: 'anchor', anchor: morning.id },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: morning.hour, minute: morning.minute,
+    },
+  });
+
+  const now = Date.now();
+  const keep = new Set<string>([morning.id]);
+
+  for (let d = 0; d < ANCHOR_DAYS; d++) {
+    for (const slot of ANCHOR_SLOTS) {
+      if (slot.id === morning.id) continue;
+      const when = new Date();
+      when.setDate(when.getDate() + d);
+      when.setHours(slot.hour, slot.minute, 0, 0);
+      const fireAt = when.getTime();
+      if (fireAt <= now) continue;
+
+      const soft = await softnessAt(fireAt);
+      if (soft.silent) continue;                     // level 4: the app stops asking
+
+      const id = `anchor.${slot.id.split('.')[1]}.${when.toISOString().slice(0, 10)}`;
+      keep.add(id);
+
+      // as it softens it stops naming the thing you chose and starts offering
+      // the smallest thing there is
+      const small = soft.ceiling < 999 ? await smallestTask(soft.ceiling) : null;
+      const copy = ANCHOR_COPY[slot.id];
+
+      await Notifications.scheduleNotificationAsync({
+        identifier: id,
+        content: {
+          title: soft.offer ? 'No pressure' : copy.title,
+          body: soft.offer
+            ? (small ? `${small.title} — only if you feel like it.` : 'Something small is here if you want it.')
+            : (small ? `${small.title}. Five minutes?` : copy.body),
+          categoryIdentifier: CATEGORY,
+          data: { kind: 'anchor', anchor: slot.id, taskId: small?.id },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+      });
+    }
+  }
+
+  // drop anchors that are no longer wanted (yesterday's, or ones the ladder
+  // has since silenced)
+  const pending = await Notifications.getAllScheduledNotificationsAsync();
+  for (const p of pending) {
+    if (p.identifier.startsWith('anchor.') && !keep.has(p.identifier)) {
+      await Notifications.cancelScheduledNotificationAsync(p.identifier).catch(() => {});
+    }
   }
 }
 
@@ -111,10 +170,16 @@ async function computeDesired(): Promise<Desired[]> {
     for (const [label, lead] of [['24h', 86400_000], ['2h', 7200_000], ['20m', 1200_000]] as const) {
       const fireAt = t.due_at! - lead;
       if (fireAt <= now) continue;
-      const soft = softness(await getStreak('deadline'));
+      const soft = await softnessAt(fireAt);
       if (soft.silent) continue;
       out.push({
-        id: `deadline.${t.id}.${label}`,
+        // fireAt is part of the id, not just the trigger — reconcileNudges()
+        // below treats "id already pending" as "already correctly scheduled"
+        // and skips it. Without fireAt baked in, editing a task's due date
+        // kept the OLD id (same taskId, same '24h'/'2h'/'20m' label) with its
+        // OLD fireAt: the stale reminder survived the edit untouched, and the
+        // correctly-timed one for the new due date never got scheduled.
+        id: `deadline.${t.id}.${label}.${fireAt}`,
         fireAt, taskId: t.id,
         title: soft.offer ? 'No pressure' : t.title,
         body: soft.offer ? `There's a smaller piece of this if you want it.` : body(t),
@@ -129,14 +194,19 @@ async function computeDesired(): Promise<Desired[]> {
  * task mutation — never from a background task, because iOS won't run one.
  */
 export async function reconcileNudges() {
+  // Scheduling is native-only. The AppState 'active' listener in _layout.tsx
+  // calls this on every foreground event, so guard here rather than at each
+  // call site.
+  if (Platform.OS === 'web') return;
   const pending = await Notifications.getAllScheduledNotificationsAsync();
   const wanted = (await computeDesired()).slice(0, BUDGET);
   const wantedIds = new Set(wanted.map(w => w.id));
 
-  // cancel anything scheduled that we no longer want (anchors are exempt)
+  // cancel anything scheduled that we no longer want (anchors are managed by
+  // scheduleAnchors, so they're exempt here)
   for (const p of pending) {
     const id = p.identifier;
-    if (id.startsWith('anchor.')) continue;
+    if (id.startsWith('anchor.') || id.startsWith('transition.')) continue;
     if (!wantedIds.has(id)) {
       await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
     }
@@ -162,11 +232,19 @@ export async function reconcileNudges() {
   }
 }
 
-/** Handle a button press from the lock screen. */
+/**
+ * Foreground delivery, for the event log only.
+ *
+ * This used to be where the ladder counted ignored nudges — which was exactly
+ * backwards: addNotificationReceivedListener fires only while the app is OPEN,
+ * so it incremented "you ignored me" in the one situation where you plainly
+ * hadn't, and never incremented in the situation it was built for. The ladder
+ * is derived from elapsed anchor slots now (see softnessAt in db.ts) and needs
+ * no delivery callback at all.
+ */
 export function attachDeliveryHandler() {
   return Notifications.addNotificationReceivedListener(async n => {
     const kind = (n.request.content.data?.kind as string) ?? 'deadline';
-    await bumpStreak(kind);
     await logEvent('nudge_sent', undefined, { kind });
   });
 }
@@ -179,7 +257,7 @@ export function attachResponseHandler(
     const taskId = res.notification.request.content.data?.taskId as string | undefined;
     const action = res.actionIdentifier;
     // ANY action resets the ladder — including "not this week"
-    await resetStreaks();
+    await markActed();
     await logEvent('nudge_acted', taskId, { action });
 
     // the evening anchor opens retro-capture, not a task
@@ -197,11 +275,58 @@ export function attachResponseHandler(
   });
 }
 
-export async function initNotifications() {
+/**
+ * Two minutes' notice before the next calendar event — a documented ADHD
+ * accommodation (transitions are hard, not the tasks themselves) that's
+ * absent from every productivity app. Reads the calendar, never writes it.
+ */
+export async function scheduleTransitionWarning() {
   if (Platform.OS === 'web') return;
-  const ok = await requestPermission();
-  if (!ok) return;
+  const pending = await Notifications.getAllScheduledNotificationsAsync();
+  const stale = pending.filter(p => p.identifier.startsWith('transition.'));
+
+  const ev = await nextEvent();
+  const id = ev ? `transition.${ev.id}` : null;
+
+  for (const p of stale) {
+    if (p.identifier !== id) await Notifications.cancelScheduledNotificationAsync(p.identifier).catch(() => {});
+  }
+  if (!ev || !id) return;
+
+  const fireAt = ev.startsAt - 2 * 60_000;
+  if (fireAt <= Date.now()) return;                 // already inside the window
+  if (stale.some(p => p.identifier === id)) return; // already scheduled
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: id,
+    content: {
+      title: 'Two minutes',
+      body: `${ev.title} is starting soon.`,
+      data: { kind: 'transition' },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+  });
+}
+
+/** Everything that doesn't require asking permission again — safe to call
+ *  any time permission has already been decided, on any launch. */
+export async function setupSchedules() {
+  if (Platform.OS === 'web') return;
   await registerCategory();
   await scheduleAnchors();
   await reconcileNudges();
+  await scheduleTransitionWarning();
+}
+
+/**
+ * Only for users who have already answered the permission prompt — see Nu.tsx,
+ * where it is asked once, in context, after the first thing is written down.
+ * requestPermissionsAsync is a no-op re-check once decided, so this is safe on
+ * every launch and pops nothing for someone who hasn't been asked yet.
+ */
+export async function initNotifications() {
+  if (Platform.OS === 'web') return;
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+  await setupSchedules();
 }

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nura — find clarity, begin gently, move forward</title>
+<meta name="description" content="Nura turns the flood of thoughts, tasks and intentions into one clear, approachable next step — without pressure, shame, or another complicated system. Free on iOS and Android.">
+<meta property="og:title" content="Nura — find clarity, begin gently, move forward">
+<meta property="og:description" content="Find clarity. Begin gently. Move forward.">
+<meta property="og:image" content="assets/mark.png">
+<meta name="theme-color" content="#0B1029">
+<link rel="icon" href="assets/mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0B1029; --navy-2:#101636; --navy-3:#161D42;
+  --cream:#FAF7F0; --cream-2:#F3EFE4;
+  --ink:#101838; --ink-2:#454E73; --ink-3:#6B7490;
+  --pale:#F2F4FB; --pale-2:#AEB6D4; --pale-3:#7E87AC;
+  --nu:#5B6CF0; --nu-soft:#8C97F6; --nu-deep:#4338CA;
+  --ra:#FF6B35; --ra-soft:#FF8A5C;
+  --line-d:rgba(170,185,255,.12); --line-l:rgba(16,24,56,.10);
+  --max:1180px; --r:18px;
+  --sans:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--navy);color:var(--pale);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 28px}
+section{position:relative}
+.dark{background:var(--navy);color:var(--pale)}
+.dark::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(70% 50% at 18% 0%,rgba(91,108,240,.18),transparent 62%),
+             radial-gradient(60% 45% at 88% 30%,rgba(232,163,61,.07),transparent 64%)}
+.dark>*{position:relative;z-index:1}
+.lightbg{background:var(--cream);color:var(--ink)}
+
+/* ---------- type ---------- */
+h1,h2,h3{font-weight:600;letter-spacing:-.028em;line-height:1.06}
+h1{font-size:clamp(42px,5.6vw,68px)}
+h2{font-size:clamp(32px,4.4vw,54px);line-height:1.08}
+h3{font-size:20px;letter-spacing:-.015em;line-height:1.3}
+.eyebrow{display:inline-flex;align-items:center;gap:14px;font-size:11.5px;font-weight:600;
+  letter-spacing:.19em;text-transform:uppercase;color:var(--nu-soft);margin-bottom:22px}
+.eyebrow::before{content:"";width:34px;height:1.5px;background:currentColor;opacity:.8}
+.lightbg .eyebrow{color:var(--nu-deep)}
+.lede{font-size:clamp(16px,1.35vw,18px);color:var(--pale-2);max-width:56ch}
+.lightbg .lede{color:var(--ink-2)}
+.grad{background:linear-gradient(96deg,var(--nu-soft) 0%,#C9BCFF 34%,var(--ra-soft) 78%,var(--ra) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(18px);background:rgba(11,16,41,.72);
+  border-bottom:1px solid transparent;transition:border-color .25s}
+nav.stuck{border-bottom-color:var(--line-d)}
+.navin{max-width:var(--max);margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:30px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--pale);font-weight:600;font-size:19px;letter-spacing:-.01em}
+.brand img{width:28px;height:auto;display:block}
+.navlinks{margin-left:auto;display:flex;gap:28px}
+.navlinks a{color:var(--pale-2);text-decoration:none;font-size:14.5px;transition:color .18s}
+.navlinks a:hover{color:var(--pale)}
+@media(max-width:860px){.navlinks{display:none}}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:11px;padding:14px 24px;border-radius:999px;
+  font-size:15px;font-weight:600;text-decoration:none;border:1px solid transparent;transition:.2s;cursor:pointer}
+.btn-p{background:var(--pale);color:var(--navy)}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(140,151,246,.28)}
+.btn-ra{background:linear-gradient(100deg,var(--ra),var(--ra-soft));color:#1A1206}
+.btn-ra:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(232,163,61,.34)}
+.btn-g{border-color:var(--line-d);color:var(--pale);background:rgba(255,255,255,.04)}
+.btn-g:hover{background:rgba(255,255,255,.09)}
+.btn .arw{transition:transform .2s}
+.btn:hover .arw{transform:translateX(4px)}
+
+.reasons{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:28px;font-size:14px;color:var(--pale-2)}
+.reasons span{display:inline-flex;align-items:center;gap:9px}
+.reasons i{color:var(--ra);font-style:normal}
+.storebtns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.storebtn{display:flex;align-items:center;gap:11px;padding:11px 20px;border-radius:13px;
+  background:#000;border:1px solid rgba(255,255,255,.14);color:#fff;text-decoration:none;transition:.2s}
+.storebtn:hover{transform:translateY(-1px);background:#111;border-color:rgba(255,255,255,.24)}
+.storebtn span{display:flex;flex-direction:column;text-align:left;font-size:16.5px;font-weight:600;letter-spacing:-.01em}
+.storebtn small{font-size:10px;font-weight:400;color:var(--pale-3);letter-spacing:.02em}
+
+/* ---------- hero ---------- */
+.hero{padding-block:clamp(70px,10vw,120px) clamp(80px,10vw,130px)}
+.herogrid{display:grid;grid-template-columns:1.02fr .98fr;gap:60px;align-items:center}
+@media(max-width:960px){.herogrid{grid-template-columns:1fr;gap:46px}}
+.hero h1{margin-bottom:24px}
+.hero .lede{margin-bottom:34px}
+.cta{display:flex;gap:13px;flex-wrap:wrap;margin-bottom:30px}
+.ticks{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--pale-3)}
+.ticks span{display:inline-flex;align-items:center;gap:7px}
+.ticks i{color:var(--ra);font-style:normal}
+
+.stage{position:relative;border-radius:26px;padding:44px 30px 30px;
+  background:linear-gradient(160deg,rgba(91,108,240,.13),rgba(11,16,41,.5) 60%);
+  border:1px solid var(--line-d);min-height:400px;display:flex;align-items:flex-end;justify-content:center;gap:min(4vw,34px)}
+.stage img{height:min(34vw,270px);width:auto;display:block;filter:drop-shadow(0 26px 46px rgba(0,0,0,.5))}
+.chip{position:absolute;display:flex;align-items:center;gap:11px;padding:11px 15px;border-radius:14px;
+  background:rgba(16,22,54,.86);border:1px solid var(--line-d);backdrop-filter:blur(14px);
+  box-shadow:0 14px 34px rgba(0,0,0,.36)}
+.chip b{display:block;font-size:10.5px;letter-spacing:.16em;color:var(--pale-3);font-weight:700}
+.chip span{font-size:13px;color:var(--pale)}
+.chip .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto}
+.chip-nu{left:-26px;bottom:34px}
+.chip-ra{right:-26px;top:22px}
+@media(max-width:600px){.chip-nu{left:0;bottom:8px}.chip-ra{right:0;top:8px}}
+.float{animation:float 6s ease-in-out infinite}
+.float.b{animation-delay:-3s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+
+/* ---------- cards ---------- */
+.pad{padding-block:clamp(78px,9vw,124px)}
+.center{text-align:center;display:flex;flex-direction:column;align-items:center}
+.center .lede{margin-inline:auto;text-align:center}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:56px}
+@media(max-width:880px){.cards{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line-l);border-radius:var(--r);padding:30px 26px;position:relative;
+  box-shadow:0 1px 2px rgba(16,24,56,.05);transition:transform .25s,box-shadow .25s}
+.card:hover{transform:translateY(-4px);box-shadow:0 18px 44px rgba(16,24,56,.10)}
+.card .n{position:absolute;top:24px;right:26px;font-size:12px;color:#B8BDD0;font-weight:600}
+.card .ic{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;margin-bottom:24px}
+.card h3{margin-bottom:10px}
+.card p{font-size:14.5px;color:var(--ink-2)}
+.card .k{display:block;margin-top:22px;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--nu-deep)}
+.card.feat{background:linear-gradient(170deg,#F4F3FF,#fff 62%);border-color:rgba(91,108,240,.22)}
+
+/* ---------- story ---------- */
+.two{display:grid;grid-template-columns:1fr 1.06fr;gap:clamp(44px,6vw,86px);align-items:center}
+@media(max-width:900px){.two{grid-template-columns:1fr;gap:44px}}
+.stone{display:flex;align-items:flex-end;justify-content:center;gap:min(4vw,20px);min-height:280px}
+.stone img{width:min(40%,190px);height:auto;filter:drop-shadow(0 26px 46px rgba(0,0,0,.4))}
+.link{display:inline-flex;align-items:center;gap:10px;color:var(--pale);text-decoration:none;font-size:15px;
+  font-weight:500;border-bottom:1px solid var(--line-d);padding-bottom:8px;transition:.2s}
+.link:hover{border-bottom-color:var(--nu-soft)}
+.lightbg .link{color:var(--ink);border-bottom-color:var(--line-l)}
+
+/* ---------- numbered list ---------- */
+.steps{margin-top:38px;border-top:1px solid var(--line-l)}
+.step{display:grid;grid-template-columns:44px 1fr;gap:16px;padding:20px 0;border-bottom:1px solid var(--line-l)}
+.step .n{font-size:12px;color:var(--ink-3);font-weight:600;padding-top:3px}
+.step h4{font-size:16px;font-weight:600;margin-bottom:3px;letter-spacing:-.01em}
+.step p{font-size:14px;color:var(--ink-2)}
+
+/* ---------- phone ---------- */
+.phone{width:302px;max-width:100%;margin:0 auto;border-radius:40px;background:var(--navy);
+  border:9px solid #0A0D20;box-shadow:0 34px 80px rgba(16,24,56,.35),0 0 0 1px rgba(170,185,255,.1);
+  overflow:hidden;position:relative;transform-style:preserve-3d;will-change:transform;transition:transform .4s cubic-bezier(.2,.8,.3,1)}
+.phone::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:104px;height:22px;background:#0A0D20;border-radius:0 0 13px 13px;z-index:2}
+.phone-shot{display:block;width:100%;height:auto}
+.phone-tilt:hover{transition:transform .12s linear}
+@media(hover:none){.phone-tilt{transform:none !important}}
+.ph-greet{font-size:16.5px;font-weight:600;line-height:1.32;margin:26px 0 16px;color:var(--pale);letter-spacing:-.015em}
+.ph-energy{display:flex;align-items:center;gap:7px;margin-bottom:16px}
+.ph-energy small{font-size:11.5px;color:var(--pale-3);flex:1}
+.pill{font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-d);color:var(--pale-2)}
+.pill.on{background:var(--nu);border-color:var(--nu);color:#fff;font-weight:600}
+.ph-card{background:var(--navy-3);border:1px solid var(--line-d);border-radius:14px;padding:16px}
+.ph-eye{font-size:9.5px;letter-spacing:.15em;font-weight:700;color:var(--nu-soft);margin-bottom:9px}
+.ph-task{font-size:19px;font-weight:600;line-height:1.24;letter-spacing:-.018em;margin-bottom:13px}
+.ph-first{font-size:12.5px;color:var(--pale-2);background:rgba(91,108,240,.14);border:1px solid var(--line-d);
+  border-radius:9px;padding:10px 11px;line-height:1.4}
+.ph-meta{margin-top:11px;font-size:11px;color:var(--pale-3);border:1px solid var(--line-d);border-radius:5px;
+  padding:4px 8px;display:inline-block}
+.ph-btn{margin-top:11px;background:linear-gradient(100deg,var(--ra),var(--ra-soft));color:#1A1206;
+  border-radius:11px;padding:14px;text-align:center;font-size:14.5px;font-weight:600}
+.ph-row{display:flex;gap:8px;margin-top:8px}
+.ph-row div{flex:1;border:1px solid var(--line-d);border-radius:9px;padding:11px;text-align:center;font-size:13px;color:var(--pale-2)}
+
+/* ---------- features ---------- */
+.featgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:52px;
+  background:var(--line-d);border:1px solid var(--line-d);border-radius:var(--r);overflow:hidden}
+@media(max-width:760px){.featgrid{grid-template-columns:1fr}}
+.feat{display:flex;gap:16px;padding:26px 28px;background:var(--navy)}
+.feat .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto}
+.feat h4{font-size:15.5px;font-weight:600;letter-spacing:-.01em;margin-bottom:5px}
+.feat p{font-size:13.5px;color:var(--pale-2);line-height:1.5}
+
+/* ---------- essay ---------- */
+.essay{display:grid;grid-template-columns:1fr 1fr 1fr;gap:clamp(28px,3.4vw,54px)}
+@media(max-width:900px){.essay{grid-template-columns:1fr}}
+.essay p{font-size:14.5px;color:var(--ink-2);margin-bottom:16px}
+.essay p.big{font-size:17px;color:var(--ink);line-height:1.6}
+.quote{border-left:3px solid var(--nu);padding-left:20px;margin-top:26px;font-size:16px;
+  font-style:italic;color:var(--ink-2);line-height:1.55}
+
+/* ---------- final ---------- */
+.final{text-align:center;padding-block:clamp(90px,11vw,150px)}
+.final h2{max-width:16ch;margin:22px auto 18px}
+.final .cta{justify-content:center;margin-top:32px}
+.final .mark{width:64px;margin:0 auto}
+.final .mark img{width:100%;height:auto;display:block;filter:drop-shadow(0 14px 30px rgba(0,0,0,.5))}
+
+footer{border-top:1px solid var(--line-d);padding:36px 0}
+.foot{display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--pale-3)}
+.foot a{color:var(--pale-3);text-decoration:none}
+.foot a:hover{color:var(--pale)}
+.foot .sp{margin-left:auto}
+
+/* ---------- reveal ---------- */
+.rv{opacity:0;transform:translateY(20px);transition:opacity .7s cubic-bezier(.2,.8,.3,1),transform .7s cubic-bezier(.2,.8,.3,1)}
+.rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none;transition:none}
+  .float{animation:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<nav id="nav"><div class="navin">
+  <a class="brand" href="#top"><img src="assets/mark.png" alt=""><span>Nura</span></a>
+  <div class="navlinks">
+    <a href="#helps">How it helps</a>
+    <a href="#features">Features</a>
+    <a href="#story">Our story</a>
+  </div>
+  <a class="btn btn-p" href="#download" style="padding:10px 18px;font-size:14px">Download</a>
+</div></nav>
+
+<!-- ============ HERO ============ -->
+<section class="dark" id="top">
+  <div class="wrap hero"><div class="herogrid">
+    <div class="rv">
+      <span class="eyebrow">Now on iOS &amp; Android</span>
+      <h1>Find clarity.<br>Begin gently.<br><span class="grad">Move forward.</span></h1>
+      <p class="lede">Nura turns the flood of thoughts, tasks and intentions into one clear,
+        approachable next step — without pressure, shame, or another complicated system.</p>
+      <div class="cta">
+        <a class="btn btn-p" href="#download">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.9c-.03-2.7 2.2-4 2.3-4.06-1.25-1.83-3.2-2.08-3.9-2.11-1.66-.17-3.24.98-4.08.98-.84 0-2.14-.96-3.52-.93-1.81.03-3.48 1.05-4.41 2.67-1.88 3.27-.48 8.1 1.35 10.75.9 1.3 1.97 2.75 3.38 2.7 1.36-.06 1.87-.88 3.51-.88s2.1.88 3.53.85c1.46-.02 2.38-1.32 3.27-2.63 1.03-1.5 1.46-2.96 1.48-3.04-.03-.01-2.85-1.09-2.88-4.3zM14.4 4.6c.74-.9 1.24-2.15 1.1-3.4-1.07.05-2.36.71-3.13 1.61-.68.79-1.28 2.06-1.12 3.28 1.19.09 2.41-.6 3.15-1.49z"/></svg>
+          Download for iOS
+        </a>
+        <a class="btn btn-g" href="#download">Get it on Android</a>
+      </div>
+      <div class="ticks">
+        <span><i>✓</i> Free to start</span>
+        <span><i>✓</i> Calm by design</span>
+        <span><i>✓</i> Progress without pressure</span>
+      </div>
+    </div>
+
+    <div class="stage rv">
+      <img class="float" src="assets/nu.png" alt="Nu, the water — a calm blue pyramid character">
+      <img class="float b" src="assets/ra.png" alt="Ra, the light — a bright amber pyramid character">
+      <div class="chip chip-nu">
+        <span class="ic" style="background:rgba(91,108,240,.18);color:var(--nu-soft)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M3 8q3-3 6 0t6 0 6 0M3 13q3-3 6 0t6 0 6 0M3 18q3-3 6 0t6 0 6 0"/></svg></span>
+        <span><b>NU</b>gathers the noise</span>
+      </div>
+      <div class="chip chip-ra">
+        <span class="ic" style="background:rgba(232,163,61,.16);color:var(--ra-soft)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.4 5.4l1.9 1.9M16.7 16.7l1.9 1.9M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9"/></svg></span>
+        <span><b>RA</b>reveals the next step</span>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ============ HOW IT HELPS ============ -->
+<section class="lightbg" id="helps"><div class="wrap pad">
+  <div class="center rv">
+    <span class="eyebrow">A stable place to begin</span>
+    <h2>Productivity that works<br>with your attention.</h2>
+    <p class="lede" style="margin-top:20px">Nura reduces the distance between knowing what matters
+      and being able to begin.</p>
+  </div>
+
+  <div class="cards">
+    <div class="card rv">
+      <span class="n">01</span>
+      <span class="ic" style="background:#EEF0FE;color:var(--nu-deep)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M3 8q3-3 6 0t6 0 6 0M3 13q3-3 6 0t6 0 6 0M3 18q3-3 6 0t6 0 6 0"/></svg></span>
+      <h3>Capture the flood</h3>
+      <p>Put every thought, reminder, obligation and idea somewhere safe — without organising it first.</p>
+      <span class="k">Unload your mind</span>
+    </div>
+
+    <div class="card feat rv">
+      <span class="n">02</span>
+      <span class="ic" style="background:linear-gradient(150deg,var(--nu),var(--nu-deep));color:#fff">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M12 2.8 20.6 14 12 20.8 3.4 14Z"/></svg></span>
+      <h3>Find the next step</h3>
+      <p>Nura surfaces what matters now and turns intimidating tasks into approachable actions.</p>
+      <span class="k">Create clarity</span>
+    </div>
+
+    <div class="card rv">
+      <span class="n">03</span>
+      <span class="ic" style="background:#FDF1DE;color:#B87316">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.4 5.4l1.9 1.9M16.7 16.7l1.9 1.9M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9"/></svg></span>
+      <h3>Build momentum</h3>
+      <p>Move at a pace that respects your energy. Small steps still create meaningful progress.</p>
+      <span class="k">Begin gently</span>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ STORY ============ -->
+<section class="dark" id="story"><div class="wrap pad"><div class="two">
+  <div class="stone rv">
+    <img class="float" src="assets/nu.png" alt="Nu, the water — a calm blue pyramid character">
+    <img class="float b" src="assets/ra.png" alt="Ra, the light — a bright amber pyramid character">
+  </div>
+  <div class="rv">
+    <span class="eyebrow">The Nura story</span>
+    <h2>From overwhelm,<br>something clear<br>can emerge.</h2>
+    <p class="lede" style="margin-top:24px">Nura is inspired by the ancient story of the Benben stone —
+      the first solid form rising from primordial waters and meeting the light of the sun.</p>
+    <p class="lede" style="margin-top:14px">The waves represent thoughts and tasks in motion. The sun
+      represents clarity. The upward-pointing stone represents the moment intention becomes action.</p>
+  </div>
+</div></div></section>
+
+<!-- ============ PRODUCT ============ -->
+<section class="lightbg"><div class="wrap pad"><div class="two">
+  <div class="rv">
+    <span class="eyebrow">One clear next step</span>
+    <h2>A quieter way<br>to see what<br>matters now.</h2>
+    <p class="lede" style="margin-top:22px">Nura keeps the interface calm and the choices limited.
+      Capture everything, then let the system help you choose a single task that fits your time,
+      energy and attention.</p>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><div>
+        <h4>Brain-dump without sorting</h4><p>Get it out before deciding where it belongs.</p></div></div>
+      <div class="step"><span class="n">02</span><div>
+        <h4>Choose by energy, not guilt</h4><p>Find a step that is realistic for this moment.</p></div></div>
+      <div class="step"><span class="n">03</span><div>
+        <h4>Return without punishment</h4><p>Plans change. Nura helps you begin again.</p></div></div>
+    </div>
+  </div>
+
+  <div class="rv">
+    <div class="phone phone-tilt" id="phoneShot">
+      <picture>
+        <source srcset="assets/app-home.webp" type="image/webp">
+        <img class="phone-shot" src="assets/app-home.png" alt="Nura's home screen, showing today's tasks and progress">
+      </picture>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--ink-3);margin-top:14px">The actual app. Not a mockup.</p>
+  </div>
+</div></div></section>
+
+<!-- ============ FEATURES ============ -->
+<section class="dark" id="features"><div class="wrap pad">
+  <div class="center rv">
+    <span class="eyebrow">What's actually in the app</span>
+    <h2>Everything it does,<br>none of the setup.</h2>
+  </div>
+  <div class="featgrid">
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(91,108,240,.16);color:var(--nu-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div><h4>Focus sessions</h4><p>5, 15, 25 or 45 minutes — your call. Stop early and it still counts toward the day.</p></div>
+    </div>
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(255,138,92,.16);color:var(--ra-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <div><h4>Today, at a glance</h4><p>Not just a count — the actual list, done items included, so you can see what you got to.</p></div>
+    </div>
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(91,108,240,.16);color:var(--nu-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M4 9h16M9 3v4M15 3v4"/></svg></span>
+      <div><h4>Your calendar, read-only</h4><p>See what's already on your day before Nura adds anything else to it. Nothing gets written back.</p></div>
+    </div>
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(255,138,92,.16);color:var(--ra-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.4 5.4l1.9 1.9M16.7 16.7l1.9 1.9M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9"/></svg></span>
+      <div><h4>Picks by your energy</h4><p>A little, some, or plenty — say how much you've got and Ra hands you a step that actually fits.</p></div>
+    </div>
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(91,108,240,.16);color:var(--nu-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></span>
+      <div><h4>Reminders that back off</h4><p>They get quieter, not louder, if you're not answering — the opposite of every other app's nudge.</p></div>
+    </div>
+    <div class="feat rv">
+      <span class="ic" style="background:rgba(255,138,92,.16);color:var(--ra-soft)">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2.8 20.6 14 12 20.8 3.4 14Z"/></svg></span>
+      <div><h4>Rank, not streak</h4><p>One number that only ever goes up. A quiet week is a short bar, never a broken chain.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ WHY ============ -->
+<section class="lightbg"><div class="wrap pad">
+  <div class="essay">
+    <div class="rv">
+      <span class="eyebrow">Why Nura exists</span>
+      <h2>Progress begins differently for every mind.</h2>
+      <p class="quote">"Structure does not need to exist before you begin.
+        It can rise gradually from uncertainty."</p>
+    </div>
+    <div class="rv">
+      <p class="big">Productivity rarely begins with a perfectly ordered plan. It often begins
+        in a flood — ideas, obligations, possibilities, reminders and unfinished tasks all
+        competing for attention at once.</p>
+      <p>Nura was created to help something clear emerge from that overwhelm: not more pressure,
+        more noise, or another complicated system to maintain, but a stable place to begin.</p>
+    </div>
+    <div class="rv">
+      <p>Nura understands that getting things done is not simply about trying harder. It is about
+        making priorities visible, reducing the effort required to start, breaking intimidating
+        tasks into approachable steps, and creating enough momentum to keep moving.</p>
+      <p>Some days, progress may mean completing an ambitious project. On others, it may mean
+        answering one email, remembering an appointment, or beginning the task that has felt
+        impossible all week. Nura recognises both as meaningful movement.</p>
+      <p>The name brings together the symbolic waters of <b>Nu</b> and the illuminating energy of
+        <b>Ra</b> — the flood, and the light that helps one clear thing emerge from it.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ FINAL / DOWNLOAD ============ -->
+<section class="dark" id="final" style="padding-bottom:0"><div class="wrap final" id="download">
+  <div class="rv">
+    <div class="mark"><img src="assets/mark.png" alt="Nura"></div>
+    <span class="eyebrow" style="margin-top:26px">Your pace is still progress</span>
+    <h2>You do not need to become a different person to move forward.</h2>
+    <p class="lede" style="margin-inline:auto">Nura helps you find your next clear step — and build from there.</p>
+
+    <div class="reasons">
+      <span><i>✓</i> Set up in under a minute — no account needed to start</span>
+      <span><i>✓</i> Your tasks stay on your device until you choose to sync</span>
+      <span><i>✓</i> Free to use, no credit card</span>
+    </div>
+
+    <div class="storebtns" style="margin-top:36px">
+      <a class="storebtn" href="#" aria-label="Download on the App Store">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.9c-.03-2.7 2.2-4 2.3-4.06-1.25-1.83-3.2-2.08-3.9-2.11-1.66-.17-3.24.98-4.08.98-.84 0-2.14-.96-3.52-.93-1.81.03-3.48 1.05-4.41 2.67-1.88 3.27-.48 8.1 1.35 10.75.9 1.3 1.97 2.75 3.38 2.7 1.36-.06 1.87-.88 3.51-.88s2.1.88 3.53.85c1.46-.02 2.38-1.32 3.27-2.63 1.03-1.5 1.46-2.96 1.48-3.04-.03-.01-2.85-1.09-2.88-4.3zM14.4 4.6c.74-.9 1.24-2.15 1.1-3.4-1.07.05-2.36.71-3.13 1.61-.68.79-1.28 2.06-1.12 3.28 1.19.09 2.41-.6 3.15-1.49z"/></svg>
+        <span><small>Download on the</small>App Store</span>
+      </a>
+      <a class="storebtn" href="#" aria-label="Get it on Google Play">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.7-.4-3.9H24v7.1h12.1c-.2 1.8-1.6 4.6-4.5 6.4l6.9 5.3c4.1-3.8 6.6-9.4 6.6-15z"/>
+          <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.3c-1.8 1.3-4.3 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.1l-7.1 5.5C8.1 41.1 15.5 46 24 46z"/>
+          <path fill="#FBBC05" d="M11.5 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5l-7.1-5.5C2.9 17 2 20.4 2 24s.9 7 2.4 10z"/>
+          <path fill="#EA4335" d="M24 10.4c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 4.1 29.9 2 24 2 15.5 2 8.1 6.9 4.4 14l7.1 5.5c1.8-5.3 6.7-9.1 12.5-9.1z"/>
+        </svg>
+        <span><small>Get it on</small>Google Play</span>
+      </a>
+    </div>
+  </div>
+</div></section>
+
+<footer class="dark"><div class="wrap foot">
+  <a class="brand" href="#top" style="font-size:16px"><img src="assets/mark.png" alt="" style="width:26px;height:26px;border-radius:7px"><span>Nura</span></a>
+  <span class="sp">© 2026 Nura</span>
+  <a href="#">Privacy</a><a href="#">Support</a>
+</div></footer>
+
+<script>
+// scroll reveal — one observer, unobserve after firing
+const io = new IntersectionObserver((es) => {
+  es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: .12, rootMargin: '0px 0px -8% 0px' });
+document.querySelectorAll('.rv').forEach((el, i) => {
+  el.style.transitionDelay = (i % 3) * 90 + 'ms';
+  io.observe(el);
+});
+
+// nav hairline appears once you've left the top
+const nav = document.getElementById('nav');
+addEventListener('scroll', () => nav.classList.toggle('stuck', scrollY > 12), { passive: true });
+
+// the phone screenshot tilts toward the cursor — a small, real interaction on
+// what would otherwise be a static image, off under prefers-reduced-motion
+// and on touch devices (no hover to drive it there anyway).
+const shot = document.getElementById('phoneShot');
+if (shot && matchMedia('(hover: hover)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const wrap = shot.closest('.rv');
+  wrap.addEventListener('mousemove', (e) => {
+    const r = shot.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - .5;
+    const py = (e.clientY - r.top) / r.height - .5;
+    shot.style.transform = `perspective(900px) rotateY(${px * 10}deg) rotateX(${py * -10}deg)`;
+  });
+  wrap.addEventListener('mouseleave', () => { shot.style.transform = ''; });
+}
+</script>
+</body>
+</html>

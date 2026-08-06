@@ -5,12 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "nura",
-    "userInterfaceStyle": "automatic",
-    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/brand/icon-nura.png",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/brand/nura-logo-tight.png",
       "resizeMode": "contain",
-      "backgroundColor": "#070B22"
+      "backgroundColor": "#0B1029"
     },
     "ios": {
       "supportsTablet": false,
@@ -55,20 +55,29 @@
     "android": {
       "package": "com.yourname.nura",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#070B22"
-      }
+        "foregroundImage": "./assets/brand/icon-nura-fg.png",
+        "backgroundColor": "#0B1029"
+      },
+      "permissions": [
+        "READ_CALENDAR"
+      ]
     },
     "plugins": [
       "expo-router",
       [
         "expo-notifications",
         {
-          "color": "#7B5CFF"
+          "color": "#FF6B35"
         }
       ],
       "expo-sqlite",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Nura reads your calendar to tell you how long you have before your next commitment. It never writes to it, and nothing leaves your phone."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
