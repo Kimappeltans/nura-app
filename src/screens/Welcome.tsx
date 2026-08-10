@@ -58,23 +58,26 @@ export default function Welcome(
           <Image source={wordmark} style={{ width: 126, height: 35, tintColor: t.ink }} resizeMode="contain" />
         </View>
 
-        {/* Everything between the lockup and the button is centred in whatever
-            space is left, so slack is shared above and below instead of dumped
-            in one dead band. */}
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', alignSelf: 'stretch' }}>
-
+        {/* The headline sits close under the lockup rather than floating in a
+            vertically-centred band — the two used to read as unrelated
+            because the space between them was doing nothing. A single flex
+            spacer below (not around) the block now carries all the slack, so
+            the mark, the words, and Nu and Ra all read as one group, and
+            whatever room is left is pushed down to the button instead of
+            split evenly around empty space. */}
+        <View style={{ alignSelf: 'stretch', alignItems: 'center', marginTop: 22 }}>
           <View style={{ alignSelf: 'stretch' }}>
             <Text style={{
-              color: t.ink, fontSize: 34, lineHeight: 43, fontFamily: T.display,
+              color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display,
               letterSpacing: -1, textAlign: 'center',
             }}>{copy.slogan[0]}</Text>
 
-            <GradientText size={34} lineHeight={43} colors={[t.ra, t.raDeep]} id="slogan">
+            <GradientText size={32} lineHeight={39} colors={[t.ra, t.raDeep]} id="slogan">
               {copy.slogan[1]}
             </GradientText>
 
             <Text style={{
-              color: t.ink, fontSize: 34, lineHeight: 43, fontFamily: T.display,
+              color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display,
               letterSpacing: -1, textAlign: 'center',
             }}>{copy.slogan[2]}</Text>
           </View>
@@ -83,9 +86,13 @@ export default function Welcome(
               third explanation of the same idea just crowds both. */}
           {/* No frame any more. The screen and the clip are both dark navy
               now, so the panel that was hiding the un-keyable backdrop has
-              nothing left to hide — see the note at the top of this file. */}
-          <IntroClip style={{ marginTop: 26 }} />
+              nothing left to hide — see the note at the top of this file.
+              Enlarged from the 200pt default: Nu and Ra are the other half
+              of the lockup above, not a footnote under it. */}
+          <IntroClip style={{ marginTop: 20 }} maxWidth={260} />
         </View>
+
+        <View style={{ flex: 1 }} />
 
         <View style={{ alignSelf: 'stretch', gap: 14 }}>
           <Primary label={copy.welcomeCta} tone="ra" onPress={onNext} />

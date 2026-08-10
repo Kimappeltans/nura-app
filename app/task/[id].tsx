@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -74,6 +74,12 @@ export default function TaskDetail() {
   const [subs, setSubs] = useState<Task[]>([]);
   const [stepText, setStepText] = useState('');
   const [showCal, setShowCal] = useState(false);
+  const [showRepeat, setShowRepeat] = useState(false);
+  // Drives the footer bar below — a screen full of chips and text fields
+  // with no visible save story reads as unfinished, even though every field
+  // has already been written through by the time you see it change state.
+  // This doesn't change that: it just says so.
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -92,9 +98,11 @@ export default function TaskDetail() {
   // silently overwrite the first one's field on screen even though the
   // database itself ends up correct for both.
   const patch = async (p: Parameters<typeof updateTask>[1]) => {
+    setSaving(true);
     await updateTask(task.id, p);
     setTask(prev => (prev ? { ...prev, ...p } as Task : prev));
     await refresh(); await reconcileNudges();
+    setSaving(false);
   };
 
   const addStep = async () => {
@@ -218,24 +226,43 @@ export default function TaskDetail() {
           </View>
         </Row>
 
-        {/* Repeats. Completing a recurring task never rewinds it — the done row
-            stays done and a fresh one is created for the next occurrence, so
-            your history stays honest. */}
-        {!task.parent_id && (
-          <Row label="Repeats">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {REPEATS.map(r => (
-                <Chip key={r.label} label={r.label} on={(task.repeat_rule ?? null) === r.rule}
-                  onPress={() => patch({ repeat_rule: r.rule })} />
-              ))}
-            </View>
-            {!!task.repeat_rule && !task.due_at && (
-              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 9, lineHeight: 18 }}>
-                Set a due date too, or the next one is scheduled from whenever you finish this.
-              </Text>
-            )}
-          </Row>
-        )}
+        {/* Repeats. Collapsed by default — one more always-visible row of chips
+            on a screen that's already mostly chips is what made this read as
+            a form rather than a task. It doesn't earn a slot until either you
+            open it or a rule is already set, and once a rule is set it stays
+            open rather than hiding an active setting behind a tap.
+            Completing a recurring task never rewinds it — the done row stays
+            done and a fresh one is created for the next occurrence, so your
+            history stays honest. */}
+        {!task.parent_id && (() => {
+          const open = showRepeat || !!task.repeat_rule;
+          const current = REPEATS.find(r => (task.repeat_rule ?? null) === r.rule);
+          return (
+            <Row label="Repeats">
+              {open ? (
+                <>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {REPEATS.map(r => (
+                      <Chip key={r.label} label={r.label} on={(task.repeat_rule ?? null) === r.rule}
+                        onPress={() => patch({ repeat_rule: r.rule })} />
+                    ))}
+                  </View>
+                  {!!task.repeat_rule && !task.due_at && (
+                    <Text style={{ color: t.ink3, fontSize: 13, marginTop: 9, lineHeight: 18 }}>
+                      Set a due date too, or the next one is scheduled from whenever you finish this.
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Pressable onPress={() => setShowRepeat(true)} hitSlop={8}>
+                  <Text style={{ color: t.ink3, fontSize: 14.5 }}>
+                    {current?.label ?? 'Never'} <Text style={{ color: t.nu }}>· change</Text>
+                  </Text>
+                </Pressable>
+              )}
+            </Row>
+          );
+        })()}
 
         {/* Break it down. One level only. */}
         {!task.parent_id && (
@@ -301,6 +328,29 @@ export default function TaskDetail() {
           }} />
         </View>
       </ScrollView>
+
+      {/* Persistent save status. Every field above already writes through on
+          blur — see `patch` — but nothing on screen said so, and a sheet full
+          of text fields and chips with no save button and no confirmation
+          reads as unfinished even when it isn't. This doesn't change the
+          autosave; it just stops leaving you to guess whether it happened. */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+        paddingVertical: 10, borderTopWidth: 1, borderTopColor: t.stroke,
+        backgroundColor: t.base,
+      }}>
+        {saving ? (
+          <>
+            <ActivityIndicator size="small" color={t.ink3} />
+            <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>Saving…</Text>
+          </>
+        ) : (
+          <>
+            <Text style={{ color: t.ra, fontSize: 13 }}>✓</Text>
+            <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>All changes saved</Text>
+          </>
+        )}
+      </View>
     </SafeAreaView>
   );
 }

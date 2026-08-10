@@ -685,10 +685,8 @@ export async function completeOnboarding() {
   await markActed();     // the ladder starts from "you just did something"
 }
 
-/** Dev-only: replay Welcome → Connect → Auth without clearing app storage.
- *  Onboarding is meant to run exactly once per install, so there is
- *  deliberately no user-facing way to trigger this — see the long-press on
- *  the Home header in Nu.tsx, which is gated behind __DEV__. */
+/** Replay Welcome → Auth without clearing app storage. Reachable from
+ *  Settings → "Show the intro again". */
 
 /* ---------------- who you are ---------------- */
 

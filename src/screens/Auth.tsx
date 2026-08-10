@@ -48,9 +48,16 @@ type Mode = 'choose' | 'email';
  *     account trips Guideline 5.1.1(v). Hence the "keep using without an
  *     account" escape at the bottom, which is also simply better product.
  *
+ * Email used to be magic-link only ("nothing to invent, nothing to forget").
+ * That's still offered as a fallback on sign-in, but a proper account needs a
+ * real form too — name, email, password — so creating one collects all three,
+ * with client-side validation (name present, password ≥8 characters, the two
+ * password fields matching) before anything is submitted.
+ *
  * The handlers below are wired to the UI but not to a backend yet — each one
  * marks where the Supabase call goes. Nothing here pretends to have signed you
- * in.
+ * in, and nothing typed here is written to disk — the password fields exist
+ * only in this screen's own state and are gone the moment you navigate away.
  */
 export default function Auth(
   { onClose, onBack }: { onClose: () => void; onBack?: () => void },
@@ -63,8 +70,18 @@ export default function Auth(
   const t = raTheme;
   const [mode, setMode] = useState<Mode>('choose');
   const [busy, setBusy] = useState<string | null>(null);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const inputStyle = {
+    color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
+    backgroundColor: t.card, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: t.strokeStrong,
+  } as const;
 
   const notYet = (what: string) => {
     setBusy(null);
@@ -85,11 +102,24 @@ export default function Auth(
     setBusy('google'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTimeout(() => notYet('Google'), 450);
   };
-  // → supabase.auth.signInWithOtp({ email })  — magic link, no password to forget
+  // → supabase.auth.signInWithOtp({ email })  — magic link, no password to forget.
+  // Still offered, but only as a sign-in fallback now — creating an account
+  // goes through withPassword below, which collects a real password.
   const withEmail = async () => {
     if (!email.includes('@')) return;
     setBusy('email'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTimeout(() => notYet('Email'), 450);
+  };
+  // → creating: supabase.auth.signUp({ email, password, options: { data: { name } } })
+  // → signing in: supabase.auth.signInWithPassword({ email, password })
+  const withPassword = async () => {
+    setFormError(null);
+    if (creating && !name.trim()) return setFormError('Add your name.');
+    if (!email.includes('@')) return setFormError('Add a valid email address.');
+    if (password.length < 8) return setFormError('Password needs at least 8 characters.');
+    if (creating && password !== confirm) return setFormError('Passwords don’t match.');
+    setBusy('password'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTimeout(() => notYet(creating ? 'Creating your account' : 'Sign in'), 450);
   };
 
   const Social = ({ id, label, glyph, dark }: {
@@ -165,22 +195,60 @@ export default function Auth(
             </View>
           ) : (
             <View style={{ gap: 12 }}>
+              {creating && (
+                <TextInput
+                  autoFocus value={name} onChangeText={setName}
+                  placeholder="Your name" placeholderTextColor={t.ink3}
+                  autoCapitalize="words" autoComplete="name" returnKeyType="next"
+                  style={inputStyle}
+                />
+              )}
               <TextInput
-                autoFocus value={email} onChangeText={setEmail}
-                onSubmitEditing={withEmail} returnKeyType="go"
+                autoFocus={!creating} value={email} onChangeText={setEmail}
                 placeholder="you@example.com" placeholderTextColor={t.ink3}
                 keyboardType="email-address" autoCapitalize="none" autoComplete="email"
-                style={{
-                  color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
-                  backgroundColor: t.card, borderRadius: radius.lg,
-                  borderWidth: 1, borderColor: t.strokeStrong,
-                }}
+                returnKeyType="next"
+                style={inputStyle}
               />
-              {/* A link, not a password: nothing to invent, nothing to forget,
-                  and no password for us to be responsible for storing. */}
+              <TextInput
+                value={password} onChangeText={setPassword}
+                placeholder="Password" placeholderTextColor={t.ink3}
+                secureTextEntry autoCapitalize="none"
+                autoComplete={creating ? 'new-password' : 'current-password'}
+                returnKeyType={creating ? 'next' : 'go'}
+                onSubmitEditing={creating ? undefined : withPassword}
+                style={inputStyle}
+              />
+              {creating && (
+                <TextInput
+                  value={confirm} onChangeText={setConfirm}
+                  onSubmitEditing={withPassword} returnKeyType="go"
+                  placeholder="Confirm password" placeholderTextColor={t.ink3}
+                  secureTextEntry autoCapitalize="none" autoComplete="new-password"
+                  style={inputStyle}
+                />
+              )}
+
+              {!!formError && (
+                <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18 }}>{formError}</Text>
+              )}
+
               <Primary
-                label={busy === 'email' ? 'Sending…' : 'Email me a sign-in link'}
-                tone="ra" onPress={withEmail} />
+                label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create account' : 'Sign in')}
+                tone="ra" onPress={withPassword} />
+
+              {/* A link, not a password — still here as a fallback for anyone
+                  who'd rather not type one, or who's forgotten theirs. Not
+                  offered on the signup side: creating an account is where the
+                  password gets set in the first place. */}
+              {!creating && (
+                <Pressable onPress={withEmail} hitSlop={10}>
+                  <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>
+                    {busy === 'email' ? 'Sending…' : 'Forgot it? Email me a sign-in link instead'}
+                  </Text>
+                </Pressable>
+              )}
+
               <Pressable onPress={() => setMode('choose')} hitSlop={10}>
                 <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
                   Use Apple or Google instead
@@ -191,7 +259,10 @@ export default function Auth(
 
           <View style={{ flex: 1, minHeight: 20 }} />
 
-          <Pressable onPress={() => { setCreating(c => !c); setMode('choose'); }} hitSlop={10}>
+          <Pressable onPress={() => {
+            setCreating(c => !c); setMode('choose');
+            setFormError(null); setPassword(''); setConfirm('');
+          }} hitSlop={10}>
             <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
               {creating ? 'Already have an account? ' : 'New to Nura? '}
               <Text style={{ color: t.raDeep, fontFamily: T.brand }}>

@@ -246,21 +246,35 @@ export default function Timer() {
               <Ghost label={copy.stop} onPress={() => finish(true, true)} />
             </>
           ) : (
+            // Done is the primary action — it's the button most sessions
+            // actually end on, and a filled button next to an outlined one
+            // says so at a glance instead of leaving the two to look like a
+            // coin flip. Stop's own label now carries the thing the old
+            // plain "Stop" never said out loud: it still counts, and it
+            // still marks the task done — reusing copy.stop, the same
+            // phrase already used for the identical action from the
+            // "keep going?" prompt below, so the two don't describe the same
+            // behaviour two different ways.
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Stop" onPress={async () => {
-                if (id) await dropCrumb(id, thought.trim() || undefined);
-                // "Stop" always completes the task (see finish/complete — time
-                // spent counts, whether or not the task is actually done) —
-                // which means it's marked done in the same beat this crumb is
-                // written. latestCrumb() excludes done tasks by design, so
-                // that note would otherwise be saved somewhere nothing ever
-                // reads again. Anything typed but not yet submitted goes into
-                // the inbox instead, the same way "+ a thought just arrived"
-                // does when you do submit it — so it's not silently lost.
-                if (thought.trim()) await capture(thought.trim());
-                finish(true, false);
-              }} />
-              <Ghost label="Done" onPress={() => finish(false, true)} />
+              <View style={{ flex: 1 }}>
+                <Ghost label={copy.stop} onPress={async () => {
+                  if (id) await dropCrumb(id, thought.trim() || undefined);
+                  // "Stop" always completes the task (see finish/complete —
+                  // time spent counts, whether or not the task is actually
+                  // done) — which means it's marked done in the same beat
+                  // this crumb is written. latestCrumb() excludes done tasks
+                  // by design, so that note would otherwise be saved
+                  // somewhere nothing ever reads again. Anything typed but
+                  // not yet submitted goes into the inbox instead, the same
+                  // way "+ a thought just arrived" does when you do submit
+                  // it — so it's not silently lost.
+                  if (thought.trim()) await capture(thought.trim());
+                  finish(true, false);
+                }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Primary label="Done" tone="ra" onPress={() => finish(false, true)} />
+              </View>
             </View>
           )}
         </View>

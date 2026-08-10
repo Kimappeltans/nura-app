@@ -14,7 +14,7 @@ import { rankFor, DAY_TARGET } from '../reward';
 import { stageFor } from '../growth';
 import { search as searchTasks } from '../db';
 import { LabelTile, LabelGlyph } from '../components/LabelIcon';
-import { ActivityCard, HeroDeck } from '../components/ActivityCard';
+import { ActivityCard, HeroCard } from '../components/ActivityCard';
 import { formatDue } from '../components/DatePicker';
 import { Mica, Surface, Character, Primary, IconChevron, IconClock, IconCalendar, IconSearch, Check, Enter, Press, Bar, Count, animateNext } from '../ui';
 
@@ -271,19 +271,54 @@ export default function Nu() {
           <Text style={{ color: t.ink3, fontSize: 13.5, marginTop: 2 }}>{dateLine}</Text>
         </View>
 
-        {/* THE HERO — the thing Focus would hand you, at full size and with
-            its scene. Tapping it goes straight into Focus rather than the
-            detail sheet: the top card should DO the thing, not describe it. */}
+        {/* THE HERO — one recommended task, at full size and with its scene.
+            Everything else that's queued up sits below it as a plain
+            compact list: a deck of five equally-sized cards made every
+            option look like it mattered the same amount, which is the
+            opposite of what "focus on one thing" is supposed to say before
+            you've even left Home. Tapping the hero — or any row below it —
+            goes straight into Focus rather than the detail sheet: the card
+            should DO the thing, not describe it. */}
         {!q && !!upNext.length && (
-          <HeroDeck
-            tasks={upNext}
-            onStart={task => {
-              // the first card is what Focus would hand you anyway; any other
-              // card means "I want THAT one", so it's pinned before switching
-              if (task.id === now?.id) toRa();
-              else pickThen(task.id);
-            }}
-          />
+          <View style={{ marginBottom: 16 }}>
+            <HeroCard
+              task={upNext[0]}
+              onStart={() => {
+                // the hero is what Focus would hand you anyway; picking a row
+                // below means "I want THAT one", so it's pinned before switching
+                if (upNext[0].id === now?.id) toRa();
+                else pickThen(upNext[0].id);
+              }}
+            />
+
+            {upNext.length > 1 && (
+              <View style={{ marginTop: 10 }}>
+                <Surface>
+                  {upNext.slice(1).map((task, i) => (
+                    <View key={task.id}>
+                      {i > 0 && <Divider />}
+                      <Pressable
+                        onPress={() => { Haptics.selectionAsync(); task.id === now?.id ? toRa() : pickThen(task.id); }}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row', alignItems: 'center', gap: 12,
+                          paddingHorizontal: 14, paddingVertical: 13,
+                          backgroundColor: pressed ? t.subtle : 'transparent',
+                        })}>
+                        <LabelTile id={task.label} size={30} />
+                        <Text numberOfLines={1} style={{ color: t.ink, fontSize: 15.5, flex: 1 }}>
+                          {task.title}
+                        </Text>
+                        {!!task.est_minutes && (
+                          <Text style={{ color: t.ink3, fontSize: 12.5 }}>{task.est_minutes}m</Text>
+                        )}
+                        <IconChevron size={15} color={t.ink3} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </Surface>
+              </View>
+            )}
+          </View>
         )}
 
         {/* View all — shows count of tasks beyond the deck. */}

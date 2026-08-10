@@ -53,6 +53,8 @@ export default function Ra() {
   const scene = act && !isCustom(now?.activity) ? SCENES[act.id as ActivityId] : null;
   const [passed, setPassed] = useState<string[]>([]);   // seen-and-swapped this sitting
   const [picking, setPicking] = useState(false);   // task picker expanded
+  const [pickingMins, setPickingMins] = useState(false);   // session-length chips expanded
+  const [more, setMore] = useState(false);   // secondary escape hatches expanded
 
   // How long the next session should be. Sticky across sittings — once you've
   // told it you like 25s, it stops asking, the same courtesy as skip.est/first.
@@ -363,28 +365,44 @@ export default function Ra() {
                 separate question and the CTA looked stranded — you had to tap
                 a chip and then watch the button's label change to work out they
                 were connected. Sharing a surface makes the relationship
-                structural instead of inferred. */}
+                structural instead of inferred.
+                The four durations used to sit here as equal chips every time —
+                which is one recommendation and three distractions dressed up
+                as four choices, on the one screen whose whole job is to hand
+                you a single thing to do. `sessionMins` is already sticky (see
+                above), so most sittings never need the alternatives at all;
+                they're a tap away behind "change" instead of always on. */}
             <Surface accent="ra">
               <View style={{ padding: 14, gap: 11 }}>
-                <Text style={{ color: t.ink2, fontSize: 13.5 }}>How long this time?</Text>
-                <View style={{ flexDirection: 'row', gap: 7 }}>
-                  {SESSIONS.map(m => {
-                    const on = sessionMins === m;
-                    return (
-                      <Pressable key={m} onPress={() => chooseSession(m)} style={{
-                        flex: 1, alignItems: 'center',
-                        paddingVertical: 9, borderRadius: radius.pill,
-                        borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
-                        backgroundColor: on ? t.raWash : 'transparent',
-                      }}>
-                        <Text style={{
-                          color: on ? t.raDeep : t.ink, fontSize: 13.5,
-                          fontFamily: on ? T.brand : undefined,
-                        }}>{m}m</Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: t.ink2, fontSize: 13.5 }}>How long this time?</Text>
+                  <Pressable onPress={() => { Haptics.selectionAsync(); setPickingMins(v => !v); }} hitSlop={8}>
+                    <Text style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>
+                      {pickingMins ? 'Done' : `${sessionMins}m · change`}
+                    </Text>
+                  </Pressable>
                 </View>
+
+                {pickingMins && (
+                  <View style={{ flexDirection: 'row', gap: 7 }}>
+                    {SESSIONS.map(m => {
+                      const on = sessionMins === m;
+                      return (
+                        <Pressable key={m} onPress={() => { chooseSession(m); setPickingMins(false); }} style={{
+                          flex: 1, alignItems: 'center',
+                          paddingVertical: 9, borderRadius: radius.pill,
+                          borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
+                          backgroundColor: on ? t.raWash : 'transparent',
+                        }}>
+                          <Text style={{
+                            color: on ? t.raDeep : t.ink, fontSize: 13.5,
+                            fontFamily: on ? T.brand : undefined,
+                          }}>{m}m</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
 
                 <Primary label={`Begin · ${sessionMins} minutes`} tone="ra"
                   sub="stop any time — it still counts"
@@ -397,55 +415,68 @@ export default function Ra() {
               <Ghost label="Already done" onPress={done} />
             </View>
 
-            {/* Task picker — lets you choose a specific task without going back to Nu. */}
-            {!picking ? (
-              <Pressable onPress={() => { Haptics.selectionAsync(); setPicking(true); }}
+            {/* Everything past "something else" and "already done" is a
+                second tier of escape hatches — useful, but not something
+                every visit needs to see laid out. Tucked behind one more
+                toggle instead of three permanent rows. */}
+            {!more ? (
+              <Pressable onPress={() => { Haptics.selectionAsync(); setMore(true); }}
                 hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 6 }}>
-                <Text style={{ color: t.nu, fontSize: 13.5 }}>Choose something specific →</Text>
+                <Text style={{ color: t.ink3, fontSize: 13.5 }}>More options</Text>
               </Pressable>
             ) : (
-              <View style={{
-                backgroundColor: t.layer, borderRadius: radius.lg,
-                borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
-                  <Text style={{ flex: 1, color: t.ink2, fontSize: 13, fontFamily: T.brand }}>YOUR LIST</Text>
-                  <Pressable onPress={() => setPicking(false)} hitSlop={10}>
-                    <Text style={{ color: t.ink3, fontSize: 15 }}>✕</Text>
+              <View style={{ gap: 10, alignItems: 'center' }}>
+                {/* Task picker — lets you choose a specific task without going back to Nu. */}
+                {!picking ? (
+                  <Pressable onPress={() => { Haptics.selectionAsync(); setPicking(true); }}
+                    hitSlop={10} style={{ paddingVertical: 6 }}>
+                    <Text style={{ color: t.nu, fontSize: 13.5 }}>Choose something specific →</Text>
                   </Pressable>
-                </View>
-                {inbox.filter(x => x.id !== now?.id).slice(0, 12).map((task, i) => (
-                  <Pressable key={task.id}
-                    onPress={async () => {
-                      Haptics.selectionAsync();
-                      await pickForToday(task.id, true);
-                      useStore.setState({ now: task });
-                      setPassed([]);
-                      setPicking(false);
-                    }}
-                    style={({ pressed }) => ({
-                      padding: 12, paddingLeft: 14,
-                      borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.stroke,
-                      backgroundColor: pressed ? t.subtle : 'transparent',
-                      flexDirection: 'row', alignItems: 'center', gap: 10,
-                    })}>
-                    <Text style={{ flex: 1, color: t.ink, fontSize: 15, lineHeight: 21 }} numberOfLines={2}>
-                      {task.title}
-                    </Text>
-                    {!!task.est_minutes && (
-                      <Text style={{ color: t.ink3, fontSize: 12, flexShrink: 0 }}>{task.est_minutes}m</Text>
+                ) : (
+                  <View style={{
+                    width: '100%', backgroundColor: t.layer, borderRadius: radius.lg,
+                    borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+                      <Text style={{ flex: 1, color: t.ink2, fontSize: 13, fontFamily: T.brand }}>YOUR LIST</Text>
+                      <Pressable onPress={() => setPicking(false)} hitSlop={10}>
+                        <Text style={{ color: t.ink3, fontSize: 15 }}>✕</Text>
+                      </Pressable>
+                    </View>
+                    {inbox.filter(x => x.id !== now?.id).slice(0, 12).map((task, i) => (
+                      <Pressable key={task.id}
+                        onPress={async () => {
+                          Haptics.selectionAsync();
+                          await pickForToday(task.id, true);
+                          useStore.setState({ now: task });
+                          setPassed([]);
+                          setPicking(false);
+                        }}
+                        style={({ pressed }) => ({
+                          padding: 12, paddingLeft: 14,
+                          borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.stroke,
+                          backgroundColor: pressed ? t.subtle : 'transparent',
+                          flexDirection: 'row', alignItems: 'center', gap: 10,
+                        })}>
+                        <Text style={{ flex: 1, color: t.ink, fontSize: 15, lineHeight: 21 }} numberOfLines={2}>
+                          {task.title}
+                        </Text>
+                        {!!task.est_minutes && (
+                          <Text style={{ color: t.ink3, fontSize: 12, flexShrink: 0 }}>{task.est_minutes}m</Text>
+                        )}
+                      </Pressable>
+                    ))}
+                    {inbox.length === 0 && (
+                      <Text style={{ color: t.ink3, fontSize: 14, padding: 14 }}>Nothing else to pick from.</Text>
                     )}
-                  </Pressable>
-                ))}
-                {inbox.length === 0 && (
-                  <Text style={{ color: t.ink3, fontSize: 14, padding: 14 }}>Nothing else to pick from.</Text>
+                  </View>
                 )}
+
+                <Pressable onPress={later} hitSlop={10} style={{ paddingVertical: 6 }}>
+                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>Not today — put it back</Text>
+                </Pressable>
               </View>
             )}
-
-            <Pressable onPress={later} hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 6 }}>
-              <Text style={{ color: t.ink3, fontSize: 13.5 }}>Not today — put it back</Text>
-            </Pressable>
           </View>
         )}
       </ScrollView>

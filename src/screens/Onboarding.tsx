@@ -1,21 +1,28 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import Welcome from './Welcome';
-import Connect from './Connect';
 import Auth from './Auth';
 
 /**
- * Three steps, in the order they earn:
+ * Two steps, in the order they earn:
  *
  *   1. WELCOME  — what this is.
- *   2. CONNECT  — what it plugs into.
- *   3. SIGN IN  — who you are, LAST.
+ *   2. SIGN IN  — who you are, LAST.
  *
  * Sign-in used to be a side road hanging off a link on the welcome screen,
  * which meant almost nobody would ever reach it — you'd tap the big button and
  * be past it. It's a real step now.
  *
- * It is still not a gate. Every screen here can be skipped, and the app is
+ * CONNECT used to sit between these two — but it mostly advertised the work-app
+ * integrations that aren't built yet ("soon" everywhere), and asked for
+ * calendar/notification permissions before you'd written down a single task,
+ * i.e. before granting them changed anything you could see. Both permissions
+ * are still asked for, just in context: Nu asks for notifications after the
+ * first capture, and Ra asks for the calendar the first time knowing what's
+ * next would actually change the screen. Connect itself didn't disappear —
+ * it's reachable any time from Settings → Connected apps, as `/integrations`.
+ *
+ * This is still not a gate. Every screen here can be skipped, and the app is
  * fully usable with no account at all: everything lives on the device already,
  * and an account only buys sync and the server-side integrations. Demanding
  * registration before first use is the single biggest drop-off point in any
@@ -24,29 +31,20 @@ import Auth from './Auth';
  */
 export default function Onboarding() {
   const finishOnboarding = useStore(s => s.finishOnboarding);
-  const [step, setStep] = useState<'welcome' | 'connect' | 'auth'>('welcome');
-
-  if (step === 'connect') {
-    return (
-      <Connect
-        onDone={() => setStep('auth')}
-        onBack={() => setStep('welcome')}
-      />
-    );
-  }
+  const [step, setStep] = useState<'welcome' | 'auth'>('welcome');
 
   if (step === 'auth') {
     return (
       <Auth
         onClose={finishOnboarding}
-        onBack={() => setStep('connect')}
+        onBack={() => setStep('welcome')}
       />
     );
   }
 
   return (
     <Welcome
-      onNext={() => setStep('connect')}
+      onNext={() => setStep('auth')}
       onSignIn={() => setStep('auth')}
     />
   );

@@ -96,23 +96,24 @@ const FRAMES = [
  * moving after their greeting. Once is an introduction; forever is wallpaper
  * with a heartbeat.
  */
-export function IntroClip({ fps = 12, style }: { fps?: number; style?: ViewStyle }) {
+export function IntroClip({ fps = 12, style, maxWidth = 200 }: { fps?: number; style?: ViewStyle; maxWidth?: number }) {
   const [i, setI] = useState(0);
   const [run, setRun] = useState(0);      // bump to replay
   const ready = useRef(false);
 
   // A supporting beat under the slogan, not the hero — the slogan text is the
-  // hero (see the doc comment on Welcome). Full screen-width made the clip
-  // read as the whole point of the page and crowded the CTA toward the very
-  // bottom edge on shorter devices; capped at 200pt it sits underneath the
-  // words as a small piece of motion instead of competing with them.
+  // hero (see the doc comment on Welcome). `maxWidth` defaults to 200 so the
+  // clip sits underneath the words as a small piece of motion instead of
+  // competing with them; Welcome itself asks for a larger cap, since Nu and
+  // Ra are the other half of the brand and were reading as an afterthought
+  // at 200pt.
   //
   // useWindowDimensions, not a module-level Dimensions.get() — this also
   // renders on web (see the resolveAssetSource guard below), where the
   // window can resize after mount; a frozen constant would leave the clip
   // stuck at whatever width happened to be current on first load.
   const { width: windowWidth } = useWindowDimensions();
-  const W = Math.min(windowWidth - 52, 200);
+  const W = Math.min(windowWidth - 52, maxWidth);
   const H = W * (512 / 768);
 
   useEffect(() => {

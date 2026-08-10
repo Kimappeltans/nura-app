@@ -159,7 +159,7 @@ export default function Settings() {
         <Group title="Help">
           <Row
             title="Show the intro again"
-            sub="Replays the welcome and the connect step. Your tasks are untouched."
+            sub="Replays the welcome screen. Your tasks are untouched."
             onPress={replay}
           />
         </Group>
