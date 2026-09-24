@@ -886,21 +886,27 @@ export function Primary(
     /** stays in place, dimmed, until there's something to continue with */
     disabled?: boolean },
 ) {
+  const t = useTheme();
   const { colors, onColor } = useTone(tone);
+  // disabled is flat and neutral: the gradient at low opacity read as a
+  // muddy brown on navy
+  const fill = disabled ? [t.subtle, t.subtle] as const : colors;
   return (
     <Pressable
       disabled={disabled} accessibilityState={{ disabled: !!disabled }}
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
       style={({ pressed }) => ({
-        opacity: disabled ? 0.38 : pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        ...(tone === 'ra' ? elevation.warm : elevation.e4),
+        ...(disabled ? {} : tone === 'ra' ? elevation.warm : elevation.e4),
       })}>
       <LinearGradient
-        colors={colors} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }}
+        colors={fill} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }}
         style={{ paddingVertical: 17, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: onColor, fontSize: 16.5, fontFamily: T.display }}>{label}</Text>
+        {/* one line, ending in … — a long task title in "Focus · …" ran
+            out past the button's edges */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: 18 }}>
+          <Text numberOfLines={1} style={{ color: disabled ? t.ink3 : onColor, fontSize: 16.5, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
           {icon}
         </View>
         {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}
@@ -909,15 +915,21 @@ export function Primary(
   );
 }
 
-export function Ghost({ label, onPress }: { label: string; onPress: () => void }) {
+/**
+ * The quiet button. It used to carry `flex: 1` for sitting side by side, but
+ * stacked in a column that squeezed it to its padding on iOS and the label
+ * fell out of the box — so a row passes `style={{ flex: 1 }}` itself.
+ */
+export function Ghost({ label, onPress, style }: { label: string; onPress: () => void; style?: ViewStyle }) {
   const t = useTheme();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({
-      flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: radius.md,
-      borderWidth: 1, borderColor: t.strokeStrong,
+      paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center',
+      borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
       backgroundColor: pressed ? t.subtle : 'transparent',
+      ...style,
     })}>
-      <Text style={{ color: t.ink2, fontSize: 14.5, fontFamily: T.brand }}>{label}</Text>
+      <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 19, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }

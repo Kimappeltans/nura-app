@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useStore } from '../store';
-import { logEvent, setBlockers, suggestions, getTask, getEnergy, pickForToday, type Blocker, type Task, type PickRule } from '../db';
+import { logEvent, setBlockers, suggestions, getTask, getEnergy, pickForToday, getFlag, setFlag, type Blocker, type Task, type PickRule } from '../db';
 import { whyLine } from '../priority';
 import Welcome from './Welcome';
 import Blockers from './Blockers';
@@ -45,6 +45,22 @@ export default function Onboarding() {
   const [rise, setRise] = useState<{ tasks: Task[]; pick: Task; rule: PickRule; why: string | null } | null>(null);
   const t0 = useRef(Date.now());
   const dumped = useRef<string[]>([]);   // held across the reminders detour
+  // Dev only, like `dev.open` in app/_layout.tsx: start on the step named in
+  // the flag `dev.onb`, to check each step's layout on a simulator.
+  useEffect(() => {
+    if (!__DEV__) return;
+    (async () => {
+      const s = (await getFlag('dev.onb')) as Step | null;
+      if (!s) return;
+      await setFlag('dev.onb', '');
+      if (s === 'rise') {
+        dumped.current = useStore.getState().inbox.map(x => x.id);
+        return toRise(dumped.current);
+      }
+      setStep(s);
+    })();
+  }, []);
+
   const log = (s: string, meta: object = {}) =>
     logEvent('onboarding', undefined, { step: s, ms: Date.now() - t0.current, ...meta });
 

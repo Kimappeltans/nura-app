@@ -332,11 +332,11 @@ export default function Ra() {
                 router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } });
               }} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Start it fresh" onPress={async () => {
+              <Ghost style={{ flex: 1 }} label="Start it fresh" onPress={async () => {
                 await clearCrumbs(now.id); await refresh();
                 router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } });
               }} />
-              <Ghost label="Not now" onPress={later} />
+              <Ghost style={{ flex: 1 }} label="Not now" onPress={later} />
             </View>
           </View>
         ) : (
@@ -505,7 +505,7 @@ export default function Ra() {
                 decision about whether to keep looking at this task, it's the
                 good outcome. */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Already done" onPress={done} />
+              <Ghost style={{ flex: 1 }} label="Already done" onPress={done} />
               <Pressable onPress={() => { Haptics.selectionAsync(); setSheet(true); }}
                 hitSlop={10} style={{
                   width: 44, alignItems: 'center', justifyContent: 'center',

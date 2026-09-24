@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import {
   useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import { getDb, migrate, dropCrumb, onOpenElsewhere, getBlockers } from '../src/db';
+import { getDb, migrate, dropCrumb, onOpenElsewhere, getBlockers, getFlag, setFlag } from '../src/db';
 import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
@@ -53,6 +53,14 @@ export default function Root() {
       // requestPermissionsAsync is a no-op re-check once decided, so this is
       // safe on every launch and pops nothing for a first-time user.
       if (useStore.getState().onboarded) await initNotifications();
+      // Dev only: open a screen at launch, so each screen can be checked on
+      // a simulator without tapping or the "Open in Nura?" prompt a link
+      // brings — set the flag `dev.open` to a route and relaunch. Used once,
+      // then cleared. Compiled out of release builds.
+      if (__DEV__) {
+        const route = await getFlag('dev.open');
+        if (route) { await setFlag('dev.open', ''); setTimeout(() => router.push(route as never), 300); }
+      }
     })();
 
     const sub = attachResponseHandler(

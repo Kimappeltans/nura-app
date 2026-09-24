@@ -326,18 +326,16 @@ export default function Timer() {
             // opens on "Where you were" next time. A thought typed but not
             // yet submitted is a separate thing to park, not a note on this
             // task, so it goes into the inbox like "+ a thought" does.
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Ghost label={copy.stop} onPress={async () => {
-                  if (id) await dropCrumb(id);
-                  if (thought.trim()) await capture(thought.trim());
-                  finish(false, false);
-                }} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Primary label="Done" tone="ra" onPress={() => finish(true, true)} />
-              </View>
-            </View>
+            // Stacked, like the other states: side by side, "Stop here — it
+            // still counts" didn't fit a half-width button and was cut off.
+            <>
+              <Primary label="Done" tone="ra" onPress={() => finish(true, true)} />
+              <Ghost label={copy.stop} onPress={async () => {
+                if (id) await dropCrumb(id);
+                if (thought.trim()) await capture(thought.trim());
+                finish(false, false);
+              }} />
+            </>
           )}
         </View>
       </View>

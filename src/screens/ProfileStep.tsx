@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import { View, Text, Pressable, TextInput, ActivityIndicator, Platform, Alert } from 'react-native';
-import { useTheme } from '../store';
+import { useTheme, PinnedMode } from '../store';
 import { Primary, IconCheck, Character } from '../ui';
 import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
@@ -83,70 +83,74 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
   const toEmail = (asNew: boolean) => { setCreating(asNew); setFormError(null); setMode('email'); };
 
   return (
-    <OnbFrame force="ra" step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
-      title={creating ? 'Create your profile' : 'Sign in'}
-      sub={creating
-        ? 'Keep your list safe and use Nura on any device. It stays on this phone either way.'
-        : 'Your list comes with you.'}
-      footer={mode === 'choose' ? (
-        <>
-          {Platform.OS === 'ios' && (
-            <Social id="apple" black label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} onPress={withApple} />
-          )}
-          <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} onPress={withGoogle} />
-          <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
-          <FooterLink force="ra" label="I already have an account" onPress={() => toEmail(false)} />
-        </>
-      ) : (
-        <>
-          <Primary tone="ra" onPress={submit}
-            label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create profile' : 'Sign in')} />
-          <FooterLink force="ra" label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
-        </>
-      )}>
-      {mode === 'choose' ? (
-        <View style={{ gap: 12, marginTop: 26 }}>
-          {PERKS.map(p => (
-            <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.raWash, alignItems: 'center', justifyContent: 'center' }}>
-                <IconCheck size={17} color={t.raDeep} />
+    <PinnedMode.Provider value="ra">
+      <OnbFrame force="ra" step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
+        title={creating ? 'Create your profile' : 'Sign in'}
+        sub={creating
+          ? 'Keep your list safe and use Nura on any device. It stays on this phone either way.'
+          : 'Your list comes with you.'}
+        footer={mode === 'choose' ? (
+          <>
+            {Platform.OS === 'ios' && (
+              <Social id="apple" black label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} onPress={withApple} />
+            )}
+            <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} onPress={withGoogle} />
+            <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
+            <FooterLink force="ra" label="I already have an account" onPress={() => toEmail(false)} />
+          </>
+        ) : (
+          <>
+            <Primary tone="ra" onPress={submit}
+              label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create profile' : 'Sign in')} />
+            <FooterLink force="ra" label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
+          </>
+        )}>
+        {mode === 'choose' ? (
+          <View style={{ gap: 12, marginTop: 26 }}>
+            {PERKS.map(p => (
+              <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.raWash, alignItems: 'center', justifyContent: 'center' }}>
+                  <IconCheck size={17} color={t.raDeep} />
+                </View>
+                <Text style={{ color: t.ink, fontSize: 16, lineHeight: 22, flex: 1 }}>{p}</Text>
               </View>
-              <Text style={{ color: t.ink, fontSize: 16, lineHeight: 22, flex: 1 }}>{p}</Text>
+            ))}
+            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginTop: 14 }}>
+              By continuing you agree to the Terms and Privacy Policy. No marketing email.
+            </Text>
+            {/* one size for both: the two images fill their frames alike, so
+                equal boxes read as equal characters */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 26 }}>
+              <Character name="nu-idle" size={136} motion="bob" />
+              <Character name="ra-wave" size={136} motion="bob" />
             </View>
-          ))}
-          <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginTop: 14 }}>
-            By continuing you agree to the Terms and Privacy Policy. No marketing email.
-          </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 22, marginTop: 30 }}>
-            <Character name="nu-idle" size={92} motion="bob" />
-            <Character name="ra-wave" size={104} motion="bob" />
           </View>
-        </View>
-      ) : (
-        <View style={{ gap: 12, marginTop: 22 }}>
-          {creating && (
-            <TextInput autoFocus value={name} onChangeText={setName} {...on('name')}
-              placeholder="Your first name" placeholderTextColor={t.ink3}
-              autoCapitalize="words" autoComplete="given-name" returnKeyType="next" style={field('name')} />
-          )}
-          <TextInput autoFocus={!creating} value={email} onChangeText={setEmail} {...on('email')}
-            placeholder="you@example.com" placeholderTextColor={t.ink3}
-            keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next"
-            style={field('email')} />
-          <TextInput value={password} onChangeText={setPassword} {...on('password')}
-            placeholder={creating ? 'Password (8 or more characters)' : 'Password'} placeholderTextColor={t.ink3}
-            secureTextEntry autoCapitalize="none" autoComplete={creating ? 'new-password' : 'current-password'}
-            returnKeyType={creating ? 'next' : 'go'} onSubmitEditing={creating ? undefined : submit}
-            style={field('password')} />
-          {creating && (
-            <TextInput value={confirm} onChangeText={setConfirm} {...on('confirm')}
-              placeholder="Password again" placeholderTextColor={t.ink3}
-              secureTextEntry autoCapitalize="none" autoComplete="new-password"
-              returnKeyType="go" onSubmitEditing={submit} style={field('confirm')} />
-          )}
-          {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
-        </View>
-      )}
-    </OnbFrame>
+        ) : (
+          <View style={{ gap: 12, marginTop: 22 }}>
+            {creating && (
+              <TextInput autoFocus value={name} onChangeText={setName} {...on('name')}
+                placeholder="Your first name" placeholderTextColor={t.ink3}
+                autoCapitalize="words" autoComplete="given-name" returnKeyType="next" style={field('name')} />
+            )}
+            <TextInput autoFocus={!creating} value={email} onChangeText={setEmail} {...on('email')}
+              placeholder="you@example.com" placeholderTextColor={t.ink3}
+              keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next"
+              style={field('email')} />
+            <TextInput value={password} onChangeText={setPassword} {...on('password')}
+              placeholder={creating ? 'Password (8 or more characters)' : 'Password'} placeholderTextColor={t.ink3}
+              secureTextEntry autoCapitalize="none" autoComplete={creating ? 'new-password' : 'current-password'}
+              returnKeyType={creating ? 'next' : 'go'} onSubmitEditing={creating ? undefined : submit}
+              style={field('password')} />
+            {creating && (
+              <TextInput value={confirm} onChangeText={setConfirm} {...on('confirm')}
+                placeholder="Password again" placeholderTextColor={t.ink3}
+                secureTextEntry autoCapitalize="none" autoComplete="new-password"
+                returnKeyType="go" onSubmitEditing={submit} style={field('confirm')} />
+            )}
+            {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
+          </View>
+        )}
+      </OnbFrame>
+    </PinnedMode.Provider>
   );
 }

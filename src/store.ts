@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import * as db from './db';
@@ -148,7 +149,17 @@ export const useStore = create<State>((set, get) => ({
  * state, not tabs. Honouring the system dark-mode toggle here would flatten the
  * two into one skin and throw away the only structural idea the app has.
  */
+/**
+ * A screen that keeps one palette whatever the mode (Compose, the habit
+ * screen, Connect, sign-in, the profile step) wraps itself in this, and every
+ * component inside draws in that palette too. Without it a shared component
+ * read the global mode: in Nu, Compose's activity chips drew Nu's near-white
+ * labels on Compose's cream, and they vanished.
+ */
+export const PinnedMode = createContext<db.Mode | null>(null);
+
 export function useTheme(force?: db.Mode): Theme {
   const mode = useStore(s => s.mode);
-  return (force ?? mode) === 'ra' ? raTheme : nuTheme;
+  const pinned = useContext(PinnedMode);
+  return (force ?? pinned ?? mode) === 'ra' ? raTheme : nuTheme;
 }

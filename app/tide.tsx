@@ -136,7 +136,7 @@ export default function Tide() {
                     })}>
                     <LabelTile id={it.task.label} />
                     <Text style={{ color: t.ink, fontSize: 15.5, flex: 1 }} numberOfLines={1}>{it.task.title}</Text>
-                    {!!it.task.due_at && it.task.has_time && (
+                    {!!it.task.due_at && !!it.task.has_time && (
                       <Text style={{ color: t.ink3, fontSize: 12.5 }}>{clock(it.task.due_at)}</Text>
                     )}
                   </Pressable>

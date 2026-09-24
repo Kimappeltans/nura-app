@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { PinnedMode } from '../store';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, raTheme, type as T } from '../theme';
@@ -129,158 +130,160 @@ export default function Auth(
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica force="ra" />
-      {/* cream screen, whatever the mode: the clock and battery go dark */}
-      <StatusBar style="dark" />
+    <PinnedMode.Provider value="ra">
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+        <Mica force="ra" />
+        {/* cream screen, whatever the mode: the clock and battery go dark */}
+        <StatusBar style="dark" />
 
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
-        <Pressable onPress={onBack ?? onClose} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
-          <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
-        </Pressable>
+        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
+          <Pressable onPress={onBack ?? onClose} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
+            <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
+          </Pressable>
 
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1 }}>
-          <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1 }}>
+            <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
 
-          <Eyebrow label={creating ? 'New here' : 'Welcome back'} tone="ra" />
-          <Text style={{
-            color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
-            letterSpacing: -0.9, marginTop: 6,
-          }}>
-            {creating ? 'Create your account.' : 'Welcome back.'}
-          </Text>
-          <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, marginTop: 8, maxWidth: 310 }}>
-            An account keeps your tasks and habits on every device. Everything
-            already on this phone stays put, and nothing needs one.
-          </Text>
+            <Eyebrow label={creating ? 'New here' : 'Welcome back'} tone="ra" />
+            <Text style={{
+              color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
+              letterSpacing: -0.9, marginTop: 6,
+            }}>
+              {creating ? 'Create your account.' : 'Welcome back.'}
+            </Text>
+            <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, marginTop: 8, maxWidth: 310 }}>
+              An account keeps your tasks and habits on every device. Everything
+              already on this phone stays put, and nothing needs one.
+            </Text>
 
-          <View style={{ height: 24 }} />
+            <View style={{ height: 24 }} />
 
-          {mode === 'choose' ? (
-            <View style={{ gap: 11 }}>
-              {/* Apple first, and always present on iOS — Guideline 4.8. */}
-              {Platform.OS === 'ios' && (
-                <Social id="apple" dark label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} />
-              )}
-              <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} />
+            {mode === 'choose' ? (
+              <View style={{ gap: 11 }}>
+                {/* Apple first, and always present on iOS — Guideline 4.8. */}
+                {Platform.OS === 'ios' && (
+                  <Social id="apple" dark label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} />
+                )}
+                <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} />
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 6 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
-                <Text style={{ color: t.ink3, fontSize: 12 }}>or</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
-              </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 6 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
+                  <Text style={{ color: t.ink3, fontSize: 12 }}>or</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
+                </View>
 
-              <Pressable onPress={() => setMode('email')} style={({ pressed }) => ({
-                paddingVertical: 15, borderRadius: radius.lg, alignItems: 'center',
-                backgroundColor: pressed ? t.subtle : t.card,
-                borderWidth: 1, borderColor: t.strokeStrong,
-              })}>
-                <Text style={{ color: t.ink, fontSize: 16.5, fontFamily: T.brand }}>
-                  {creating ? 'Sign up with email' : 'Continue with email'}
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={{ gap: 12 }}>
-              {creating && (
-                <TextInput
-                  autoFocus value={name} onChangeText={setName}
-                  placeholder="Your name" placeholderTextColor={t.ink3}
-                  autoCapitalize="words" autoComplete="name" returnKeyType="next"
-                  onFocus={onFieldFocus('name')} onBlur={onFieldBlur}
-                  style={fieldStyle('name')}
-                />
-              )}
-              <TextInput
-                autoFocus={!creating} value={email} onChangeText={setEmail}
-                placeholder="you@example.com" placeholderTextColor={t.ink3}
-                keyboardType="email-address" autoCapitalize="none" autoComplete="email"
-                returnKeyType="next"
-                onFocus={onFieldFocus('email')} onBlur={onFieldBlur}
-                style={fieldStyle('email')}
-              />
-              <TextInput
-                value={password} onChangeText={setPassword}
-                placeholder="Password" placeholderTextColor={t.ink3}
-                secureTextEntry autoCapitalize="none"
-                autoComplete={creating ? 'new-password' : 'current-password'}
-                returnKeyType={creating ? 'next' : 'go'}
-                onSubmitEditing={creating ? undefined : submit}
-                onFocus={onFieldFocus('password')} onBlur={onFieldBlur}
-                style={fieldStyle('password')}
-              />
-              {creating && (
-                <TextInput
-                  value={confirm} onChangeText={setConfirm}
-                  onSubmitEditing={submit} returnKeyType="go"
-                  placeholder="Confirm password" placeholderTextColor={t.ink3}
-                  secureTextEntry autoCapitalize="none" autoComplete="new-password"
-                  onFocus={onFieldFocus('confirm')} onBlur={onFieldBlur}
-                  style={fieldStyle('confirm')}
-                />
-              )}
-
-              {!!formError && (
-                <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18 }}>{formError}</Text>
-              )}
-
-              <Primary
-                label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create account' : 'Sign in')}
-                tone="ra" onPress={submit} />
-
-              {/* A link, not a password — still here as a fallback for anyone
-                  who'd rather not type one, or who's forgotten theirs. Not
-                  offered on the signup side: creating an account is where the
-                  password gets set in the first place. */}
-              {!creating && (
-                <Pressable onPress={() => withEmailLink(email)} hitSlop={10}>
-                  <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>
-                    {busy === 'email' ? 'Sending…' : 'Forgot it? Email me a sign-in link instead'}
+                <Pressable onPress={() => setMode('email')} style={({ pressed }) => ({
+                  paddingVertical: 15, borderRadius: radius.lg, alignItems: 'center',
+                  backgroundColor: pressed ? t.subtle : t.card,
+                  borderWidth: 1, borderColor: t.strokeStrong,
+                })}>
+                  <Text style={{ color: t.ink, fontSize: 16.5, fontFamily: T.brand }}>
+                    {creating ? 'Sign up with email' : 'Continue with email'}
                   </Text>
                 </Pressable>
-              )}
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {creating && (
+                  <TextInput
+                    autoFocus value={name} onChangeText={setName}
+                    placeholder="Your name" placeholderTextColor={t.ink3}
+                    autoCapitalize="words" autoComplete="name" returnKeyType="next"
+                    onFocus={onFieldFocus('name')} onBlur={onFieldBlur}
+                    style={fieldStyle('name')}
+                  />
+                )}
+                <TextInput
+                  autoFocus={!creating} value={email} onChangeText={setEmail}
+                  placeholder="you@example.com" placeholderTextColor={t.ink3}
+                  keyboardType="email-address" autoCapitalize="none" autoComplete="email"
+                  returnKeyType="next"
+                  onFocus={onFieldFocus('email')} onBlur={onFieldBlur}
+                  style={fieldStyle('email')}
+                />
+                <TextInput
+                  value={password} onChangeText={setPassword}
+                  placeholder="Password" placeholderTextColor={t.ink3}
+                  secureTextEntry autoCapitalize="none"
+                  autoComplete={creating ? 'new-password' : 'current-password'}
+                  returnKeyType={creating ? 'next' : 'go'}
+                  onSubmitEditing={creating ? undefined : submit}
+                  onFocus={onFieldFocus('password')} onBlur={onFieldBlur}
+                  style={fieldStyle('password')}
+                />
+                {creating && (
+                  <TextInput
+                    value={confirm} onChangeText={setConfirm}
+                    onSubmitEditing={submit} returnKeyType="go"
+                    placeholder="Confirm password" placeholderTextColor={t.ink3}
+                    secureTextEntry autoCapitalize="none" autoComplete="new-password"
+                    onFocus={onFieldFocus('confirm')} onBlur={onFieldBlur}
+                    style={fieldStyle('confirm')}
+                  />
+                )}
 
-              <Pressable onPress={() => setMode('choose')} hitSlop={10}>
-                <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
-                  Use Apple or Google instead
-                </Text>
-              </Pressable>
-            </View>
-          )}
+                {!!formError && (
+                  <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18 }}>{formError}</Text>
+                )}
 
-          {creating && (
-            <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', marginTop: 16 }}>
-              No inbox clutter, no productivity guilt emails. Your tasks stay yours.
-            </Text>
-          )}
+                <Primary
+                  label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create account' : 'Sign in')}
+                  tone="ra" onPress={submit} />
 
-          <View style={{ flex: 1, minHeight: 20 }} />
+                {/* A link, not a password — still here as a fallback for anyone
+                    who'd rather not type one, or who's forgotten theirs. Not
+                    offered on the signup side: creating an account is where the
+                    password gets set in the first place. */}
+                {!creating && (
+                  <Pressable onPress={() => withEmailLink(email)} hitSlop={10}>
+                    <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>
+                      {busy === 'email' ? 'Sending…' : 'Forgot it? Email me a sign-in link instead'}
+                    </Text>
+                  </Pressable>
+                )}
 
-          <Pressable onPress={() => {
-            setCreating(c => !c); setMode('choose');
-            setFormError(null); setPassword(''); setConfirm('');
-          }} hitSlop={10}>
-            <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
-              {creating ? 'Already have an account? ' : 'New to Nura? '}
-              <Text style={{ color: t.raDeep, fontFamily: T.brand }}>
-                {creating ? 'Sign in' : 'Create an account'}
+                <Pressable onPress={() => setMode('choose')} hitSlop={10}>
+                  <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
+                    Use Apple or Google instead
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {creating && (
+              <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', marginTop: 16 }}>
+                No inbox clutter, no productivity guilt emails. Your tasks stay yours.
               </Text>
-            </Text>
-          </Pressable>
+            )}
 
-          {/* Not a gate. */}
-          <Pressable onPress={onClose} hitSlop={10} style={{ marginTop: 14 }}>
-            <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center', lineHeight: 19 }}>
-              {onBack ? 'Skip — start without an account' : 'Keep using Nura without an account'}
-            </Text>
-          </Pressable>
+            <View style={{ flex: 1, minHeight: 20 }} />
 
-          <Text style={{ color: t.ink3, fontSize: 12.5, textAlign: 'center', lineHeight: 17, marginTop: 14 }}>
-            By continuing you agree to the Terms and Privacy Policy.
-          </Text>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+            <Pressable onPress={() => {
+              setCreating(c => !c); setMode('choose');
+              setFormError(null); setPassword(''); setConfirm('');
+            }} hitSlop={10}>
+              <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
+                {creating ? 'Already have an account? ' : 'New to Nura? '}
+                <Text style={{ color: t.raDeep, fontFamily: T.brand }}>
+                  {creating ? 'Sign in' : 'Create an account'}
+                </Text>
+              </Text>
+            </Pressable>
+
+            {/* Not a gate. */}
+            <Pressable onPress={onClose} hitSlop={10} style={{ marginTop: 14 }}>
+              <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center', lineHeight: 19 }}>
+                {onBack ? 'Skip — start without an account' : 'Keep using Nura without an account'}
+              </Text>
+            </Pressable>
+
+            <Text style={{ color: t.ink3, fontSize: 12.5, textAlign: 'center', lineHeight: 17, marginTop: 14 }}>
+              By continuing you agree to the Terms and Privacy Policy.
+            </Text>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </PinnedMode.Provider>
   );
 }

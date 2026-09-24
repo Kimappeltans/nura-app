@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Easing, Dimensions, AccessibilityInfo } from 'react-native';
+import { View, Text, Pressable, Animated, Easing, Dimensions, AccessibilityInfo, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { type as T, radius } from '../theme';
@@ -121,6 +122,9 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
     return () => { dead = true; };
   }, [sun, rise, riseAt]);
 
+  const insets = useSafeAreaInsets();
+  // one size for both, a little smaller on short phones
+  const figure = Math.round(Math.min(116, H * 0.13));
   const depth = H * 0.5;
 
   return (
@@ -128,23 +132,13 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
       <LinearGradient colors={SKY} locations={SKY_STOPS} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={{ position: 'absolute', inset: 0 }} />
 
-      {/* the sun, rising once, where sky meets sea */}
-      <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: W / 2 - 70, top: H * 0.3, width: 140, height: 140, borderRadius: 70,
-        opacity: sun,
-        transform: [{ translateY: sun.interpolate({ inputRange: [0, 1], outputRange: [110, 0] }) }],
-      }}>
-        <LinearGradient colors={['#FFF0D6', '#FFB067', '#FF6B35', 'transparent']} locations={[0, 0.35, 0.7, 1]}
-          style={{ width: '100%', height: '100%', borderRadius: 70 }} />
-      </Animated.View>
-
       {/* everything you just put down, sinking */}
       {sinking.map((task, i) => (
         <Sinker key={task.id} title={task.title} left={LANES[i]} depth={depth}
           delay={i * STAGGER_MS} instant={instant} />
       ))}
 
-      <View style={{ paddingTop: 56, paddingHorizontal: 26 }}>
+      <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 26 }}>
         <View style={{ flexDirection: 'row' }}><StepBar step={4} light /></View>
         <Text style={{
           color: '#FFF3EA', fontSize: 30, lineHeight: 36, fontFamily: T.display,
@@ -152,52 +146,68 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
         }}>Everything sinks.{'\n'}One thing rises.</Text>
       </View>
 
-      {/* the one, lifted back out of the water */}
-      <Animated.View style={{
-        position: 'absolute', left: 22, right: 22, top: H * 0.36,
-        opacity: rise,
-        transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [H * 0.3, 0] }) }],
-      }}>
-        <View style={{
-          borderRadius: radius.xl, padding: 20, gap: 8,
-          backgroundColor: 'rgba(255,243,234,0.96)',
-          shadowColor: '#FF6B35', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
+      {/* The card and the choices sit in the flow, between the heading and
+          the figures. They used to be placed at fixed fractions of the
+          screen height, so a long title pushed the choices under Nu and Ra. */}
+      <View style={{ flex: 1, paddingTop: 76 }}>
+        {/* the sun, rising once, just above the card */}
+        <Animated.View pointerEvents="none" style={{
+          position: 'absolute', left: W / 2 - 70, top: 0, width: 140, height: 140, borderRadius: 70,
+          opacity: sun,
+          transform: [{ translateY: sun.interpolate({ inputRange: [0, 1], outputRange: [110, 0] }) }],
         }}>
-          <Text style={{ color: '#C2410C', fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>
-            {chosen.id === pick.id ? 'START HERE?' : 'YOUR PICK'}
-          </Text>
-          <Text style={{ color: '#171313', fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
-            {chosen.title}
-          </Text>
-          {chosen.id === pick.id && !!why && <Text style={{ color: '#4A4340', fontSize: 14 }}>Why this one: {why}</Text>}
-        </View>
+          <LinearGradient colors={['#FFF0D6', '#FFB067', '#FF6B35', 'transparent']} locations={[0, 0.35, 0.7, 1]}
+            style={{ width: '100%', height: '100%', borderRadius: 70 }} />
+        </Animated.View>
 
-        {/* it's a suggestion — any of the others can rise instead */}
-        {!!others.length && (
-          <View style={{ marginTop: 14, gap: 8 }}>
-            <Text style={{ color: '#FFE3CE', fontSize: 13.5 }}>Or pick another:</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {others.map(o => (
-                <Pressable key={o.id} onPress={() => setChosen(o)} style={{
-                  paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
-                  backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-                }}>
-                  <Text numberOfLines={1} style={{ color: '#FFF3EA', fontSize: 13.5, maxWidth: 220 }}>{o.title}</Text>
-                </Pressable>
-              ))}
-            </View>
+        {/* the one, lifted back out of the water */}
+        <Animated.View style={{
+          opacity: rise,
+          transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [H * 0.3, 0] }) }],
+        }}>
+          <View style={{
+            marginHorizontal: 22, borderRadius: radius.xl, padding: 20, gap: 8,
+            backgroundColor: 'rgba(255,243,234,0.96)',
+            shadowColor: '#FF6B35', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
+          }}>
+            <Text style={{ color: '#C2410C', fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>
+              {chosen.id === pick.id ? 'START HERE?' : 'YOUR PICK'}
+            </Text>
+            <Text numberOfLines={3} style={{ color: '#171313', fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
+              {chosen.title}
+            </Text>
+            {chosen.id === pick.id && !!why && <Text style={{ color: '#4A4340', fontSize: 14 }}>Why this one: {why}</Text>}
           </View>
-        )}
-      </Animated.View>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+          {/* it's a suggestion — any of the others can rise instead; one
+              row that scrolls sideways, so it never grows into the figures */}
+          {!!others.length && (
+            <View style={{ marginTop: 14, gap: 8 }}>
+              <Text style={{ color: '#FFE3CE', fontSize: 13.5, marginHorizontal: 22 }}>Or pick another:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 22 }}>
+                {others.map(o => (
+                  <Pressable key={o.id} onPress={() => setChosen(o)} style={{
+                    paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
+                    backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+                  }}>
+                    <Text numberOfLines={1} style={{ color: '#FFF3EA', fontSize: 13.5, maxWidth: 220 }}>{o.title}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </Animated.View>
+      </View>
+
+      <View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 26 }}>
-          <Character name="nu-idle" size={86} motion="bob" />
-          <Character name="ra-wave" size={100} motion="bob" style={{ marginBottom: 10 }} />
+          <Character name="nu-idle" size={figure} motion="bob" />
+          <Character name="ra-wave" size={figure} motion="bob" />
         </View>
         <Waves width={W} />
         <LinearGradient colors={['transparent', 'rgba(8,13,36,0.94)']} locations={[0, 0.45]}
-          style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: 34, gap: 14 }}>
+          style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: insets.bottom + 12, gap: 14 }}>
           <Primary label="Start · 5 minutes" tone="ra" onPress={() => onStart(chosen)} />
           <Pressable onPress={onEverything} hitSlop={10}>
             <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>

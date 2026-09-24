@@ -1,9 +1,10 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
 import { Primary, Mica, Character } from '../ui';
 import { type as T } from '../theme';
 import { setFlag } from '../db';
+import { FooterLink } from '../components/OnbFrame';
 import { requestPermission, setupSchedules } from '../notifications';
 
 /**
@@ -44,9 +45,7 @@ export default function RemindAsk({ onDone }: { onDone: (yes: boolean) => void }
 
         <View style={{ gap: 14 }}>
           <Primary label="Yes, remind me" tone="ra" onPress={() => answer(true)} />
-          <Pressable onPress={() => answer(false)} hitSlop={10}>
-            <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Not now</Text>
-          </Pressable>
+          <FooterLink label="Not now" onPress={() => answer(false)} />
         </View>
       </View>
     </SafeAreaView>

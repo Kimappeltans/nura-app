@@ -345,8 +345,8 @@ export default function TaskDetail() {
             instead: not a start action, a way to shrink the thing you're not
             starting yet. */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-          {!task.parent_id && <Ghost label="Make it smaller" onPress={jumpToSteps} />}
-          <Ghost label="Let it go" onPress={() => {
+          {!task.parent_id && <Ghost style={{ flex: 1 }} label="Make it smaller" onPress={jumpToSteps} />}
+          <Ghost style={{ flex: 1 }} label="Let it go" onPress={() => {
             // not a delete — it stays in the event log, it just stops asking
             Alert.alert('Let this go?', 'It stops appearing. Nothing is counted against you.', [
               { text: 'Keep it', style: 'cancel' },

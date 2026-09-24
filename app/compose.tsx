@@ -3,7 +3,8 @@ import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Pla
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useStore } from '../src/store';
+import { useStore, PinnedMode } from '../src/store';
+import { StatusBar } from 'expo-status-bar';
 import { capture, type RepeatRule } from '../src/db';
 import { LABELS, guessLabel, labelById, type LabelId } from '../src/labels';
 import {
@@ -153,225 +154,228 @@ export default function Compose() {
   const p = priorityOf(priority);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica force="ra" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <PinnedMode.Provider value="ra">
+      <StatusBar style="dark" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+        <Mica force="ra" />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 4 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
-            <Text style={{ color: t.ink3, fontSize: 15 }}>Cancel</Text>
-          </Pressable>
-          <Text style={{ color: t.ink3, fontSize: 12.5 }}>Everything below is optional</Text>
-        </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 4 }}>
+            <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+              <Text style={{ color: t.ink3, fontSize: 15 }}>Cancel</Text>
+            </Pressable>
+            <Text style={{ color: t.ink3, fontSize: 12.5 }}>Everything below is optional</Text>
+          </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 20 }}
-          keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 20 }}
+            keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* the only required field, and it still takes one return key */}
-          <Surface accent="nu" style={{ marginTop: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }}>
-              {selectedLabel && (
-                <View style={{ marginRight: 11 }}>
-                  <LabelGlyph id={selectedLabel.id} size={20}
-                    color={t.key === 'ra' ? selectedLabel.onLight : selectedLabel.color} />
-                </View>
-              )}
-              <TextInput
-                autoFocus value={title} onChangeText={setTitle}
-                onSubmitEditing={save} returnKeyType="done" blurOnSubmit={false}
-                placeholder="What needs doing?" placeholderTextColor={t.ink3}
-                multiline
-                style={{ flex: 1, paddingVertical: 17, color: t.ink, fontSize: 17, lineHeight: 23 }}
-              />
-            </View>
-          </Surface>
-
-          {/* Not all 36 at once.
-              A wall of every option is a menu you have to READ before you can
-              choose, and it buries the eight most people actually want. So:
-              the common ones by default, a search box for the rest, and a way
-              to add your own — because nobody's life fits a fixed list, and
-              being told "your thing isn't a thing" is a bad first impression. */}
-          <Section label="Activity">
-            <Surface style={{ marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13 }}>
-                <IconSearch size={16} color={t.ink3} />
-                <TextInput
-                  value={actQuery} onChangeText={setActQuery}
-                  placeholder="Search activities, or type your own"
-                  placeholderTextColor={t.ink3}
-                  style={{ flex: 1, paddingVertical: 11, paddingLeft: 9, color: t.ink, fontSize: 14.5 }}
-                />
-                {!!actQuery && (
-                  <Pressable onPress={() => setActQuery('')} hitSlop={10}>
-                    <Text style={{ color: t.ink3, fontSize: 17 }}>×</Text>
-                  </Pressable>
+            {/* the only required field, and it still takes one return key */}
+            <Surface accent="nu" style={{ marginTop: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }}>
+                {selectedLabel && (
+                  <View style={{ marginRight: 11 }}>
+                    <LabelGlyph id={selectedLabel.id} size={20}
+                      color={t.key === 'ra' ? selectedLabel.onLight : selectedLabel.color} />
+                  </View>
                 )}
+                <TextInput
+                  autoFocus value={title} onChangeText={setTitle}
+                  onSubmitEditing={save} returnKeyType="done" blurOnSubmit={false}
+                  placeholder="What needs doing?" placeholderTextColor={t.ink3}
+                  multiline
+                  style={{ flex: 1, paddingVertical: 17, color: t.ink, fontSize: 17, lineHeight: 23 }}
+                />
               </View>
             </Surface>
 
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <Chip on={!activity} onPress={() => chooseActivity(null)}>
-                <Text style={{ color: !activity ? t.nu : t.ink, fontSize: 13.5, fontFamily: !activity ? T.brand : undefined }}>
-                  None
-                </Text>
-              </Chip>
+            {/* Not all 36 at once.
+                A wall of every option is a menu you have to READ before you can
+                choose, and it buries the eight most people actually want. So:
+                the common ones by default, a search box for the rest, and a way
+                to add your own — because nobody's life fits a fixed list, and
+                being told "your thing isn't a thing" is a bad first impression. */}
+            <Section label="Activity">
+              <Surface style={{ marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13 }}>
+                  <IconSearch size={16} color={t.ink3} />
+                  <TextInput
+                    value={actQuery} onChangeText={setActQuery}
+                    placeholder="Search activities, or type your own"
+                    placeholderTextColor={t.ink3}
+                    style={{ flex: 1, paddingVertical: 11, paddingLeft: 9, color: t.ink, fontSize: 14.5 }}
+                  />
+                  {!!actQuery && (
+                    <Pressable onPress={() => setActQuery('')} hitSlop={10}>
+                      <Text style={{ color: t.ink3, fontSize: 17 }}>×</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </Surface>
 
-              {/* whatever you picked stays visible even when the search hides it */}
-              {!!activity && isCustom(activity) && (
-                <Chip on tint={t.ra} onPress={() => chooseActivity(null)}>
-                  <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
-                    {customName(activity)}
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                <Chip on={!activity} onPress={() => chooseActivity(null)}>
+                  <Text style={{ color: !activity ? t.nu : t.ink, fontSize: 13.5, fontFamily: !activity ? T.brand : undefined }}>
+                    None
                   </Text>
                 </Chip>
-              )}
 
-              {matches.map(a => (
-                <ActivityPick key={a.id} id={a.id} on={activity === a.id}
-                  onPress={() => chooseActivity(activity === a.id ? null : a.id)} />
-              ))}
-
-              {/* the escape hatch, offered the moment nothing matches */}
-              {!!actQuery.trim() && !matches.some(a => a.name.toLowerCase() === actQuery.trim().toLowerCase()) && (
-                <Chip on={false} tint={t.ra}
-                  onPress={() => { chooseActivity(makeCustomId(actQuery) as ActivityId); setActQuery(''); }}>
-                  <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
-                    + Use “{actQuery.trim()}”
-                  </Text>
-                </Chip>
-              )}
-            </View>
-
-            {!actQuery && (
-              <Text style={{ color: t.ink3, fontSize: 12.5, marginTop: 8, marginLeft: 3 }}>
-                {ACTIVITIES.length} in total — search to find the rest.
-              </Text>
-            )}
-          </Section>
-
-          <Section label="Type">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {LABELS.map(l => {
-                const on = label === l.id;
-                const c = t.key === 'ra' ? l.onLight : l.color;
-                return (
-                  <Chip key={l.id} on={on} tint={c}
-                    onPress={() => { setTouchedLabel(true); setLabel(on ? null : l.id); }}>
-                    <LabelGlyph id={l.id} size={15} color={on ? c : t.ink} />
-                    <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
-                      {l.name}
+                {/* whatever you picked stays visible even when the search hides it */}
+                {!!activity && isCustom(activity) && (
+                  <Chip on tint={t.ra} onPress={() => chooseActivity(null)}>
+                    <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
+                      {customName(activity)}
                     </Text>
                   </Chip>
-                );
-              })}
-            </View>
-            {!!guessed && !touchedLabel && (
-              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3 }}>
-                Guessed from what you typed — tap to change.
-              </Text>
-            )}
-          </Section>
+                )}
 
-          <Section label="How long">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {MINUTES.map(m => (
-                <Chip key={m} on={minutes === m} onPress={() => setMinutes(minutes === m ? null : m)}>
-                  <Text style={{ color: minutes === m ? t.nu : t.ink, fontSize: 13.5, fontFamily: minutes === m ? T.brand : undefined }}>
-                    {m < 60 ? `${m}m` : `${m / 60}h`}
-                  </Text>
-                </Chip>
-              ))}
-            </View>
-          </Section>
+                {matches.map(a => (
+                  <ActivityPick key={a.id} id={a.id} on={activity === a.id}
+                    onPress={() => chooseActivity(activity === a.id ? null : a.id)} />
+                ))}
 
-          <Section label="When">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              <Chip on={!due} onPress={() => { setDue(null); setHasTime(false); setShowCal(false); }}>
-                <Text style={{ color: !due ? t.nu : t.ink, fontSize: 13.5, fontFamily: !due ? T.brand : undefined }}>Someday</Text>
-              </Chip>
-              {QUICK.map(q => {
-                const target = quickDate(q.add, q.h);
-                const on = !!due && Math.abs(due - target) < 3600_000 * 6;
-                return (
-                  <Chip key={q.label} on={on} tint={t.ra}
-                    onPress={() => { setDue(target); setHasTime(true); }}>
-                    <Text style={{ color: on ? t.ra : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{q.label}</Text>
+                {/* the escape hatch, offered the moment nothing matches */}
+                {!!actQuery.trim() && !matches.some(a => a.name.toLowerCase() === actQuery.trim().toLowerCase()) && (
+                  <Chip on={false} tint={t.ra}
+                    onPress={() => { chooseActivity(makeCustomId(actQuery) as ActivityId); setActQuery(''); }}>
+                    <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
+                      + Use “{actQuery.trim()}”
+                    </Text>
                   </Chip>
-                );
-              })}
-              <Chip on={showCal} tint={t.ra} onPress={() => setShowCal(v => !v)}>
-                <Text style={{ color: showCal ? t.ra : t.ink, fontSize: 13.5, fontFamily: showCal ? T.brand : undefined }}>
-                  Pick a date…
+                )}
+              </View>
+
+              {!actQuery && (
+                <Text style={{ color: t.ink3, fontSize: 12.5, marginTop: 8, marginLeft: 3 }}>
+                  {ACTIVITIES.length} in total — search to find the rest.
                 </Text>
-                <IconChevron size={14} color={showCal ? t.ra : t.ink3} />
-              </Chip>
-            </View>
+              )}
+            </Section>
 
-            {!!due && (
-              <Text style={{ color: t.ra, fontSize: 14, marginTop: 10, marginLeft: 3, fontFamily: T.brand }}>
-                {formatDue(due, hasTime)}
-              </Text>
-            )}
+            <Section label="Type">
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {LABELS.map(l => {
+                  const on = label === l.id;
+                  const c = t.key === 'ra' ? l.onLight : l.color;
+                  return (
+                    <Chip key={l.id} on={on} tint={c}
+                      onPress={() => { setTouchedLabel(true); setLabel(on ? null : l.id); }}>
+                      <LabelGlyph id={l.id} size={15} color={on ? c : t.ink} />
+                      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+                        {l.name}
+                      </Text>
+                    </Chip>
+                  );
+                })}
+              </View>
+              {!!guessed && !touchedLabel && (
+                <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3 }}>
+                  Guessed from what you typed — tap to change.
+                </Text>
+              )}
+            </Section>
 
-            {showCal && (
+            <Section label="How long">
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {MINUTES.map(m => (
+                  <Chip key={m} on={minutes === m} onPress={() => setMinutes(minutes === m ? null : m)}>
+                    <Text style={{ color: minutes === m ? t.nu : t.ink, fontSize: 13.5, fontFamily: minutes === m ? T.brand : undefined }}>
+                      {m < 60 ? `${m}m` : `${m / 60}h`}
+                    </Text>
+                  </Chip>
+                ))}
+              </View>
+            </Section>
+
+            <Section label="When">
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                <Chip on={!due} onPress={() => { setDue(null); setHasTime(false); setShowCal(false); }}>
+                  <Text style={{ color: !due ? t.nu : t.ink, fontSize: 13.5, fontFamily: !due ? T.brand : undefined }}>Someday</Text>
+                </Chip>
+                {QUICK.map(q => {
+                  const target = quickDate(q.add, q.h);
+                  const on = !!due && Math.abs(due - target) < 3600_000 * 6;
+                  return (
+                    <Chip key={q.label} on={on} tint={t.ra}
+                      onPress={() => { setDue(target); setHasTime(true); }}>
+                      <Text style={{ color: on ? t.ra : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{q.label}</Text>
+                    </Chip>
+                  );
+                })}
+                <Chip on={showCal} tint={t.ra} onPress={() => setShowCal(v => !v)}>
+                  <Text style={{ color: showCal ? t.ra : t.ink, fontSize: 13.5, fontFamily: showCal ? T.brand : undefined }}>
+                    Pick a date…
+                  </Text>
+                  <IconChevron size={14} color={showCal ? t.ra : t.ink3} />
+                </Chip>
+              </View>
+
+              {!!due && (
+                <Text style={{ color: t.ra, fontSize: 14, marginTop: 10, marginLeft: 3, fontFamily: T.brand }}>
+                  {formatDue(due, hasTime)}
+                </Text>
+              )}
+
+              {showCal && (
+                <View style={{ marginTop: 12 }}>
+                  <DatePicker value={due} hasTime={hasTime}
+                    onChange={(ms, ht) => { setDue(ms); setHasTime(ht); }} />
+                </View>
+              )}
+            </Section>
+
+            <Section label="Repeats">
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {REPEATS.map(r => {
+                  const on = repeat === r.rule;
+                  return (
+                    <Chip key={r.label} on={on} onPress={() => setRepeat(r.rule)}>
+                      <Text style={{ color: on ? t.nu : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+                        {r.label}
+                      </Text>
+                    </Chip>
+                  );
+                })}
+              </View>
+            </Section>
+
+            {repeat === 'weekly' && (
               <View style={{ marginTop: 12 }}>
-                <DatePicker value={due} hasTime={hasTime}
-                  onChange={(ms, ht) => { setDue(ms); setHasTime(ht); }} />
+                <Text style={{ color: t.ink2, fontSize: 13, marginBottom: 9, marginLeft: 3 }}>
+                  On which days?
+                </Text>
+                <WeekdayPicker value={days} onChange={setDays} />
               </View>
             )}
-          </Section>
 
-          <Section label="Repeats">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {REPEATS.map(r => {
-                const on = repeat === r.rule;
-                return (
-                  <Chip key={r.label} on={on} onPress={() => setRepeat(r.rule)}>
-                    <Text style={{ color: on ? t.nu : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
-                      {r.label}
-                    </Text>
-                  </Chip>
-                );
-              })}
-            </View>
-          </Section>
-
-          {repeat === 'weekly' && (
-            <View style={{ marginTop: 12 }}>
-              <Text style={{ color: t.ink2, fontSize: 13, marginBottom: 9, marginLeft: 3 }}>
-                On which days?
+            <Section label="Priority">
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {PRIORITIES.map(x => {
+                  const on = priority === x.n;
+                  const c = t.key === 'ra' ? x.onLight : x.color;
+                  return (
+                    <Chip key={x.n} on={on} tint={c} onPress={() => setPriority(x.n)}>
+                      {x.n > 0 && (
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c : t.ink3 }} />
+                      )}
+                      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+                        {x.name}
+                      </Text>
+                    </Chip>
+                  );
+                })}
+              </View>
+              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3, lineHeight: 17 }}>
+                A tiebreak, not a tier — deadlines and your energy still come first.
               </Text>
-              <WeekdayPicker value={days} onChange={setDays} />
-            </View>
-          )}
+            </Section>
 
-          <Section label="Priority">
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {PRIORITIES.map(x => {
-                const on = priority === x.n;
-                const c = t.key === 'ra' ? x.onLight : x.color;
-                return (
-                  <Chip key={x.n} on={on} tint={c} onPress={() => setPriority(x.n)}>
-                    {x.n > 0 && (
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c : t.ink3 }} />
-                    )}
-                    <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
-                      {x.name}
-                    </Text>
-                  </Chip>
-                );
-              })}
-            </View>
-            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3, lineHeight: 17 }}>
-              A tiebreak, not a tier — deadlines and your energy still come first.
-            </Text>
-          </Section>
-
-          <View style={{ height: 22 }} />
-          <Primary label="Add it" tone="ra" onPress={save}
-            sub={p.n > 0 || minutes || due || repeat ? undefined : 'you can fill the rest in later, or never'} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <View style={{ height: 22 }} />
+            <Primary label="Add it" tone="ra" onPress={save}
+              sub={p.n > 0 || minutes || due || repeat ? undefined : 'you can fill the rest in later, or never'} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </PinnedMode.Provider>
   );
 }

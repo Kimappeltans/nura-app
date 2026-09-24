@@ -3,6 +3,8 @@ import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { radius, raTheme, type as T } from '../theme';
+import { PinnedMode } from '../store';
+import { StatusBar } from 'expo-status-bar';
 import { getFlag, setFlag } from '../db';
 import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission } from '../calendar';
@@ -162,132 +164,135 @@ export default function Connect(
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica force="ra" />
+    <PinnedMode.Provider value="ra">
+      <StatusBar style="dark" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+        <Mica force="ra" />
 
-      <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 12 }}>
-        {!!onBack && (
-          <Pressable onPress={onBack} hitSlop={12} style={{ alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 2 }}>
-            <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
-          </Pressable>
-        )}
-
-        {/* Centred title with the mark parked in the corner. The icon is
-            absolutely positioned rather than sitting in the flow, so the
-            heading stays centred on the SCREEN rather than centred in the
-            space the icon happens to leave over. */}
-        <View style={{ alignItems: 'center' }}>
-          <Image
-            source={stone}
-            style={{ position: 'absolute', left: 0, top: 0, width: 33, height: 37 }}
-            resizeMode="contain"
-          />
-          <Text style={{
-            color: t.ink, fontSize: 28, lineHeight: 36, fontFamily: T.display,
-            letterSpacing: -0.9, textAlign: 'center',
-          }}>
-            Connect your day.
-          </Text>
-          <Text style={{
-            color: t.ink2, fontSize: 14.5, lineHeight: 21, marginTop: 8,
-            textAlign: 'center', maxWidth: 290,
-          }}>
-            Nura plans against the hours you actually have. You can change any of this later.
-          </Text>
-        </View>
-
-        <ScrollView style={{ flex: 1, marginTop: 16 }} showsVerticalScrollIndicator={false}>
-          {SECTIONS.map(sec => (
-            <View key={sec.title} style={{ marginBottom: 18 }}>
-              <Text style={{
-                color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
-                marginBottom: 6, marginLeft: 3,
-              }}>{sec.title.toUpperCase()}</Text>
-              {!!sec.note && (
-                <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginBottom: 8, marginLeft: 3 }}>
-                  {sec.note}
-                </Text>
-              )}
-
-              <Surface>
-                {sec.rows.map((r, i) => {
-                  const soon = r.status === 'soon';
-                  const done = r.status === 'connected';
-                  return (
-                    <View key={r.key}>
-                      {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
-                      <Pressable
-                        disabled={soon || r.status === 'busy' || done}
-                        onPress={r.onPress}
-                        style={({ pressed }) => ({
-                          flexDirection: 'row', alignItems: 'center', gap: 12,
-                          paddingHorizontal: 14, paddingVertical: 13,
-                          backgroundColor: pressed ? t.subtle : 'transparent',
-                          opacity: soon ? 0.72 : 1,
-                        })}>
-                        {/* Each brand's own colour, at 12% for the tile. A row
-                            of identical coral squares made nine different
-                            services look like nine copies of one thing. */}
-                        <View style={{
-                          width: 34, height: 34, borderRadius: radius.md,
-                          alignItems: 'center', justifyContent: 'center',
-                          backgroundColor: r.tint ? `${r.tint}1F` : t.raWash,
-                        }}>{r.icon(r.tint ?? t.raDeep)}</View>
-
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
-                          <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 16.5, marginTop: 1.5 }}>{r.body}</Text>
-                        </View>
-
-                        {r.status === 'busy' ? <ActivityIndicator size="small" color={t.raDeep} />
-                          : done ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <IconCheck size={16} color={t.raDeep} />
-                              <Text style={{ color: t.raDeep, fontSize: 13, fontFamily: T.brand }}>On</Text>
-                            </View>
-                          ) : soon ? (
-                            <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1, fontFamily: T.brand }}>SOON</Text>
-                          ) : (
-                            <View style={{
-                              paddingHorizontal: 13, paddingVertical: 7, borderRadius: radius.pill,
-                              borderWidth: 1.5, borderColor: t.ra,
-                            }}>
-                              <Text style={{ color: t.raDeep, fontSize: 13, fontFamily: T.brand }}>Connect</Text>
-                            </View>
-                          )}
-                      </Pressable>
-
-                      {/* Direction, shown only once a calendar is actually on. */}
-                      {r.syncable && done && (
-                        <View style={{
-                          flexDirection: 'row', gap: 8,
-                          paddingHorizontal: 14, paddingBottom: 13, paddingTop: 2,
-                        }}>
-                          <ModeButton m="read" label="Read only" sub="Nura never adds anything" />
-                          <ModeButton m="two" label="Read &amp; write" sub="Adds your focus sessions" />
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </Surface>
-            </View>
-          ))}
-
-          <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 17.5, marginBottom: 8, paddingHorizontal: 2 }}>
-            Nothing is shared with anyone. Nura only ever edits events it created itself.
-          </Text>
-        </ScrollView>
-
-        <View style={{ gap: 11, marginTop: 10 }}>
-          <Primary label={anyConnected ? 'Done' : 'Continue'} tone="ra" onPress={finish} />
-          {!anyConnected && (
-            <Pressable onPress={finish} hitSlop={10}>
-              <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Skip for now</Text>
+        <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 12 }}>
+          {!!onBack && (
+            <Pressable onPress={onBack} hitSlop={12} style={{ alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 2 }}>
+              <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
             </Pressable>
           )}
+
+          {/* Centred title with the mark parked in the corner. The icon is
+              absolutely positioned rather than sitting in the flow, so the
+              heading stays centred on the SCREEN rather than centred in the
+              space the icon happens to leave over. */}
+          <View style={{ alignItems: 'center' }}>
+            <Image
+              source={stone}
+              style={{ position: 'absolute', left: 0, top: 0, width: 33, height: 37 }}
+              resizeMode="contain"
+            />
+            <Text style={{
+              color: t.ink, fontSize: 28, lineHeight: 36, fontFamily: T.display,
+              letterSpacing: -0.9, textAlign: 'center',
+            }}>
+              Connect your day.
+            </Text>
+            <Text style={{
+              color: t.ink2, fontSize: 14.5, lineHeight: 21, marginTop: 8,
+              textAlign: 'center', maxWidth: 290,
+            }}>
+              Nura plans against the hours you actually have. You can change any of this later.
+            </Text>
+          </View>
+
+          <ScrollView style={{ flex: 1, marginTop: 16 }} showsVerticalScrollIndicator={false}>
+            {SECTIONS.map(sec => (
+              <View key={sec.title} style={{ marginBottom: 18 }}>
+                <Text style={{
+                  color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
+                  marginBottom: 6, marginLeft: 3,
+                }}>{sec.title.toUpperCase()}</Text>
+                {!!sec.note && (
+                  <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginBottom: 8, marginLeft: 3 }}>
+                    {sec.note}
+                  </Text>
+                )}
+
+                <Surface>
+                  {sec.rows.map((r, i) => {
+                    const soon = r.status === 'soon';
+                    const done = r.status === 'connected';
+                    return (
+                      <View key={r.key}>
+                        {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
+                        <Pressable
+                          disabled={soon || r.status === 'busy' || done}
+                          onPress={r.onPress}
+                          style={({ pressed }) => ({
+                            flexDirection: 'row', alignItems: 'center', gap: 12,
+                            paddingHorizontal: 14, paddingVertical: 13,
+                            backgroundColor: pressed ? t.subtle : 'transparent',
+                            opacity: soon ? 0.72 : 1,
+                          })}>
+                          {/* Each brand's own colour, at 12% for the tile. A row
+                              of identical coral squares made nine different
+                              services look like nine copies of one thing. */}
+                          <View style={{
+                            width: 34, height: 34, borderRadius: radius.md,
+                            alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: r.tint ? `${r.tint}1F` : t.raWash,
+                          }}>{r.icon(r.tint ?? t.raDeep)}</View>
+
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
+                            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 16.5, marginTop: 1.5 }}>{r.body}</Text>
+                          </View>
+
+                          {r.status === 'busy' ? <ActivityIndicator size="small" color={t.raDeep} />
+                            : done ? (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <IconCheck size={16} color={t.raDeep} />
+                                <Text style={{ color: t.raDeep, fontSize: 13, fontFamily: T.brand }}>On</Text>
+                              </View>
+                            ) : soon ? (
+                              <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1, fontFamily: T.brand }}>SOON</Text>
+                            ) : (
+                              <View style={{
+                                paddingHorizontal: 13, paddingVertical: 7, borderRadius: radius.pill,
+                                borderWidth: 1.5, borderColor: t.ra,
+                              }}>
+                                <Text style={{ color: t.raDeep, fontSize: 13, fontFamily: T.brand }}>Connect</Text>
+                              </View>
+                            )}
+                        </Pressable>
+
+                        {/* Direction, shown only once a calendar is actually on. */}
+                        {r.syncable && done && (
+                          <View style={{
+                            flexDirection: 'row', gap: 8,
+                            paddingHorizontal: 14, paddingBottom: 13, paddingTop: 2,
+                          }}>
+                            <ModeButton m="read" label="Read only" sub="Nura never adds anything" />
+                            <ModeButton m="two" label="Read &amp; write" sub="Adds your focus sessions" />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </Surface>
+              </View>
+            ))}
+
+            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 17.5, marginBottom: 8, paddingHorizontal: 2 }}>
+              Nothing is shared with anyone. Nura only ever edits events it created itself.
+            </Text>
+          </ScrollView>
+
+          <View style={{ gap: 11, marginTop: 10 }}>
+            <Primary label={anyConnected ? 'Done' : 'Continue'} tone="ra" onPress={finish} />
+            {!anyConnected && (
+              <Pressable onPress={finish} hitSlop={10}>
+                <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Skip for now</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </PinnedMode.Provider>
   );
 }

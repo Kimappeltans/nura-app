@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { createHabit } from '../src/db';
 import { radius, raTheme, type as T } from '../src/theme';
+import { PinnedMode } from '../src/store';
+import { StatusBar } from 'expo-status-bar';
 import { Mica, Primary, Eyebrow } from '../src/ui';
 
 /**
@@ -46,55 +48,58 @@ export default function NewHabit() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica force="ra" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 4 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
-            <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 6, gap: 22 }} keyboardShouldPersistTaps="handled">
-          <View>
-            <Eyebrow label="New habit" tone="ra" />
-            <Text style={{ color: t.ink, fontSize: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 6 }}>
-              After something, do a little.
-            </Text>
-            <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, marginTop: 6 }}>
-              Not a time — a moment that already happens. "7am" gets missed by a bad
-              morning; "after I make coffee" doesn't.
-            </Text>
+    <PinnedMode.Provider value="ra">
+      <StatusBar style="dark" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+        <Mica force="ra" />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 4 }}>
+            <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
+              <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
+            </Pressable>
           </View>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              AFTER…
-            </Text>
-            {field(cue, setCue, 'I make coffee')}
-          </View>
+          <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 6, gap: 22 }} keyboardShouldPersistTaps="handled">
+            <View>
+              <Eyebrow label="New habit" tone="ra" />
+              <Text style={{ color: t.ink, fontSize: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 6 }}>
+                After something, do a little.
+              </Text>
+              <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, marginTop: 6 }}>
+                Not a time — a moment that already happens. "7am" gets missed by a bad
+                morning; "after I make coffee" doesn't.
+              </Text>
+            </View>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              I WILL…
-            </Text>
-            {field(action, setAction, 'revise one paragraph')}
-          </View>
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
+                AFTER…
+              </Text>
+              {field(cue, setCue, 'I make coffee')}
+            </View>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              ON A BAD DAY, INSTEAD (OPTIONAL)
-            </Text>
-            {field(minimum, setMinimum, 'read one sentence')}
-            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18 }}>
-              A version small enough that "too tired" is never a reason to skip it
-              entirely. Counts exactly the same.
-            </Text>
-          </View>
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
+                I WILL…
+              </Text>
+              {field(action, setAction, 'revise one paragraph')}
+            </View>
 
-          <Primary label={busy ? 'Saving…' : 'Start it'} tone="ra" onPress={save} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
+                ON A BAD DAY, INSTEAD (OPTIONAL)
+              </Text>
+              {field(minimum, setMinimum, 'read one sentence')}
+              <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18 }}>
+                A version small enough that "too tired" is never a reason to skip it
+                entirely. Counts exactly the same.
+              </Text>
+            </View>
+
+            <Primary label={busy ? 'Saving…' : 'Start it'} tone="ra" onPress={save} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </PinnedMode.Provider>
   );
 }
