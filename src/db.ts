@@ -56,7 +56,8 @@ export type EventKind =
   | 'skipped' | 'snoozed' | 'nudge_sent' | 'nudge_acted'
   | 'reward'
   // the measure events (SCOPE.md) — what the 14-day review reads
-  | 'shown' | 'swapped' | 'session_start' | 'session_end' | 'resumed' | 'acted';
+  | 'shown' | 'swapped' | 'session_start' | 'session_end' | 'resumed' | 'acted'
+  | 'onboarding';
 
 // Memoize the in-flight *promise*, not just the resolved db — refresh() fans
 // out ~9 concurrent calls that each call getDb(), and on web (OPFS access
@@ -1277,4 +1278,18 @@ export async function exportLog(): Promise<string> {
     startRate(), estimateAccuracy(),
   ]);
   return JSON.stringify({ exportedAt: new Date().toISOString(), startRate: start, estimateAccuracy: estimate, events, tasks }, null, 1);
+}
+
+/* ---------------- onboarding answers ---------------- */
+
+/** What usually gets in the way — asked once, in onboarding. Each answer
+ *  changes something real (see SCOPE.md → Onboarding), so it's stored, not
+ *  just logged. */
+export type Blocker = 'starting' | 'choosing' | 'remembering' | 'returning';
+
+export async function getBlockers(): Promise<Blocker[]> {
+  try { return JSON.parse((await getFlag('onb.blockers')) ?? '[]'); } catch { return []; }
+}
+export async function setBlockers(b: Blocker[]) {
+  await setFlag('onb.blockers', JSON.stringify(b));
 }

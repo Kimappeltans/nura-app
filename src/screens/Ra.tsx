@@ -8,6 +8,7 @@ import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { useStore, useTheme } from '../store';
 import {
   complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickForToday, logEvent,
+  getBlockers,
 } from '../db';
 import { reconcileNudges } from '../notifications';
 import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
@@ -105,8 +106,14 @@ export default function Ra() {
     (async () => {
       if (!now) return setNeeds(null);
       setFirstAction(now.first_action ?? '');
-      if (!now.est_minutes && !(await getFlag(`skip.est.${now.id}`))) return setNeeds('est');
-      if (!now.first_action && !(await getFlag(`skip.first.${now.id}`))) return setNeeds('first');
+      const est = !now.est_minutes && !(await getFlag(`skip.est.${now.id}`));
+      const first = !now.first_action && !(await getFlag(`skip.first.${now.id}`));
+      // Someone who said "getting started" is what gets in the way is asked
+      // for the first physical move before anything else (onboarding).
+      const firstMoveFirst = (await getBlockers()).includes('starting');
+      if (firstMoveFirst && first) return setNeeds('first');
+      if (est) return setNeeds('est');
+      if (first) return setNeeds('first');
       setNeeds(null);
     })();
   }, [now?.id, now?.est_minutes, now?.first_action, skipped]);

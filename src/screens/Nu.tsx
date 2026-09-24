@@ -9,6 +9,7 @@ import {
   capture, complete, pickForToday, getFlag, setFlag, notNow, dropTask,
   checkInDue, markCheckInSeen, listHabits, habitLogs, logHabit, pauseHabit,
   type Task, type Energy, type Habit,
+  getBlockers,
 } from '../db';
 import { priorityOf, whyLine } from '../priority';
 import { statsFor, rateLine, type HabitStats } from '../habits';
@@ -60,6 +61,22 @@ export default function Nu() {
   const [calAsk, setCalAsk] = useState(false);
   const [checkInTask, setCheckInTask] = useState<Task | null>(null);
   const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  // "Getting back on track" (onboarding): an evening card asks what you
+  // actually did — without needing reminders switched on. Once a night.
+  const [eveningAsk, setEveningAsk] = useState(false);
+  const eveningKey = `evening.asked.${new Date().toDateString()}`;
+  useEffect(() => {
+    (async () => {
+      if (new Date().getHours() < 18) return;
+      if (await getFlag(eveningKey)) return;
+      setEveningAsk((await getBlockers()).includes('returning'));
+    })();
+  }, [eveningKey]);
+  const closeEvening = async (log: boolean) => {
+    setEveningAsk(false);
+    await setFlag(eveningKey, '1');
+    if (log) router.push('/retro');
+  };
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitStats, setHabitStats] = useState<Record<string, HabitStats>>({});
   const { inbox, todayPicked, agenda, energy, setEnergy, toRa, focusOn, refresh, light, today, wins, celebrate, now, nowRule, profile } = useStore();
@@ -712,6 +729,28 @@ export default function Nu() {
               <Text style={{ color: '#0B1029', fontSize: 14, fontFamily: T.brand }}>Yes</Text>
             </Pressable>
           </View>
+          </Surface>
+        )}
+
+        {eveningAsk && (
+          <Surface accent="ra" style={{ marginTop: 16 }}>
+            <View style={{ padding: 14, gap: 10 }}>
+              <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>What did you actually do today?</Text>
+              <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 19 }}>
+                Small things count — they're usually the ones that never get written down.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable onPress={() => closeEvening(false)} hitSlop={8} style={{ paddingVertical: 8 }}>
+                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>Not tonight</Text>
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <Pressable onPress={() => closeEvening(true)}
+                    style={{ paddingVertical: 10, borderRadius: radius.pill, backgroundColor: t.ra, alignItems: 'center' }}>
+                    <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.brand }}>Log it</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
           </Surface>
         )}
 

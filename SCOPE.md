@@ -126,6 +126,30 @@ a way to export the event log for the 14-day review. No dashboard in the app.
 - **Accounts and sync** — optional and working for email and Google.
   Magic-link sign-in and account deletion get fixed before any public release.
 
+## Onboarding — the first minute decides whether Nura is kept
+
+**Goal:** from opening the app to starting one real task in about a minute,
+with nothing to set up and no account. The metaphor ("everything sinks, one
+thing rises") is experienced with your own tasks, not explained in advance.
+
+**Rules:** every question changes something you'll see, and says what; every
+step can be skipped; no sign-in in the flow (it's in Settings, and on the
+welcome screen for people who already have an account); warm, plain copy, no
+diagnosis named.
+
+| # | Screen | What it does |
+|---|---|---|
+| 1 | **Welcome** | Nu and Ra, the slogan, Get started. "Sign in" for existing accounts. |
+| 2 | **What usually gets in the way?** (pick any) | *Getting started* → Ra asks for the first physical move before anything else. *Choosing what to do* → Nura opens on your one thing instead of the list. *Remembering things* → reminders are offered at the end of setup. *Getting back on track* → an evening card asks what you actually did, even without reminders. |
+| 3 | **What's on your mind?** | Everything you're carrying, one per line — the sentence parser picks up dates and lengths. This is Nu, learned by using it. |
+| 4 | **Reminders** (only if *Remembering*, iPhone only) | One plain ask before the system prompt. |
+| 5 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra lifts one: "Start here", with why. *Start · 5 minutes* opens the timer; *Show me everything* opens Nu. |
+
+**How we'll know it works** (logged as `onboarding` events): how many people
+finish it, how many add at least one task, how long from opening to the
+first session, and — the one that matters — how many start a task in their
+first session. Day-1 and day-7 return come from the event log.
+
 ## Later — needs a native build (Xcode)
 
 Each is gated on the 14-day review and 5–10 people using Nura for two weeks.

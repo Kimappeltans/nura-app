@@ -1,57 +1,116 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { useStore } from '../store';
+import { logEvent, setBlockers, currentPick, getTask, getEnergy, type Blocker, type Task, type PickRule } from '../db';
+import { whyLine } from '../priority';
 import Welcome from './Welcome';
-import HowItWorks from './HowItWorks';
+import Blockers from './Blockers';
+import BrainDump from './BrainDump';
+import RemindAsk from './RemindAsk';
+import OneRises from './OneRises';
 import Auth from './Auth';
 
 /**
- * Three steps, in the order they earn:
+ * From opening the app to starting one real task in about a minute
+ * (SCOPE.md → Onboarding):
  *
- *   1. WELCOME    — what this is.
- *   2. HOW IT WORKS — the Nu/Ra metaphor, said once in plain words, before
- *      the names start doing real work as screens and navigation.
- *   3. SIGN IN    — who you are, LAST.
+ *   1. WELCOME        — Nu and Ra, the slogan.
+ *   2. BLOCKERS       — "What usually gets in the way?" Each answer changes
+ *                        something, and says what.
+ *   3. BRAIN DUMP     — "What's on your mind?" Nu, learned by using it.
+ *   4. REMINDERS      — only if "remembering" was picked, iPhone only.
+ *   5. ONE RISES      — your tasks sink, the sun rises, Ra lifts one. Start it.
  *
- * Sign-in used to be a side road hanging off a link on the welcome screen,
- * which meant almost nobody would ever reach it — you'd tap the big button and
- * be past it. It's a real step now.
- *
- * CONNECT used to sit between these two — but it mostly advertised the work-app
- * integrations that aren't built yet ("soon" everywhere), and asked for
- * calendar/notification permissions before you'd written down a single task,
- * i.e. before granting them changed anything you could see. Both permissions
- * are still asked for, just in context: Nu asks for notifications after the
- * first capture, and Ra asks for the calendar the first time knowing what's
- * next would actually change the screen. Connect itself didn't disappear —
- * it's reachable any time from Settings → Connected apps, as `/integrations`.
- *
- * This is still not a gate. Every screen here can be skipped, and the app is
- * fully usable with no account at all: everything lives on the device already,
- * and an account only buys sync and the server-side integrations. Demanding
- * registration before first use is the single biggest drop-off point in any
- * onboarding, and requiring it for features that work offline runs into App
- * Store guideline 5.1.1(v).
+ * The metaphor used to be explained on its own screen before you had written
+ * anything down; now it happens to your own tasks. Sign-in isn't a step any
+ * more — an account only adds sync, so it lives on the welcome screen's
+ * "Sign in" link (for people who already have one) and in Settings. Every
+ * step can be skipped, and each is logged as an `onboarding` event so the
+ * first-minute funnel can be read back (SCOPE.md → Measure).
  */
+type Step = 'welcome' | 'blockers' | 'dump' | 'remind' | 'rise' | 'auth';
+
 export default function Onboarding() {
   const finishOnboarding = useStore(s => s.finishOnboarding);
-  const [step, setStep] = useState<'welcome' | 'how' | 'auth'>('welcome');
+  const refresh = useStore(s => s.refresh);
+  const focusOn = useStore(s => s.focusOn);
+  const toNu = useStore(s => s.toNu);
+
+  const [step, setStep] = useState<Step>('welcome');
+  const [picks, setPicks] = useState<Blocker[]>([]);
+  const [rise, setRise] = useState<{ tasks: Task[]; pick: Task; rule: PickRule; why: string | null } | null>(null);
+  const t0 = useRef(Date.now());
+  const dumped = useRef<string[]>([]);   // held across the reminders detour
+  const log = (s: string, meta: object = {}) =>
+    logEvent('onboarding', undefined, { step: s, ms: Date.now() - t0.current, ...meta });
+
+  const toRise = async (ids: string[]) => {
+    const tasks = (await Promise.all(ids.map(getTask))).filter((x): x is Task => !!x);
+    const p = await currentPick();
+    if (!p) return finish(false);
+    setRise({ tasks, pick: p.task, rule: p.rule, why: whyLine(p.rule, p.task, await getEnergy()) });
+    setStep('rise');
+  };
+
+  const finish = async (start: boolean) => {
+    await log('done', { started: start });
+    await finishOnboarding();
+    if (start && rise) {
+      await focusOn(rise.pick.id);
+      router.push({ pathname: '/timer', params: { id: rise.pick.id, mins: '5' } });
+    } else {
+      await toNu();
+    }
+  };
 
   if (step === 'auth') {
+    return <Auth onClose={finishOnboarding} onBack={() => setStep('welcome')} />;
+  }
+
+  if (step === 'blockers') {
     return (
-      <Auth
-        onClose={finishOnboarding}
-        onBack={() => setStep('how')}
-      />
+      <Blockers onNext={async picked => {
+        setPicks(picked);
+        await setBlockers(picked);
+        await log('blockers', { picked });
+        setStep('dump');
+      }} />
     );
   }
 
-  if (step === 'how') {
-    return <HowItWorks onNext={() => setStep('auth')} />;
+  if (step === 'dump') {
+    return (
+      <BrainDump onNext={async ids => {
+        await log('dump', { captured: ids.length });
+        await refresh();
+        if (!ids.length) return finish(false);
+        dumped.current = ids;
+        if (picks.includes('remembering') && Platform.OS !== 'web') return setStep('remind');
+        return toRise(ids);
+      }} />
+    );
+  }
+
+  if (step === 'remind') {
+    return (
+      <RemindAsk onDone={async granted => {
+        await log('remind', { granted });
+        await toRise(dumped.current);
+      }} />
+    );
+  }
+
+  if (step === 'rise' && rise) {
+    return (
+      <OneRises tasks={rise.tasks} pick={rise.pick} why={rise.why}
+        onStart={() => finish(true)} onEverything={() => finish(false)} />
+    );
   }
 
   return (
     <Welcome
-      onNext={() => setStep('how')}
+      onNext={async () => { await log('welcome'); setStep('blockers'); }}
       onSignIn={() => setStep('auth')}
     />
   );

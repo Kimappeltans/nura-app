@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import {
   useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import { getDb, migrate, dropCrumb, onOpenElsewhere } from '../src/db';
+import { getDb, migrate, dropCrumb, onOpenElsewhere, getBlockers } from '../src/db';
 import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
@@ -42,6 +42,12 @@ export default function Root() {
       useStore.getState().setSession(session);
       useStore.setState({ authLoading: false });
       await refresh();
+      // Someone who said choosing is what gets in the way opens on the one
+      // thing, not the list (onboarding). Cold start only — coming back to
+      // the app mid-use shouldn't move them.
+      if (useStore.getState().onboarded && (await getBlockers()).includes('choosing')) {
+        await useStore.getState().toRa();
+      }
       // Returning users have already answered the permission prompt — see
       // Nu.tsx, where it is asked once, in context, after the first capture.
       // requestPermissionsAsync is a no-op re-check once decided, so this is
