@@ -139,9 +139,9 @@ diagnosis named.
 
 | # | Screen | What it does |
 |---|---|---|
-| 1 | **Welcome** | Nu and Ra, the slogan, Get started. "Sign in" for existing accounts. |
-| 2 | **What usually gets in the way?** (pick any) | *Getting started* → Ra asks for the first physical move before anything else. *Choosing what to do* → Nura opens on your one thing instead of the list. *Remembering things* → reminders are offered at the end of setup. *Getting back on track* → an evening card asks what you actually did, even without reminders. |
-| 3 | **What's on your mind?** | Everything you're carrying, one per line — the sentence parser picks up dates and lengths. This is Nu, learned by using it. |
+| 1 | **Welcome** | Nu and Ra, the slogan, and one plain line saying what Nura is: "Put everything down. Nura hands you one thing to start." Get started; "Sign in" for existing accounts. |
+| 2 | **What happens with your to-do list?** (pick any; answers are first-person situations, not labels) | *"I know what to do, but I don't start"* → Ra asks for the first physical move before anything else. *"Everything feels urgent…"* → Nura opens on your one thing instead of the list. *"Things slip my mind…"* → reminders are offered at the end of setup. *"After a bad week, I stop looking at my list"* → an evening card asks what you actually did, even without reminders. |
+| 3 | **What do you need to get done?** | Everything on your plate, one per line — the sentence parser picks up dates and lengths. This is Nu, learned by using it. |
 | 4 | **Reminders** (only if *Remembering*, iPhone only) | One plain ask before the system prompt. |
 | 5 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra lifts one: "Start here", with why. *Start · 5 minutes* opens the timer; *Show me everything* opens Nu. |
 

@@ -20,7 +20,8 @@ const wordmark = require('../../assets/brand/wordmark-tight.png');
  *      frames are cut out; see IntroClip). It's the one image on the screen,
  *      so it's the biggest thing on it.
  *   2. The slogan — the brand's own three beats, the last in the sunrise
- *      gradient. The headline, directly under the picture it describes.
+ *      gradient — and one plain line under it saying what Nura does.
+ *      The headline, directly under the picture it describes.
  *   3. Get started.
  *   4. The mark and name, small, at the top — a signature. At full size it
  *      was a second headline competing with the slogan.
@@ -65,6 +66,13 @@ export default function Welcome(
             <GradientText size={34} lineHeight={40} colors={[t.nu, t.nuSoft, t.ra, t.raDeep]} id="slogan">
               {copy.slogan[2]}
             </GradientText>
+            {/* What Nura IS, in plain words — the slogan is the brand's voice,
+                but someone who installed five apps this week needs to know in
+                one line that this is a to-do app and what it does differently. */}
+            <Text style={{
+              color: t.ink2, fontSize: 16, lineHeight: 23, textAlign: 'center',
+              marginTop: 14, alignSelf: 'center', maxWidth: 300,
+            }}>Put everything down. Nura hands you one thing to start.</Text>
           </View>
         </View>
 

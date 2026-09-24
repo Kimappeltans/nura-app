@@ -8,7 +8,12 @@ import { radius, type as T } from '../theme';
 import type { Blocker } from '../db';
 
 /**
- * "What usually gets in the way?" — the one question onboarding asks.
+ * "What happens with your to-do list?" — the one question onboarding asks.
+ *
+ * Asked of someone who may have installed five apps this week and doesn't
+ * yet know what this one is, so the question names the thing (your to-do
+ * list) and the answers are situations you'd recognise in yourself, in your
+ * own words — not category labels to decode ("Getting started" of what?).
  *
  * A question earns its place only if the answer changes the app, and the
  * person can see that it will: each option shows what Nura will do
@@ -19,18 +24,14 @@ import type { Blocker } from '../db';
  *   remembering → reminders are offered at the end of setup
  *   returning   → an evening card asks what you actually did
  */
-const OPTIONS: { key: Blocker; title: string; sub: string; effect: string }[] = [
-  { key: 'starting', title: 'Getting started',
-    sub: 'I know what to do. I just don’t begin.',
-    effect: 'Nura will ask for the very first move before anything else.' },
-  { key: 'choosing', title: 'Choosing what to do',
-    sub: 'Everything feels equally urgent.',
-    effect: 'Nura will open on your one thing, not the whole list.' },
-  { key: 'remembering', title: 'Remembering things',
-    sub: 'Things slip until it’s too late.',
+const OPTIONS: { key: Blocker; title: string; effect: string }[] = [
+  { key: 'starting', title: 'I know what to do, but I don’t start.',
+    effect: 'Nura will ask for the very first move — small enough to just begin.' },
+  { key: 'choosing', title: 'Everything feels urgent, so I don’t know where to begin.',
+    effect: 'Nura will open on one thing, not the whole list.' },
+  { key: 'remembering', title: 'Things slip my mind until it’s too late.',
     effect: 'Nura will offer gentle reminders at the end.' },
-  { key: 'returning', title: 'Getting back on track',
-    sub: 'After a bad week, I stop opening the app.',
+  { key: 'returning', title: 'After a bad week, I stop looking at my list.',
     effect: 'Each evening Nura will ask what you did. Small things count.' },
 ];
 
@@ -50,9 +51,9 @@ export default function Blockers({ onNext }: { onNext: (picked: Blocker[]) => vo
         <Text style={{
           color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
           letterSpacing: -0.8, marginTop: 8,
-        }}>What usually gets in the way?</Text>
+        }}>What happens with your to-do list?</Text>
         <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, marginTop: 8 }}>
-          Pick any. Each one changes how Nura works for you.
+          Pick any that sound like you. Nura adjusts to each one.
         </Text>
 
         <View style={{ gap: 11, marginTop: 24 }}>
@@ -67,8 +68,8 @@ export default function Blockers({ onNext }: { onNext: (picked: Blocker[]) => vo
                   borderWidth: 1.5, borderColor: on ? t.ra : t.stroke,
                   transform: [{ scale: pressed ? 0.985 : 1 }],
                 })}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text style={{ flex: 1, color: t.ink, fontSize: 17, fontFamily: T.brand }}>{o.title}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={{ flex: 1, color: t.ink, fontSize: 16.5, lineHeight: 22, fontFamily: T.brand }}>{o.title}</Text>
                   <View style={{
                     width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
                     borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong, backgroundColor: on ? t.ra : 'transparent',
@@ -76,7 +77,6 @@ export default function Blockers({ onNext }: { onNext: (picked: Blocker[]) => vo
                     {on && <Text style={{ color: t.onRa, fontSize: 13, fontFamily: T.brand, marginTop: -1 }}>✓</Text>}
                   </View>
                 </View>
-                <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 20 }}>{o.sub}</Text>
                 {/* what changes, said the moment you pick it */}
                 {on && (
                   <Text style={{ color: t.raSoft, fontSize: 13.5, lineHeight: 19, marginTop: 6 }}>{o.effect}</Text>

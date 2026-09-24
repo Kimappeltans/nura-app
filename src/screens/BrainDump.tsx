@@ -9,7 +9,7 @@ import { capture } from '../db';
 import { parseTask } from '../assistant';
 
 /**
- * "What's on your mind?" — Nu, learned by using it.
+ * "What do you need to get done?" — Nu, learned by using it.
  *
  * The whole app depends on capture costing nothing, so onboarding's job is
  * to make the first capture happen, not to describe it. One line per thing,
@@ -56,9 +56,9 @@ export default function BrainDump({ onNext }: { onNext: (ids: string[]) => void 
           <Text style={{
             color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
             letterSpacing: -0.8, marginTop: 8,
-          }}>What’s on your mind?</Text>
+          }}>What do you need to get done?</Text>
           <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, marginTop: 8 }}>
-            Everything you’re carrying, one per line. No order, no dates needed.
+            Everything on your plate — work, errands, calls. One per line, in any order.
           </Text>
 
           <TextInput
