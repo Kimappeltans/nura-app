@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { View, Image, Pressable, useWindowDimensions, type ViewStyle } from 'react-native';
 
@@ -103,8 +104,16 @@ const FRAMES = [
  * moving after their greeting. Once is an introduction; forever is wallpaper
  * with a heartbeat.
  */
-export function IntroClip({ fps = 12, style, maxWidth = 200 }: { fps?: number; style?: ViewStyle; maxWidth?: number }) {
+export function IntroClip({ fps = 12, style, maxWidth = 200, onStart, onEnd, overlay }: {
+  fps?: number; style?: ViewStyle; maxWidth?: number;
+  /** a (re)play began / the last frame is reached — Welcome times the speech bubbles off these */
+  onStart?: () => void; onEnd?: () => void;
+  /** drawn over the clip in its own coordinates, e.g. bubbles pointing at Nu and Ra */
+  overlay?: (w: number, h: number) => React.ReactNode;
+}) {
   const [i, setI] = useState(0);
+  const cbs = useRef({ onStart, onEnd });
+  cbs.current = { onStart, onEnd };
   const [run, setRun] = useState(0);      // bump to replay
   const ready = useRef(false);
 
@@ -142,6 +151,7 @@ export function IntroClip({ fps = 12, style, maxWidth = 200 }: { fps?: number; s
       }
     }
     setI(0);
+    cbs.current.onStart?.();
     const id = setInterval(() => {
       setI(k => {
         if (k + 1 >= FRAMES.length) { clearInterval(id); return FRAMES.length - 1; }
@@ -150,6 +160,9 @@ export function IntroClip({ fps = 12, style, maxWidth = 200 }: { fps?: number; s
     }, 1000 / fps);
     return () => clearInterval(id);
   }, [fps, run]);
+
+  // the last frame is where the clip rests — tell whoever is waiting on it
+  useEffect(() => { if (i === FRAMES.length - 1) cbs.current.onEnd?.(); }, [i]);
 
   return (
     <Pressable onPress={() => setRun(r => r + 1)} style={[{ width: W, height: H }, style]}>
@@ -163,6 +176,7 @@ export function IntroClip({ fps = 12, style, maxWidth = 200 }: { fps?: number; s
           style={{ position: 'absolute', width: W, height: H, opacity: k === i ? 1 : 0 }}
         />
       ))}
+      {overlay?.(W, H)}
     </Pressable>
   );
 }

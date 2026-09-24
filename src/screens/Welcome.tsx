@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { View, Text, Image, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { type as T, copy } from '../theme';
 import { useTheme } from '../store';
 import { Primary, Mica, GradientText } from '../ui';
 import { IntroClip } from '../components/IntroClip';
+import { SpeechBubble } from '../components/SpeechBubble';
 
 /**
  * Both marks are TIGHT crops (see assets/brand): the source artwork had ~10%
@@ -18,7 +20,10 @@ const wordmark = require('../../assets/brand/wordmark-tight.png');
  *
  *   1. Nu and Ra — the intro clip, large, with no backdrop of its own (the
  *      frames are cut out; see IntroClip). It's the one image on the screen,
- *      so it's the biggest thing on it.
+ *      so it's the biggest thing on it. When it has played through, each
+ *      introduces itself in a speech bubble ("I'm Nu. I hold everything." /
+ *      "I'm Ra. I pick one thing.") — the two modes explained by the
+ *      characters who are the modes, the way Duolingo's owl says hello.
  *   2. The slogan — the brand's own three beats, the last in the sunrise
  *      gradient — and one plain line under it saying what Nura does.
  *      The headline, directly under the picture it describes.
@@ -34,6 +39,8 @@ export default function Welcome(
 ) {
   const t = useTheme();
   const { width } = useWindowDimensions();
+  // Nu and Ra introduce themselves once the clip has played through
+  const [said, setSaid] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
@@ -51,7 +58,18 @@ export default function Welcome(
         {/* Nu and Ra sit low, just above the words, so the slack collects
             above them rather than under the slogan. */}
         <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <IntroClip maxWidth={Math.min(width - 32, 440)} />
+          {/* Where the heads are in the clip's last frame, as fractions of
+              its width and height (measured on the cut-out frames). */}
+          <IntroClip maxWidth={Math.min(width - 32, 440)}
+            onStart={() => setSaid(false)} onEnd={() => setSaid(true)}
+            overlay={(w, h) => said && (
+              <>
+                <SpeechBubble tone="nu" text={"I’m Nu.\nI hold everything."} clipW={w}
+                  tailX={w * 0.21} tipY={h * 0.27} />
+                <SpeechBubble tone="ra" text={"I’m Ra.\nI pick one thing."} clipW={w}
+                  tailX={w * 0.78} tipY={h * 0.26} delay={550} />
+              </>
+            )} />
 
           <View style={{ alignSelf: 'stretch', marginTop: 40, marginBottom: 48 }}>
             <Text style={{
