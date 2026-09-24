@@ -1,4 +1,4 @@
-import { View, Text, Image, Pressable } from 'react-native';
+import { View, Text, Image, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { type as T, copy } from '../theme';
 import { useTheme } from '../store';
@@ -6,97 +6,69 @@ import { Primary, Mica, GradientText } from '../ui';
 import { IntroClip } from '../components/IntroClip';
 
 /**
- * Both marks are TIGHT crops. The original stone artwork sits in a 1254px
- * canvas with ~10% of empty transparent margin on every side — and
- * asymmetrically, 51px above versus 139px below. That one fact caused every
- * complaint the lockup attracted: the gap to the wordmark always looked wider
- * than the layout asked for, the optical centre sat above the box centre so a
- * centred wordmark read as low, and every size value was a lie (asking for
- * 56px got 46px of visible stone). Cropped to the alpha bounding box, the
- * numbers mean what they say and centring is true.
+ * Both marks are TIGHT crops (see assets/brand): the source artwork had ~10%
+ * of empty margin on every side, which made every size value a lie. Cropped
+ * to the alpha bounding box, the numbers mean what they say.
  */
-// the mark: sun disc over water, the whole Nu+Ra idea in one object.
-// Tight-cropped (833x944) — the source has ~200px of invisible margin, same
-// trap as the old one, which made every size value a lie.
 const stone = require('../../assets/brand/nura-logo-tight.png');
 const wordmark = require('../../assets/brand/wordmark-tight.png');
 
 /**
- * One screen, and no invented tagline on it — the three lines are the brand's
- * own slogan, the middle one filled with the sunrise gradient.
+ * One screen, four things, in order of weight:
  *
- * The two static characters are replaced by the intro clip, framed.
+ *   1. Nu and Ra — the intro clip, large, with no backdrop of its own (the
+ *      frames are cut out; see IntroClip). It's the one image on the screen,
+ *      so it's the biggest thing on it.
+ *   2. The slogan — the brand's own three beats, the last in the sunrise
+ *      gradient. The headline, directly under the picture it describes.
+ *   3. Get started.
+ *   4. The mark and name, small, at the top — a signature. At full size it
+ *      was a second headline competing with the slogan.
  *
- * On the framing: the clip cannot be dropped straight onto cream, because its
- * backdrop can't be keyed out. Measured on frame 20 — the backdrop runs from
- * #03092D at the corners to #51475A in the lit gap between the characters,
- * while Nu's shadow side sits at #0D1640. Nu is *darker than parts of its own
- * background*, so any threshold loose enough to remove the centre glow punches
- * holes straight through him. That isn't a tuning problem, it's an overlap.
- *
- * So it's presented as what it is: a framed panel, in the clip's own
- * background colour, with a hairline and a soft shadow so it reads as a
- * deliberate window rather than a rectangle someone forgot to mask. If the
- * animation is ever re-exported over a flat light background — or with alpha —
- * the frame comes off and it sits directly on the cream.
+ * The signature is centred at the top; Nu and Ra sit low, with the slogan
+ * given room above and below before the button.
  */
 export default function Welcome(
   { onNext, onSignIn }: { onNext: () => void; onSignIn: () => void },
 ) {
   const t = useTheme();
+  const { width } = useWindowDimensions();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica />
 
-      <View style={{ flex: 1, paddingHorizontal: 26, paddingTop: 14, paddingBottom: 10, alignItems: 'center' }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 10 }}>
 
-        {/* Mark, then name. Widths are the tight crops' true aspect ratios —
-            1020:1064 and 799:222 — so nothing is squashed. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-          <Image source={stone} style={{ width: 80, height: 91 }} resizeMode="contain" />
-          <Image source={wordmark} style={{ width: 126, height: 35, tintColor: t.ink }} resizeMode="contain" />
+        {/* the signature: the stone centred over the name — widths are the
+            tight crops' true aspect ratios */}
+        <View style={{ alignItems: 'center', gap: 8, marginTop: 14 }}>
+          <Image source={stone} style={{ width: 40, height: 45 }} resizeMode="contain" />
+          <Image source={wordmark} style={{ width: 72, height: 20, tintColor: t.ink }} resizeMode="contain" />
         </View>
 
-        {/* The headline sits close under the lockup rather than floating in a
-            vertically-centred band — the two used to read as unrelated
-            because the space between them was doing nothing. A single flex
-            spacer below (not around) the block now carries all the slack, so
-            the mark, the words, and Nu and Ra all read as one group, and
-            whatever room is left is pushed down to the button instead of
-            split evenly around empty space. */}
-        <View style={{ alignSelf: 'stretch', alignItems: 'center', marginTop: 22 }}>
-          <View style={{ alignSelf: 'stretch' }}>
+        {/* Nu and Ra sit low, just above the words, so the slack collects
+            above them rather than under the slogan. */}
+        <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+          <IntroClip maxWidth={Math.min(width - 32, 440)} />
+
+          <View style={{ alignSelf: 'stretch', marginTop: 40, marginBottom: 48 }}>
             <Text style={{
-              color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display,
+              color: t.ink, fontSize: 34, lineHeight: 40, fontFamily: T.display,
               letterSpacing: -1, textAlign: 'center',
             }}>{copy.slogan[0]}</Text>
-
             <Text style={{
-              color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display,
+              color: t.ink, fontSize: 34, lineHeight: 40, fontFamily: T.display,
               letterSpacing: -1, textAlign: 'center',
             }}>{copy.slogan[1]}</Text>
-
-            {/* The emphasis lands on the last beat — the follow-through — not
-                the middle one, matching the prototype's headline treatment. */}
-            <GradientText size={32} lineHeight={39} colors={[t.nu, t.nuSoft, t.ra, t.raDeep]} id="slogan">
+            {/* the emphasis lands on the follow-through, the last beat */}
+            <GradientText size={34} lineHeight={40} colors={[t.nu, t.nuSoft, t.ra, t.raDeep]} id="slogan">
               {copy.slogan[2]}
             </GradientText>
           </View>
-
-          {/* No sub-line. The slogan says it, and the clip shows it — a
-              third explanation of the same idea just crowds both. */}
-          {/* No frame any more. The screen and the clip are both dark navy
-              now, so the panel that was hiding the un-keyable backdrop has
-              nothing left to hide — see the note at the top of this file.
-              Enlarged from the 200pt default: Nu and Ra are the other half
-              of the lockup above, not a footnote under it. */}
-          <IntroClip style={{ marginTop: 20 }} maxWidth={260} />
         </View>
 
-        <View style={{ flex: 1 }} />
-
-        <View style={{ alignSelf: 'stretch', gap: 14 }}>
+        <View style={{ gap: 14 }}>
           <Primary label={copy.welcomeCta} tone="ra" onPress={onNext} />
           <Pressable onPress={onSignIn} hitSlop={10}>
             <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>

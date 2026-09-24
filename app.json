@@ -7,11 +7,6 @@
     "scheme": "nura",
     "userInterfaceStyle": "light",
     "icon": "./assets/brand/icon-nura.png",
-    "splash": {
-      "image": "./assets/brand/nura-logo-tight.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0B1029"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.yourname.nura",
@@ -65,6 +60,15 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/nura-logo-tight.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0B1029",
+          "imageWidth": 200
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#FF6B35"
@@ -80,7 +84,9 @@
       ],
       "expo-web-browser",
       "expo-apple-authentication",
-      "./plugins/withPodsDeploymentTarget"
+      "./plugins/withPodsDeploymentTarget",
+      "expo-status-bar",
+      "./plugins/withSceneLifecycle"
     ],
     "experiments": {
       "typedRoutes": true

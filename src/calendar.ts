@@ -1,4 +1,6 @@
-import * as Calendar from 'expo-calendar';
+// The function-style API moved to /legacy in Expo 57; the bare import now throws
+// "deprecated" at call time. The new object-oriented API is a later migration.
+import * as Calendar from 'expo-calendar/legacy';
 import { Platform } from 'react-native';
 
 /**
