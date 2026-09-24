@@ -11,6 +11,8 @@
  * date, and a date is a fact rather than a feeling.
  */
 
+import { CEILING, type Task, type Energy } from './db';
+
 export interface Priority { n: number; name: string; color: string; onLight: string }
 
 export const PRIORITIES: Priority[] = [
@@ -22,3 +24,27 @@ export const PRIORITIES: Priority[] = [
 
 export const priorityOf = (n?: number | null): Priority =>
   PRIORITIES[Math.max(0, Math.min(3, n ?? 0))];
+
+/**
+ * Why THIS one. `pickNow()` in db.ts already has a real reason for every
+ * task it hands you — a deadline, a resume, a fit with your energy — it
+ * just never said so out loud. This mirrors its tiers (same order, same
+ * CEILING) purely to put that reason into words on the hero card, so
+ * "recommended" doesn't read as a black box. Returns null on the fallback
+ * tier, where the honest answer is "nothing else was more due" — the card
+ * just omits the line rather than inventing a reason.
+ */
+export function whyNow(task: Task, energy: Energy, now = Date.now()): string | null {
+  const soon = now + 2 * 60 * 60 * 1000;
+  const threeDays = now + 72 * 60 * 60 * 1000;
+
+  if (task.due_at != null && task.due_at <= soon) {
+    return task.due_at <= now ? 'past due' : 'due within the next couple of hours';
+  }
+  if (task.state === 'doing') return 'you already started this one';
+  if (task.due_at != null && task.due_at <= threeDays) return 'due in the next few days';
+  if (task.est_minutes != null && task.est_minutes <= CEILING[energy]) {
+    return energy === 'low' ? 'short enough for right now' : 'fits the time you’ve got';
+  }
+  return null;
+}

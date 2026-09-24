@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useStore, useTheme } from '../store';
-import { capture, complete, pickForToday, getFlag, setFlag, type Task, type Energy } from '../db';
-import { priorityOf } from '../priority';
+import {
+  capture, complete, pickForToday, getFlag, setFlag, notNow, dropTask,
+  checkInDue, markCheckInSeen, listHabits, habitLogs, logHabit, pauseHabit,
+  type Task, type Energy, type Habit,
+} from '../db';
+import { priorityOf, whyNow } from '../priority';
+import { statsFor, rateLine, type HabitStats } from '../habits';
 import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission, type UpcomingEvent } from '../calendar';
 import { radius, elevation, type as T, copy } from '../theme';
@@ -17,6 +22,7 @@ import { LabelTile, LabelGlyph } from '../components/LabelIcon';
 import { ActivityCard, HeroCard } from '../components/ActivityCard';
 import { formatDue } from '../components/DatePicker';
 import { Mica, Surface, Character, Primary, IconChevron, IconClock, IconCalendar, IconSearch, Check, Enter, Press, Bar, Count, animateNext } from '../ui';
+import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 
 const stone = require('../../assets/brand/nura-logo-tight.png');
 
@@ -52,6 +58,10 @@ export default function Nu() {
   const [hits, setHits] = useState<Task[]>([]);
   const [askNudge, setAskNudge] = useState(false);
   const [calAsk, setCalAsk] = useState(false);
+  const [checkInTask, setCheckInTask] = useState<Task | null>(null);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habitStats, setHabitStats] = useState<Record<string, HabitStats>>({});
   const { inbox, todayPicked, agenda, energy, setEnergy, toRa, refresh, light, today, wins, celebrate, now, profile } = useStore();
   const showToast = useStore(s => s.showToast);
 
@@ -61,6 +71,56 @@ export default function Nu() {
       if (!(await getFlag('cal_asked')) && !(await hasCalendarPermission())) setCalAsk(true);
     })();
   }, [inbox.length, todayPicked.length]);
+
+  const loadHabits = useCallback(async () => {
+    const list = await listHabits();
+    setHabits(list);
+    const stats: Record<string, HabitStats> = {};
+    for (const h of list) stats[h.id] = statsFor(await habitLogs(h.id), h.created_at);
+    setHabitStats(stats);
+  }, []);
+  useEffect(() => { loadHabits(); }, [loadHabits]);
+
+  const markHabit = useCallback(async (h: Habit, minimum: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await logHabit(h.id, minimum);
+    showToast(minimum ? 'Counted — the small version counts the same' : 'Counted ✓');
+    await loadHabits();
+  }, [loadHabits, showToast]);
+
+  // Pausing, not deleting — a habit that isn't fitting your life yet is a
+  // sign the cue was wrong, not a failure to log against. The history
+  // stays; turning it back on later doesn't start from zero.
+  const pauseThisHabit = useCallback(async (h: Habit) => {
+    Alert.alert('Pause this habit?', 'It stops asking. Nothing about it is held against you, and its history stays if you start it again.', [
+      { text: 'Keep it', style: 'cancel' },
+      { text: 'Pause it', onPress: async () => { await pauseHabit(h.id); await loadHabits(); } },
+    ]);
+  }, [loadHabits]);
+
+  // "This one keeps slipping" — a task that's been snoozed past the
+  // threshold gets one compassionate check-in, not a growing red badge. At
+  // most one task asks at a time, and it never interrupts a capture in
+  // progress or a search.
+  useEffect(() => {
+    (async () => {
+      if (checkInTask || q.trim()) return;
+      for (const task of [...todayPicked, ...inbox]) {
+        if (await checkInDue(task)) { setCheckInTask(task); return; }
+      }
+    })();
+  }, [inbox, todayPicked, checkInTask, q]);
+
+  const checkInActions: SheetAction[] = checkInTask ? [
+    { key: 'smaller', glyph: '◊', label: 'Too big — make it smaller', sub: 'break it into a first, smaller step',
+      onPress: () => router.push({ pathname: '/task/[id]', params: { id: checkInTask.id, focus: 'steps' } }) },
+    { key: 'waiting', glyph: '⋯', label: "Blocked — I'm waiting on someone", sub: 'stays in the water, stops being asked',
+      onPress: async () => { await notNow(checkInTask.id, 3 * 24 * 60); await refresh(); } },
+    { key: 'when', glyph: '↓', label: 'Wrong time — change the date', sub: 'open it and pick a date that actually fits',
+      onPress: () => router.push({ pathname: '/task/[id]', params: { id: checkInTask.id } }) },
+    { key: 'drop', glyph: '×', label: 'Not important anymore', sub: 'gone, no explanation needed',
+      onPress: async () => { await dropTask(checkInTask.id); await refresh(); } },
+  ] : [];
 
   const answerNudge = useCallback(async (yes: boolean) => {
     setAskNudge(false);
@@ -191,6 +251,14 @@ export default function Nu() {
 
   const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // Whole-day recovery — the "planned six, did one" moment. Evening,
+  // several things still sitting in Today, and nothing has landed yet: a
+  // gentle nudge toward One Pass rather than a growing, silent list. Never
+  // framed as a miss — there is no "overdue" concept in this app to have
+  // triggered it (see db.ts), just an honest amount still in the water.
+  const todayPendingCount = groups.find(g => g.title === 'Today')?.data.length ?? 0;
+  const showRecovery = !recoveryDismissed && hour >= 17 && doneToday === 0 && todayPendingCount >= 3;
+
   /** One inset, rounded group — the native list idiom. */
   const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <View style={{ marginTop: 16 }}>
@@ -208,7 +276,10 @@ export default function Nu() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica />
+      {/* The sun climbs and warms as the day's completions add up — literal
+          feedback that finishing things changes the light in the room, not
+          just a number somewhere on a stats screen. */}
+      <Mica sunProgress={Math.min(4, doneToday) / 4} />
 
       {/* Top bar: search, then you. The mark moves into the greeting below —
           an app icon inside the app is decoration, and this row is for tools.
@@ -269,6 +340,16 @@ export default function Nu() {
             {greeting}{firstName ? `, ${firstName}` : ''}.
           </Text>
           <Text style={{ color: t.ink3, fontSize: 13.5, marginTop: 2 }}>{dateLine}</Text>
+          {/* The receipt: which ones, not how many — "2 risen" says something
+              happened, "5 still in the water" says the rest is held, not lost. */}
+          {(doneToday > 0 || openCount > 0) && (
+            <Pressable onPress={() => router.push('/tide')} hitSlop={6}>
+              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3 }}>
+                {doneToday} risen · {openCount} still in the water
+                <Text style={{ color: t.nu }}> · see the tide ›</Text>
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {/* THE HERO — one recommended task, at full size and with its scene.
@@ -283,6 +364,7 @@ export default function Nu() {
           <View style={{ marginBottom: 16 }}>
             <HeroCard
               task={upNext[0]}
+              why={whyNow(upNext[0], energy)}
               onStart={() => {
                 // the hero is what Focus would hand you anyway; picking a row
                 // below means "I want THAT one", so it's pinned before switching
@@ -295,7 +377,10 @@ export default function Nu() {
               <View style={{ marginTop: 10 }}>
                 <Surface>
                   {upNext.slice(1).map((task, i) => (
-                    <View key={task.id}>
+                    // Each row down recedes a little — the further something
+                    // sits below the hero, the more it reads as "still under",
+                    // not "less important".
+                    <View key={task.id} style={{ opacity: Math.max(0.55, 1 - i * 0.11) }}>
                       {i > 0 && <Divider />}
                       <Pressable
                         onPress={() => { Haptics.selectionAsync(); task.id === now?.id ? toRa() : pickThen(task.id); }}
@@ -361,10 +446,16 @@ export default function Nu() {
             is a real question and a growing light total doesn't answer it. */}
         {!q && !!todayRows.length && (
           <Group title="Today">
-            {todayRows.map((row, i) => {
-              const key = row.kind === 'event' ? `e-${row.event.id}` : `${row.kind}-${row.task.id}`;
-              return (
-                <View key={key}>
+            {(() => {
+              // Depth-fade tracks how far UNDER the surface a pending row
+              // sits — completed rows have already risen, so they stay at
+              // full strength regardless of position.
+              let pendingIdx = -1;
+              return todayRows.map((row, i) => {
+                const key = row.kind === 'event' ? `e-${row.event.id}` : `${row.kind}-${row.task.id}`;
+                const opacity = row.kind === 'done' ? 1 : Math.max(0.6, 1 - (++pendingIdx) * 0.09);
+                return (
+                <View key={key} style={{ opacity }}>
                   {i > 0 && <Divider />}
                   {row.kind === 'event' ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
@@ -396,8 +487,56 @@ export default function Nu() {
                     </View>
                   )}
                 </View>
+                );
+              });
+            })()}
+          </Group>
+        )}
+
+        {/* Habits — cue-linked, not clock-linked, and never a streak. See
+            src/habits.ts for why a recurring task can't do this job. */}
+        {!q && !!habits.length && (
+          <Group title="Habits">
+            {habits.map((h, i) => {
+              const stats = habitStats[h.id];
+              const done = stats?.doneToday ?? false;
+              return (
+                <View key={h.id}>
+                  {i > 0 && <Divider />}
+                  <Pressable
+                    onLongPress={() => pauseThisHabit(h)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.ink, fontSize: 15, lineHeight: 20 }} numberOfLines={2}>
+                        {h.cue}, {h.action.charAt(0).toLowerCase()}{h.action.slice(1)}
+                      </Text>
+                      <Text style={{ color: t.ink3, fontSize: 12, marginTop: 2 }}>
+                        {stats ? rateLine(stats) : ''} · hold to pause
+                      </Text>
+                    </View>
+                    {done ? (
+                      <Text style={{ color: t.ra, fontSize: 13, fontFamily: T.brand }}>Done today</Text>
+                    ) : (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {!!h.minimum && (
+                          <Pressable onPress={() => markHabit(h, true)} style={{
+                            paddingHorizontal: 11, paddingVertical: 7, borderRadius: radius.pill,
+                            borderWidth: 1, borderColor: t.strokeStrong,
+                          }}>
+                            <Text style={{ color: t.ink2, fontSize: 12.5 }}>Minimum</Text>
+                          </Pressable>
+                        )}
+                        <Check tone="ra" onPress={() => markHabit(h, false)} />
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
               );
             })}
+            <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 14 }} />
+            <Pressable onPress={() => router.push('/habit')} style={{ padding: 14 }}>
+              <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>+ New habit</Text>
+            </Pressable>
           </Group>
         )}
 
@@ -552,6 +691,28 @@ export default function Nu() {
           </Surface>
         )}
 
+        {showRecovery && (
+          <Surface accent="nu" style={{ marginTop: 16 }}>
+            <View style={{ padding: 14, gap: 10 }}>
+              <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 19 }}>
+                {todayPendingCount} things still waiting on today, and none of them have landed yet.
+                Want a quick pass through them instead?
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable onPress={() => setRecoveryDismissed(true)} hitSlop={8} style={{ paddingVertical: 8 }}>
+                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>Not now</Text>
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <Pressable onPress={() => router.push('/triage')}
+                    style={{ paddingVertical: 10, borderRadius: radius.pill, backgroundColor: t.nu, alignItems: 'center' }}>
+                    <Text style={{ color: '#0B1029', fontSize: 14, fontFamily: T.brand }}>One pass</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Surface>
+        )}
+
         {/* The primary action — last in flow, not pinned outside it. See the
             note at the top of this file for why. */}
         <View style={{ marginTop: 16 }}>
@@ -559,6 +720,21 @@ export default function Nu() {
             icon={<IconChevron size={21} color={t.onRa} />} />
         </View>
       </ScrollView>
+
+      {!!checkInTask && (
+        <ActionSheet
+          visible
+          title="This one keeps slipping"
+          subtitle={checkInTask.title}
+          actions={checkInActions}
+          dismissLabel="Not now"
+          onDismiss={async () => {
+            const seen = checkInTask;
+            setCheckInTask(null);
+            await markCheckInSeen(seen);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

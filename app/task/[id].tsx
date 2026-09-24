@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Primary, Ghost, Mica } from '../../src/ui';
+import { Primary, Ghost, Mica, Surface } from '../../src/ui';
 import { useStore, useTheme } from '../../src/store';
 import {
   getTask, updateTask, dropTask, pickForToday, addSteps, steps, completeStep,
@@ -36,10 +36,10 @@ function quickDate(add: number, h: number) {
   return d.getTime();
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children, first }: { label: string; children: React.ReactNode; first?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ marginTop: 24 }}>
+    <View style={{ marginTop: first ? 0 : 24 }}>
       <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, marginBottom: 10, fontFamily: T.brand }}>
         {label.toUpperCase()}
       </Text>
@@ -66,7 +66,7 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
 
 export default function TaskDetail() {
   const t = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const refresh = useStore(s => s.refresh);
   const celebrate = useStore(s => s.celebrate);
 
@@ -75,6 +75,18 @@ export default function TaskDetail() {
   const [stepText, setStepText] = useState('');
   const [showCal, setShowCal] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
+  const scroller = useRef<ScrollView>(null);
+  const stepsY = useRef(0);
+  const stepInput = useRef<TextInput>(null);
+
+  // Arriving from "Make it smaller" elsewhere (Ra's action sheet, the
+  // check-in prompt) means the steps field is the whole reason we're here —
+  // land on it instead of the top of the form.
+  const jumpToSteps = useCallback(() => {
+    scroller.current?.scrollTo({ y: Math.max(0, stepsY.current - 16), animated: true });
+    setTimeout(() => stepInput.current?.focus(), 260);
+  }, []);
+  useEffect(() => { if (focus === 'steps' && task) jumpToSteps(); }, [focus, task, jumpToSteps]);
   // Drives the footer bar below — a screen full of chips and text fields
   // with no visible save story reads as unfinished, even though every field
   // has already been written through by the time you see it change state.
@@ -117,7 +129,7 @@ export default function TaskDetail() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica />
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+      <ScrollView ref={scroller} contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
 
         <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
@@ -150,7 +162,14 @@ export default function TaskDetail() {
           />
         </Row>
 
-        <Row label="How long, roughly">
+        {/* The settings that back the "when/how long/kind" of this task,
+            grouped into one card rather than floating loose on the page —
+            they're all answers to "how should this be scheduled", one
+            neighbourhood, not five separate topics. */}
+        <View style={{ marginTop: 24 }}>
+        <Surface>
+        <View style={{ padding: 16 }}>
+        <Row label="How long, roughly" first>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {MINUTES.map(m => (
               <Chip key={m} label={`${m}m`} on={task.est_minutes === m}
@@ -263,9 +282,13 @@ export default function TaskDetail() {
             </Row>
           );
         })()}
+        </View>
+        </Surface>
+        </View>
 
         {/* Break it down. One level only. */}
         {!task.parent_id && (
+          <View onLayout={e => { stepsY.current = e.nativeEvent.layout.y; }}>
           <Row label={subs.length ? 'Steps' : 'Too big? Break it into steps'}>
             {subs.map(s => (
               <Pressable key={s.id}
@@ -289,6 +312,7 @@ export default function TaskDetail() {
               </Pressable>
             ))}
             <TextInput
+              ref={stepInput}
               value={stepText}
               onChangeText={setStepText}
               onSubmitEditing={addStep}
@@ -302,6 +326,7 @@ export default function TaskDetail() {
               }}
             />
           </Row>
+          </View>
         )}
 
         <View style={{ height: 32 }} />
@@ -316,8 +341,11 @@ export default function TaskDetail() {
             something from inside Nu is precisely the thing the two-mode design
             exists to prevent — you'd be picking from a list again, which is the
             decision that doesn't get made. The only way anything starts is
-            Nu → Ra → Begin. */}
+            Nu → Ra → Begin. "Make it smaller" fills the equivalent slot
+            instead: not a start action, a way to shrink the thing you're not
+            starting yet. */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+          {!task.parent_id && <Ghost label="Make it smaller" onPress={jumpToSteps} />}
           <Ghost label="Let it go" onPress={() => {
             // not a delete — it stays in the event log, it just stops asking
             Alert.alert('Let this go?', 'It stops appearing. Nothing is counted against you.', [

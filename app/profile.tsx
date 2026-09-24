@@ -6,12 +6,13 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useStore } from '../src/store';
 import { getProfile, setProfile, lightByDay, wins as winsQuery, type Task } from '../src/db';
-import { rankFor, nextRank, rankProgress, DAY_TARGET } from '../src/reward';
+import { DAY_TARGET } from '../src/reward';
 import { stageFor } from '../src/growth';
 import { LABELS, labelById } from '../src/labels';
 import { radius, elevation, type as T } from '../src/theme';
-import { Mica, Surface, Character, Bar, Count, IconChevron, IconCheck } from '../src/ui';
+import { Mica, Surface, Character, IconChevron, IconCheck } from '../src/ui';
 import { LabelGlyph } from '../src/components/LabelIcon';
+import { RankCard } from '../src/components/Rank';
 
 /**
  * You, and how it's actually going.
@@ -47,9 +48,6 @@ export default function Profile() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const rank = rankFor(light);
-  const next = nextRank(light);
-  const p = rankProgress(light);
   const max = Math.max(DAY_TARGET, ...days.map(d => d.n));
 
   /** Warm for a full day, cool for a quiet one — never red, never a warning. */
@@ -158,19 +156,9 @@ export default function Profile() {
         </Pressable>
 
         {/* ---- rank ---- */}
-        <Surface accent="ra" style={{ marginTop: 22 }}>
-          <View style={{ padding: 16, gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              <Text style={{ color: t.ink, fontSize: 18, fontFamily: T.display, flex: 1 }}>{rank.name}</Text>
-              <Count value={light} style={{ color: t.ra, fontSize: 26, fontFamily: T.display }} />
-              <Text style={{ color: t.ink3, fontSize: 13, marginLeft: 5 }}>light</Text>
-            </View>
-            <Bar pct={p} height={8} />
-            <Text style={{ color: t.ink3, fontSize: 13 }}>
-              {next ? `${next.at - light} to ${next.name}` : 'Every rank there is.'}
-            </Text>
-          </View>
-        </Surface>
+        <View style={{ marginTop: 22 }}>
+          <RankCard light={light} blurb={false} />
+        </View>
 
         {/* ---- the week ---- */}
         <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginTop: 24, marginBottom: 10, marginLeft: 4 }}>

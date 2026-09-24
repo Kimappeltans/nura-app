@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import Welcome from './Welcome';
+import HowItWorks from './HowItWorks';
 import Auth from './Auth';
 
 /**
- * Two steps, in the order they earn:
+ * Three steps, in the order they earn:
  *
- *   1. WELCOME  — what this is.
- *   2. SIGN IN  — who you are, LAST.
+ *   1. WELCOME    — what this is.
+ *   2. HOW IT WORKS — the Nu/Ra metaphor, said once in plain words, before
+ *      the names start doing real work as screens and navigation.
+ *   3. SIGN IN    — who you are, LAST.
  *
  * Sign-in used to be a side road hanging off a link on the welcome screen,
  * which meant almost nobody would ever reach it — you'd tap the big button and
@@ -31,20 +34,24 @@ import Auth from './Auth';
  */
 export default function Onboarding() {
   const finishOnboarding = useStore(s => s.finishOnboarding);
-  const [step, setStep] = useState<'welcome' | 'auth'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'how' | 'auth'>('welcome');
 
   if (step === 'auth') {
     return (
       <Auth
         onClose={finishOnboarding}
-        onBack={() => setStep('welcome')}
+        onBack={() => setStep('how')}
       />
     );
   }
 
+  if (step === 'how') {
+    return <HowItWorks onNext={() => setStep('auth')} />;
+  }
+
   return (
     <Welcome
-      onNext={() => setStep('auth')}
+      onNext={() => setStep('how')}
       onSignIn={() => setStep('auth')}
     />
   );

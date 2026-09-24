@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput } from 'react-native';
+import { View, Text, Pressable, TextInput, PanResponder } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -13,6 +13,18 @@ import { type as T, copy, radius } from '../src/theme';
 
 const FIVE = 5 * 60;
 const R = 89, C = 2 * Math.PI * R;
+const DIAL_CENTER = 103;
+const MIN_MIN = 5, MAX_MIN = 90, STEP_MIN = 5;
+
+/** Touch position on the ring -> a length in minutes. 0° is straight up
+ *  (the ring's visual start, since the SVG below is rotated -90°) and
+ *  degrees increase clockwise, same direction the ring itself fills. */
+function angleToMinutes(x: number, y: number) {
+  const dx = x - DIAL_CENTER, dy = y - DIAL_CENTER;
+  const deg = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
+  const raw = MIN_MIN + (deg / 360) * (MAX_MIN - MIN_MIN);
+  return Math.max(MIN_MIN, Math.min(MAX_MIN, Math.round(raw / STEP_MIN) * STEP_MIN));
+}
 
 /** Break length follows the session that earned it — a five-minute dash and a
  *  forty-five-minute block don't deserve the same pause. Roughly the Pomodoro
@@ -101,6 +113,40 @@ export default function Timer() {
     });
   };
 
+  /**
+   * "Drag the sun around" — hold the ring itself and turn it to change how
+   * long this session is, mid-run. Refs, not the state values directly,
+   * because PanResponder.create only runs once (see the useRef below) and
+   * everything it reads has to stay current across renders it was never
+   * re-created for. setSpan/setLeft/tick are all stable regardless.
+   */
+  const [dragging, setDragging] = useState(false);
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  const askingRef = useRef(asking);
+  useEffect(() => { askingRef.current = asking; }, [asking]);
+  const dragMins = useRef(Math.round(initial / 60));
+
+  const dial = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => phaseRef.current === 'work' && !askingRef.current,
+    onMoveShouldSetPanResponder: () => phaseRef.current === 'work' && !askingRef.current,
+    onPanResponderGrant: (evt) => {
+      setDragging(true);
+      if (tick.current) clearInterval(tick.current);
+      Haptics.selectionAsync();
+      const m = angleToMinutes(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      dragMins.current = m;
+      setSpan(m * 60); setLeft(m * 60);
+    },
+    onPanResponderMove: (evt) => {
+      const m = angleToMinutes(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      if (m !== dragMins.current) { Haptics.selectionAsync(); dragMins.current = m; }
+      setSpan(m * 60); setLeft(m * 60);
+    },
+    onPanResponderRelease: () => { setDragging(false); runWork(dragMins.current * 60); },
+    onPanResponderTerminate: () => { setDragging(false); runWork(dragMins.current * 60); },
+  })).current;
+
   useEffect(() => {
     if (id) {
       logEvent('started', id);
@@ -151,7 +197,12 @@ export default function Timer() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const progress = asking ? 1 : 1 - left / span;
+  // While dragging, the arc reflects the LENGTH you're choosing (angle
+  // around the dial, same as a volume knob) rather than time elapsed —
+  // there's no "elapsed" yet, the session hasn't resumed counting down.
+  const progress = dragging
+    ? (dragMins.current - MIN_MIN) / (MAX_MIN - MIN_MIN)
+    : asking ? 1 : 1 - left / span;
   const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
   const onBreak = phase === 'break';
   // The break earned is sized to the ORIGINAL contract, not any "keep going"
@@ -174,13 +225,19 @@ export default function Timer() {
         <Text style={{ color: t.ink3, fontSize: 12.5, marginBottom: 20 }}>
           {phase === 'breakOffer'
             ? "you earned it"
+            : dragging ? 'Turning the ring changes the length'
             : onBreak ? `Phone quiet · back in ${breakMins} minutes` : `Phone quiet · ${spanMinsNum} minutes`}
         </Text>
 
         {phase !== 'breakOffer' && (
           <>
-            {/* an analog ring, not digits — a shrinking arc is felt, "4:12" is read and forgotten */}
-            <View style={{ width: 206, height: 206, alignItems: 'center', justifyContent: 'center' }}>
+            {/* an analog ring, not digits — a shrinking arc is felt, "4:12" is
+                read and forgotten. During the work clock (not the break, not
+                the "keep going?" ask) it's also the length control: hold it
+                and turn it, same gesture as turning a real dial. */}
+            <View
+              {...(!onBreak && !asking ? dial.panHandlers : {})}
+              style={{ width: 206, height: 206, alignItems: 'center', justifyContent: 'center' }}>
               <Svg width={206} height={206} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
                 <Defs>
                   <LinearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -193,7 +250,7 @@ export default function Timer() {
               </Svg>
               <Text style={{ color: t.ink, fontSize: 42, fontFamily: T.displayLight }}>{mm}:{ss}</Text>
               <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 2, marginTop: 6 }}>
-                {onBreak ? 'BREAK' : asking ? 'COMPLETE' : 'REMAINING'}
+                {dragging ? 'LENGTH' : onBreak ? 'BREAK' : asking ? 'COMPLETE' : 'REMAINING'}
               </Text>
             </View>
 

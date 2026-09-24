@@ -44,6 +44,10 @@ export interface Task {
   activity: ActivityId | null;
   /** for weekly repeats: which days, as "1,3,5" with 1 = Monday */
   repeat_days: string | null;
+  /** how many times "not now" has been pressed. Internal only — see addColumns(). */
+  snooze_count: number | null;
+  /** sync's watermark — see src/sync.ts. Stamped by every mutator below. */
+  updated_at: number | null;
 }
 
 export type EventKind =
@@ -114,11 +118,33 @@ async function openDb() {
 
     CREATE TABLE IF NOT EXISTS app_state (k TEXT PRIMARY KEY, v TEXT);
 
+    -- Cue-based habits — deliberately NOT the task table. A task is a
+    -- one-off with a deadline; a habit is a cue ("after coffee") plus a
+    -- tiny action, repeated indefinitely, with no due date and no streak
+    -- to break. See src/habits.ts.
+    CREATE TABLE IF NOT EXISTS habit (
+      id         TEXT PRIMARY KEY,
+      cue        TEXT NOT NULL,
+      action     TEXT NOT NULL,
+      minimum    TEXT,
+      created_at INTEGER NOT NULL,
+      active     INTEGER NOT NULL DEFAULT 1
+    );
+    -- append-only, same spirit as the event table — one row per time the
+    -- habit actually happened, never edited, never decremented.
+    CREATE TABLE IF NOT EXISTS habit_log (
+      id          TEXT PRIMARY KEY,
+      habit_id    TEXT NOT NULL REFERENCES habit(id),
+      at          INTEGER NOT NULL,
+      did_minimum INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS idx_task_state   ON task(state);
     CREATE INDEX IF NOT EXISTS idx_task_due     ON task(due_at);
     CREATE INDEX IF NOT EXISTS idx_event_at     ON event(at);
     CREATE INDEX IF NOT EXISTS idx_event_kind   ON event(kind);
     CREATE INDEX IF NOT EXISTS idx_nudge_fire   ON nudge(fire_at);
+    CREATE INDEX IF NOT EXISTS idx_habit_log_habit ON habit_log(habit_id);
   `);
   await addColumns(db);
   return db;
@@ -138,6 +164,34 @@ async function addColumns(db: SQLite.SQLiteDatabase) {
   if (!have.has('priority'))      await db.execAsync(`ALTER TABLE task ADD COLUMN priority INTEGER DEFAULT 0`);
   if (!have.has('activity'))      await db.execAsync(`ALTER TABLE task ADD COLUMN activity TEXT`);
   if (!have.has('repeat_days'))   await db.execAsync(`ALTER TABLE task ADD COLUMN repeat_days TEXT`);
+  // Counts "not now"s on a task, and ONLY that — never shown as a number
+  // anywhere, never a factor in NOW's ordering, never a reason a task looks
+  // different in a list. Its one job is letting the app notice a task that
+  // keeps slipping and offer a check-in, once, the same courtesy as the
+  // skip.est/skip.first flags already get. See notNow() below.
+  if (!have.has('snooze_count'))  await db.execAsync(`ALTER TABLE task ADD COLUMN snooze_count INTEGER DEFAULT 0`);
+  // Sync's watermark column (see src/sync.ts) — every mutator that writes to
+  // task/habit/habit_log stamps this. Backfilled rather than left NULL:
+  // SQLite's `NULL > x` is never true, so an un-backfilled row would be
+  // silently invisible to every `WHERE updated_at > ?` sync query forever.
+  if (!have.has('updated_at')) {
+    await db.execAsync(`ALTER TABLE task ADD COLUMN updated_at INTEGER`);
+    await db.execAsync(`UPDATE task SET updated_at = COALESCE(completed_at, created_at) WHERE updated_at IS NULL`);
+  }
+
+  const habitCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(habit)`);
+  const haveHabit = new Set(habitCols.map(c => c.name));
+  if (!haveHabit.has('updated_at')) {
+    await db.execAsync(`ALTER TABLE habit ADD COLUMN updated_at INTEGER`);
+    await db.execAsync(`UPDATE habit SET updated_at = created_at WHERE updated_at IS NULL`);
+  }
+
+  const logCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(habit_log)`);
+  const haveLog = new Set(logCols.map(c => c.name));
+  if (!haveLog.has('updated_at')) {
+    await db.execAsync(`ALTER TABLE habit_log ADD COLUMN updated_at INTEGER`);
+    await db.execAsync(`UPDATE habit_log SET updated_at = at WHERE updated_at IS NULL`);
+  }
 }
 
 const uid = () =>
@@ -222,12 +276,13 @@ export async function capture(title: string, opts: CaptureOpts = {}) {
   // about the activity, and a wrong estimate silently changes what the energy
   // filter hands you.
   const minutes = opts.est_minutes ?? null;
+  const now = Date.now();
   await db.runAsync(
-    `INSERT INTO task (id, title, state, created_at, label, est_minutes, due_at, has_time, repeat_rule, priority, activity, repeat_days)
-     VALUES (?, ?, 'inbox', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, title.trim(), Date.now(), label,
+    `INSERT INTO task (id, title, state, created_at, label, est_minutes, due_at, has_time, repeat_rule, priority, activity, repeat_days, updated_at)
+     VALUES (?, ?, 'inbox', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, title.trim(), now, label,
     minutes, opts.due_at ?? null, opts.has_time ? 1 : 0,
-    opts.repeat_rule ?? null, opts.priority ?? 0, activity, opts.repeat_days ?? null,
+    opts.repeat_rule ?? null, opts.priority ?? 0, activity, opts.repeat_days ?? null, now,
   );
   await logEvent('captured', id);
   await grantLight('capture', id);
@@ -312,11 +367,12 @@ async function spawnNext(t: Task) {
   // if it was finished very late, roll forward to the first future occurrence
   let guard = 0;
   while (next < Date.now() && guard++ < 400) next = nextOccurrence(t.repeat_rule, next, t.repeat_days);
+  const now = Date.now();
   await db.runAsync(
-    `INSERT INTO task (id, title, first_action, est_minutes, due_at, state, created_at, repeat_rule, label, has_time, priority, activity, repeat_days)
-     VALUES (?, ?, ?, ?, ?, 'inbox', ?, ?, ?, ?, ?, ?, ?)`,
-    uid(), t.title, t.first_action, t.est_minutes, next, Date.now(),
-    t.repeat_rule, t.label, t.has_time, t.priority, t.activity, t.repeat_days);
+    `INSERT INTO task (id, title, first_action, est_minutes, due_at, state, created_at, repeat_rule, label, has_time, priority, activity, repeat_days, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'inbox', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    uid(), t.title, t.first_action, t.est_minutes, next, now,
+    t.repeat_rule, t.label, t.has_time, t.priority, t.activity, t.repeat_days, now);
 }
 
 // `reason` lets a caller override what the completion pays out as — used by
@@ -326,9 +382,10 @@ async function spawnNext(t: Task) {
 export async function complete(id: string, partial = false, reason?: RewardReason) {
   const db = await getDb();
   const before = await getTask(id);
+  const now = Date.now();
   await db.runAsync(
-    'UPDATE task SET state = ?, completed_at = ? WHERE id = ?',
-    'done', Date.now(), id,
+    'UPDATE task SET state = ?, completed_at = ?, updated_at = ? WHERE id = ?',
+    'done', now, now, id,
   );
   if (before?.repeat_rule) await spawnNext(before);
   // Time spent counts. Stopping early still logs a win, and still pays — this
@@ -339,21 +396,43 @@ export async function complete(id: string, partial = false, reason?: RewardReaso
 }
 
 /**
- * "Not now" is a scheduling fact, not a failure. Nothing increments, nothing is
- * counted against you — but the task does step out of the running for a while.
+ * "Not now" is a scheduling fact, not a failure — the task doesn't get a
+ * lower priority, a red flag, or a worse position in any list for having
+ * been snoozed. `snooze_count` is the one exception, and it's a narrow one:
+ * it's never displayed, never read by pickNow()'s ordering, and does
+ * nothing on its own. Its only reader is `checkInDue()` below, which uses it
+ * to notice a task that's been quietly slipping and offer a real check-in
+ * instead of letting it slip forever.
  *
- * Without that, a task whose due date has passed wins pickNow() forever: the
- * first clause matches anything with `due_at <= now + 2h`, "not now" put it
- * straight back to 'inbox', and Ra handed you the identical task on the next
- * frame. Snoozing is what makes the button mean anything.
+ * Without the snooze itself, a task whose due date has passed wins
+ * pickNow() forever: the first clause matches anything with
+ * `due_at <= now + 2h`, "not now" put it straight back to 'inbox', and Ra
+ * handed you the identical task on the next frame. Snoozing is what makes
+ * the button mean anything.
  */
 export async function notNow(id: string, minutes = 180) {
   const db = await getDb();
   await db.runAsync(
-    'UPDATE task SET state = ?, snoozed_until = ? WHERE id = ?',
-    'inbox', Date.now() + minutes * 60_000, id);
+    'UPDATE task SET state = ?, snoozed_until = ?, snooze_count = COALESCE(snooze_count, 0) + 1, updated_at = ? WHERE id = ?',
+    'inbox', Date.now() + minutes * 60_000, Date.now(), id);
   await logEvent('skipped', id, { minutes });
   await markActed();
+}
+
+/** Has this task slipped enough times that a plain "not now" has stopped
+ *  being the honest answer? Fires once per crossing, via the same
+ *  once-and-only-once flag pattern as Ra's skip.est/skip.first — a task
+ *  that's been checked in on and snoozed again doesn't get re-asked until
+ *  it slips a further THRESHOLD times past that. */
+const CHECK_IN_THRESHOLD = 4;
+export async function checkInDue(task: Task): Promise<boolean> {
+  const n = task.snooze_count ?? 0;
+  if (n < CHECK_IN_THRESHOLD || n % CHECK_IN_THRESHOLD !== 0) return false;
+  const seenAt = await getFlag(`checkin.${task.id}`);
+  return seenAt !== String(n);
+}
+export async function markCheckInSeen(task: Task) {
+  await setFlag(`checkin.${task.id}`, String(task.snooze_count ?? 0));
 }
 
 export type Energy = 'low' | 'steady' | 'focused';
@@ -368,7 +447,10 @@ export async function getEnergy(): Promise<Energy> {
 }
 
 /** What counts as "doable right now" at each energy level. */
-const CEILING: Record<Energy, number> = { low: 10, steady: 30, focused: 999 };
+// Exported so the UI layer can explain a pick (see priority.ts's whyNow)
+// without re-querying the DB — the two must stay in step with each other,
+// which is the whole reason this lives in one place rather than two.
+export const CEILING: Record<Energy, number> = { low: 10, steady: 30, focused: 999 };
 
 /** Everything that is genuinely in the running: not done, not dropped, not a
  *  sub-step being counted twice, and not snoozed out. */
@@ -545,9 +627,13 @@ export async function updateTask(id: string, patch: TaskPatch) {
   const keys = FIELDS.filter(k => patch[k] !== undefined);
   if (!keys.length) return;
   const db = await getDb();
+  // updated_at is stamped unconditionally, not folded into FIELDS/TaskPatch —
+  // it's not a thing you ever set (see src/sync.ts's watermark), it's a fact
+  // about every patch: something changed, so the "when did this last change"
+  // clock always ticks, regardless of which fields moved.
   await db.runAsync(
-    `UPDATE task SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`,
-    ...keys.map(k => patch[k] as SQLite.SQLiteBindValue), id,
+    `UPDATE task SET ${keys.map(k => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`,
+    ...keys.map(k => patch[k] as SQLite.SQLiteBindValue), Date.now(), id,
   );
 }
 
@@ -568,9 +654,12 @@ export async function getTask(id: string) {
 export async function dropTask(id: string) {
   const db = await getDb();
   await updateTask(id, { state: 'dropped' });
+  // Bypasses updateTask() (it's a WHERE parent_id = ?, not a single row by
+  // id), so it needs its own updated_at stamp — sync has no other way to
+  // know these child steps changed.
   await db.runAsync(
-    `UPDATE task SET state = 'dropped' WHERE parent_id = ? AND state NOT IN ('done','dropped')`,
-    id);
+    `UPDATE task SET state = 'dropped', updated_at = ? WHERE parent_id = ? AND state NOT IN ('done','dropped')`,
+    Date.now(), id);
   await logEvent('skipped', id, { dropped: true });
 }
 
@@ -599,10 +688,11 @@ export async function addSteps(parentId: string, titles: string[]) {
   const parent = await getTask(parentId);
   if (!parent || parent.parent_id) return;   // refuse to nest twice
   for (const t of titles.map(x => x.trim()).filter(Boolean)) {
+    const now = Date.now();
     await db.runAsync(
-      `INSERT INTO task (id, title, state, created_at, parent_id, est_minutes)
-       VALUES (?, ?, 'today', ?, ?, 5)`,
-      uid(), t, Date.now(), parentId,
+      `INSERT INTO task (id, title, state, created_at, parent_id, est_minutes, updated_at)
+       VALUES (?, ?, 'today', ?, ?, 5, ?)`,
+      uid(), t, now, parentId, now,
     );
   }
   await logEvent('captured', parentId, { steps: titles.length });
@@ -721,6 +811,64 @@ export async function search(q: string, limit = 40) {
       LIMIT ?`, `%${term}%`, `%${term}%`, limit);
 }
 
+/* ---------------- habits — cue, tiny action, no streak ---------------- */
+
+export interface Habit {
+  id: string;
+  cue: string;
+  action: string;
+  minimum: string | null;
+  created_at: number;
+  active: number;
+  updated_at: number | null;
+}
+
+export interface HabitLog { id: string; habit_id: string; at: number; did_minimum: number; updated_at: number | null }
+
+export async function createHabit(cue: string, action: string, minimum?: string): Promise<Habit> {
+  const db = await getDb();
+  const now = Date.now();
+  const h: Habit = {
+    id: uid(), cue: cue.trim(), action: action.trim(), minimum: minimum?.trim() || null,
+    created_at: now, active: 1, updated_at: now,
+  };
+  await db.runAsync(
+    'INSERT INTO habit (id, cue, action, minimum, created_at, active, updated_at) VALUES (?,?,?,?,?,?,?)',
+    h.id, h.cue, h.action, h.minimum, h.created_at, h.active, h.updated_at);
+  return h;
+}
+
+export async function listHabits(): Promise<Habit[]> {
+  const db = await getDb();
+  return db.getAllAsync<Habit>('SELECT * FROM habit WHERE active = 1 ORDER BY created_at ASC');
+}
+
+/** Not a delete — a habit that isn't working gets paused, not marked as a
+ *  failure. Its log stays, so turning it back on doesn't lose the history. */
+export async function pauseHabit(id: string) {
+  const db = await getDb();
+  await db.runAsync('UPDATE habit SET active = 0, updated_at = ? WHERE id = ?', Date.now(), id);
+}
+
+export async function logHabit(habitId: string, didMinimum = false) {
+  const db = await getDb();
+  const at = Date.now();
+  await db.runAsync(
+    'INSERT INTO habit_log (id, habit_id, at, did_minimum, updated_at) VALUES (?,?,?,?,?)',
+    uid(), habitId, at, didMinimum ? 1 : 0, at);
+}
+
+/** Every log for a habit in the last `days` — the raw material for
+ *  src/habits.ts's completion-rate math. Kept here as plain data; the
+ *  judgment-free framing of what to DO with it lives in habits.ts, not
+ *  the persistence layer. */
+export async function habitLogs(habitId: string, days = 30): Promise<HabitLog[]> {
+  const db = await getDb();
+  const since = Date.now() - days * 86400_000;
+  return db.getAllAsync<HabitLog>(
+    'SELECT * FROM habit_log WHERE habit_id = ? AND at >= ? ORDER BY at ASC', habitId, since);
+}
+
 /**
  * Which activity scenes you've earned — every activity you have actually
  * FINISHED at least once. Derived from the task table rather than stored, so
@@ -811,8 +959,8 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
   for (const raw of lines.map(l => l.trim()).filter(Boolean)) {
     const id = uid();
     await db.runAsync(
-      `INSERT INTO task (id,title,state,created_at,completed_at,retro)
-       VALUES (?,?,'done',?,?,1)`, id, raw, whenMs, whenMs);
+      `INSERT INTO task (id,title,state,created_at,completed_at,retro,updated_at)
+       VALUES (?,?,'done',?,?,1,?)`, id, raw, whenMs, whenMs, whenMs);
     await db.runAsync(
       `INSERT INTO event (task_id,kind,at,meta) VALUES (?,'completed',?,?)`,
       id, whenMs, JSON.stringify({ retro: true }));

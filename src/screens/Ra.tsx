@@ -4,14 +4,16 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Primary, Ghost, Mica, Surface, Character, Eyebrow, SunArc } from '../ui';
+import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { useStore, useTheme } from '../store';
 import {
-  complete, notNow, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickNow, pickForToday,
+  complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickNow, pickForToday,
 } from '../db';
 import { reconcileNudges } from '../notifications';
 import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
 import { radius, type as T, copy } from '../theme';
 import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
+import { whyNow } from '../priority';
 import type { Energy } from '../db';
 
 const MINUTES = [2, 5, 10, 15, 30, 60];
@@ -54,7 +56,7 @@ export default function Ra() {
   const [passed, setPassed] = useState<string[]>([]);   // seen-and-swapped this sitting
   const [picking, setPicking] = useState(false);   // task picker expanded
   const [pickingMins, setPickingMins] = useState(false);   // session-length chips expanded
-  const [more, setMore] = useState(false);   // secondary escape hatches expanded
+  const [sheet, setSheet] = useState(false);   // "not this one?" action sheet
 
   // How long the next session should be. Sticky across sittings — once you've
   // told it you like 25s, it stops asking, the same courtesy as skip.est/first.
@@ -140,6 +142,38 @@ export default function Ra() {
     if (next) { setPassed(seen); useStore.setState({ now: next }); }
     else { setPassed([]); useStore.setState({ now: await pickNow() }); }
   };
+
+  /** "Waiting on someone" — stays in the water, just stops being asked for a
+   *  while longer than a plain "later". Not a real status field (that's a
+   *  bigger data-model change than this screen should make on its own) — a
+   *  longer, honestly-named snooze gets the same practical result: it drops
+   *  out of rotation without pretending to be done or dropped. */
+  const waitingOnSomeone = async () => {
+    if (!now) return;
+    await notNow(now.id, 3 * 24 * 60);   // three days, not three hours
+    await refresh(); await reconcileNudges();
+    await toNu();
+  };
+
+  const makeItSmaller = () => {
+    if (!now) return;
+    router.push({ pathname: '/task/[id]', params: { id: now.id, focus: 'steps' } });
+  };
+
+  const notRelevant = async () => {
+    if (!now) return;
+    await dropTask(now.id);
+    await refresh();
+    await toNu();
+  };
+
+  const sheetActions: SheetAction[] = now ? [
+    { key: 'later', glyph: '↓', label: 'Later today', sub: 'sinks back, resurfaces in a few hours', onPress: later },
+    { key: 'smaller', glyph: '◊', label: 'Make it smaller', sub: 'break it into a first, smaller step', onPress: makeItSmaller },
+    { key: 'waiting', glyph: '⋯', label: 'Waiting on someone', sub: 'stays in the water, stops being asked', onPress: waitingOnSomeone },
+    { key: 'else', glyph: '↔', label: 'Something else instead', sub: 'raise the next one up', onPress: somethingElse },
+    { key: 'drop', glyph: '×', label: 'Not relevant anymore', sub: 'gone, no explanation needed', onPress: notRelevant },
+  ] : [];
 
   const answerEst = async (m: number) => {
     if (!now) return;
@@ -289,6 +323,13 @@ export default function Ra() {
               </View>
             )}
 
+            {/* Same reason the hero card on Nu gave for this one — repeated
+                here because Ra is where the "why should I trust this pick"
+                doubt actually surfaces, not where it was first shown. */}
+            {(() => { const why = whyNow(now, energy); return !!why && (
+              <Text style={{ color: t.ink3, fontSize: 13.5 }}>Why this one: {why}</Text>
+            ); })()}
+
             {/* ------------------------------------------------------------ *
               *  The one question.
               *
@@ -410,73 +451,81 @@ export default function Ra() {
               </View>
             </Surface>
 
+            {/* "Something else" used to be its own permanent button; it's now
+                one of the five things the sheet can do with the CURRENT task,
+                which is the more honest grouping — they're all answers to
+                the same question, "not this one?", not five unrelated
+                features. "Already done" stays outside the sheet: it's not a
+                decision about whether to keep looking at this task, it's the
+                good outcome. */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Something else" onPress={somethingElse} />
               <Ghost label="Already done" onPress={done} />
+              <Pressable onPress={() => { Haptics.selectionAsync(); setSheet(true); }}
+                hitSlop={10} style={{
+                  width: 44, alignItems: 'center', justifyContent: 'center',
+                  borderRadius: radius.pill, borderWidth: 1, borderColor: t.strokeStrong,
+                }}>
+                <Text style={{ color: t.ink2, fontSize: 18, fontFamily: T.brand }}>···</Text>
+              </Pressable>
             </View>
 
-            {/* Everything past "something else" and "already done" is a
-                second tier of escape hatches — useful, but not something
-                every visit needs to see laid out. Tucked behind one more
-                toggle instead of three permanent rows. */}
-            {!more ? (
-              <Pressable onPress={() => { Haptics.selectionAsync(); setMore(true); }}
-                hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 6 }}>
-                <Text style={{ color: t.ink3, fontSize: 13.5 }}>More options</Text>
-              </Pressable>
-            ) : (
-              <View style={{ gap: 10, alignItems: 'center' }}>
-                {/* Task picker — lets you choose a specific task without going back to Nu. */}
-                {!picking ? (
-                  <Pressable onPress={() => { Haptics.selectionAsync(); setPicking(true); }}
-                    hitSlop={10} style={{ paddingVertical: 6 }}>
-                    <Text style={{ color: t.nu, fontSize: 13.5 }}>Choose something specific →</Text>
-                  </Pressable>
-                ) : (
-                  <View style={{
-                    width: '100%', backgroundColor: t.layer, borderRadius: radius.lg,
-                    borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
-                      <Text style={{ flex: 1, color: t.ink2, fontSize: 13, fontFamily: T.brand }}>YOUR LIST</Text>
-                      <Pressable onPress={() => setPicking(false)} hitSlop={10}>
-                        <Text style={{ color: t.ink3, fontSize: 15 }}>✕</Text>
-                      </Pressable>
-                    </View>
-                    {inbox.filter(x => x.id !== now?.id).slice(0, 12).map((task, i) => (
-                      <Pressable key={task.id}
-                        onPress={async () => {
-                          Haptics.selectionAsync();
-                          await pickForToday(task.id, true);
-                          useStore.setState({ now: task });
-                          setPassed([]);
-                          setPicking(false);
-                        }}
-                        style={({ pressed }) => ({
-                          padding: 12, paddingLeft: 14,
-                          borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.stroke,
-                          backgroundColor: pressed ? t.subtle : 'transparent',
-                          flexDirection: 'row', alignItems: 'center', gap: 10,
-                        })}>
-                        <Text style={{ flex: 1, color: t.ink, fontSize: 15, lineHeight: 21 }} numberOfLines={2}>
-                          {task.title}
-                        </Text>
-                        {!!task.est_minutes && (
-                          <Text style={{ color: t.ink3, fontSize: 12, flexShrink: 0 }}>{task.est_minutes}m</Text>
-                        )}
-                      </Pressable>
-                    ))}
-                    {inbox.length === 0 && (
-                      <Text style={{ color: t.ink3, fontSize: 14, padding: 14 }}>Nothing else to pick from.</Text>
-                    )}
-                  </View>
-                )}
-
-                <Pressable onPress={later} hitSlop={10} style={{ paddingVertical: 6 }}>
-                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>Not today — put it back</Text>
+            {/* Choosing a specific task is a different job from "not this
+                one" — picking, not deciding — so it stays a plain link
+                rather than living in the sheet. */}
+            <View style={{ alignItems: 'center' }}>
+              {!picking ? (
+                <Pressable onPress={() => { Haptics.selectionAsync(); setPicking(true); }}
+                  hitSlop={10} style={{ paddingVertical: 6 }}>
+                  <Text style={{ color: t.nu, fontSize: 13.5 }}>Choose something specific →</Text>
                 </Pressable>
-              </View>
-            )}
+              ) : (
+                <View style={{
+                  width: '100%', backgroundColor: t.layer, borderRadius: radius.lg,
+                  borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+                    <Text style={{ flex: 1, color: t.ink2, fontSize: 13, fontFamily: T.brand }}>YOUR LIST</Text>
+                    <Pressable onPress={() => setPicking(false)} hitSlop={10}>
+                      <Text style={{ color: t.ink3, fontSize: 15 }}>✕</Text>
+                    </Pressable>
+                  </View>
+                  {inbox.filter(x => x.id !== now?.id).slice(0, 12).map((task, i) => (
+                    <Pressable key={task.id}
+                      onPress={async () => {
+                        Haptics.selectionAsync();
+                        await pickForToday(task.id, true);
+                        useStore.setState({ now: task });
+                        setPassed([]);
+                        setPicking(false);
+                      }}
+                      style={({ pressed }) => ({
+                        padding: 12, paddingLeft: 14,
+                        borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.stroke,
+                        backgroundColor: pressed ? t.subtle : 'transparent',
+                        flexDirection: 'row', alignItems: 'center', gap: 10,
+                      })}>
+                      <Text style={{ flex: 1, color: t.ink, fontSize: 15, lineHeight: 21 }} numberOfLines={2}>
+                        {task.title}
+                      </Text>
+                      {!!task.est_minutes && (
+                        <Text style={{ color: t.ink3, fontSize: 12, flexShrink: 0 }}>{task.est_minutes}m</Text>
+                      )}
+                    </Pressable>
+                  ))}
+                  {inbox.length === 0 && (
+                    <Text style={{ color: t.ink3, fontSize: 14, padding: 14 }}>Nothing else to pick from.</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <ActionSheet
+              visible={sheet}
+              title="Not this one?"
+              subtitle={now.title}
+              actions={sheetActions}
+              onDismiss={() => setSheet(false)}
+            />
           </View>
         )}
       </ScrollView>

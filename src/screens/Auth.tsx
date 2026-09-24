@@ -5,8 +5,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { radius, raTheme, type as T } from '../theme';
-import { Primary, Mica, Character } from '../ui';
+import { Primary, Mica, Character, Eyebrow } from '../ui';
+import { supabase } from '../supabase';
 
 /* --- brand glyphs, drawn rather than shipped as logo files ---------------- */
 
@@ -54,10 +58,16 @@ type Mode = 'choose' | 'email';
  * with client-side validation (name present, password ≥8 characters, the two
  * password fields matching) before anything is submitted.
  *
- * The handlers below are wired to the UI but not to a backend yet — each one
- * marks where the Supabase call goes. Nothing here pretends to have signed you
- * in, and nothing typed here is written to disk — the password fields exist
- * only in this screen's own state and are gone the moment you navigate away.
+ * Apple goes through the native Sign-in-with-Apple sheet (expo-apple-
+ * authentication) — Apple requires this specific native experience, not a
+ * webview, whenever another social login is offered alongside it. Google
+ * has no such requirement, so it goes through Supabase's own hosted OAuth
+ * redirect instead (opened in an in-app browser sheet, bounced back via the
+ * app's own `nura://` scheme) rather than a second native SDK. Nothing
+ * typed here is written to disk beyond what Supabase's client itself
+ * persists (the session, via AsyncStorage — see src/supabase.ts) — the
+ * password fields exist only in this screen's own state and are gone the
+ * moment you navigate away.
  */
 export default function Auth(
   { onClose, onBack }: { onClose: () => void; onBack?: () => void },
@@ -76,42 +86,83 @@ export default function Auth(
   const [confirm, setConfirm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
 
-  const inputStyle = {
+  // A plain grey border everywhere reads as inert. The bottom edge lights up
+  // coral on focus instead — a small, cheap signal that the field is live.
+  const fieldStyle = (id: string) => ({
     color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
     backgroundColor: t.card, borderRadius: radius.lg,
     borderWidth: 1, borderColor: t.strokeStrong,
-  } as const;
+    borderBottomWidth: 2, borderBottomColor: focused === id ? t.ra : t.strokeStrong,
+  } as const);
+  const onFieldFocus = (id: string) => () => setFocused(id);
+  const onFieldBlur = () => setFocused(null);
 
-  const notYet = (what: string) => {
+  const fail = (title: string, message?: string) => {
     setBusy(null);
-    Alert.alert(
-      `${what} isn’t connected yet`,
-      'The screens are built; the backend comes next. Nothing is stored, and the app keeps working without an account.',
-      [{ text: 'OK' }],
-    );
+    Alert.alert(title, message ?? 'Try again in a moment.', [{ text: 'OK' }]);
   };
 
-  // → supabase.auth.signInWithIdToken({ provider: 'apple', token })
   const withApple = async () => {
     setBusy('apple'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => notYet('Sign in with Apple'), 450);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) throw new Error('Apple didn’t return an identity token.');
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple', token: credential.identityToken,
+      });
+      if (error) throw error;
+      onClose();
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code === 'ERR_REQUEST_CANCELED') { setBusy(null); return; }   // backed out, not a failure
+      fail('Sign in with Apple failed', (e as Error).message);
+    }
   };
-  // → supabase.auth.signInWithIdToken({ provider: 'google', token })
+
+  // Supabase's hosted redirect, not a native Google SDK — see the file-level
+  // comment for why Apple and Google take different routes here.
   const withGoogle = async () => {
     setBusy('google'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => notYet('Google'), 450);
+    try {
+      const redirectTo = Linking.createURL('/');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error || !data?.url) throw error ?? new Error('No sign-in link came back.');
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== 'success' || !result.url) { setBusy(null); return; }   // cancelled
+      const code = new URL(result.url).searchParams.get('code');
+      if (!code) throw new Error('No authorization code came back.');
+      const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+      if (exErr) throw exErr;
+      onClose();
+    } catch (e) {
+      fail('Google sign-in failed', (e as Error).message);
+    }
   };
-  // → supabase.auth.signInWithOtp({ email })  — magic link, no password to forget.
-  // Still offered, but only as a sign-in fallback now — creating an account
-  // goes through withPassword below, which collects a real password.
+
+  // Magic link, no password to forget — offered only as a sign-in fallback;
+  // creating an account goes through withPassword below, which collects a
+  // real password.
   const withEmail = async () => {
     if (!email.includes('@')) return;
     setBusy('email'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => notYet('Email'), 450);
+    const { error } = await supabase.auth.signInWithOtp({
+      email, options: { emailRedirectTo: Linking.createURL('/') },
+    });
+    setBusy(null);
+    if (error) return fail('Couldn’t send the link', error.message);
+    Alert.alert('Check your email', `We sent a sign-in link to ${email}.`, [{ text: 'OK', onPress: onClose }]);
   };
-  // → creating: supabase.auth.signUp({ email, password, options: { data: { name } } })
-  // → signing in: supabase.auth.signInWithPassword({ email, password })
+
   const withPassword = async () => {
     setFormError(null);
     if (creating && !name.trim()) return setFormError('Add your name.');
@@ -119,7 +170,20 @@ export default function Auth(
     if (password.length < 8) return setFormError('Password needs at least 8 characters.');
     if (creating && password !== confirm) return setFormError('Passwords don’t match.');
     setBusy('password'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => notYet(creating ? 'Creating your account' : 'Sign in'), 450);
+    const { data, error } = creating
+      ? await supabase.auth.signUp({ email, password, options: { data: { name: name.trim() } } })
+      : await supabase.auth.signInWithPassword({ email, password });
+    setBusy(null);
+    if (error) return setFormError(error.message);
+    if (creating && !data.session) {
+      // "Confirm email" stays on in the Supabase dashboard — signUp() then
+      // returns a user but no session until the link is clicked. Expected,
+      // not an error.
+      Alert.alert('Almost there', 'Check your email to confirm your account, then sign in.',
+        [{ text: 'OK', onPress: () => { setCreating(false); setMode('choose'); } }]);
+      return;
+    }
+    onClose();
   };
 
   const Social = ({ id, label, glyph, dark }: {
@@ -156,6 +220,7 @@ export default function Auth(
           contentContainerStyle={{ flexGrow: 1 }}>
           <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
 
+          <Eyebrow label={creating ? 'New here' : 'Welcome back'} tone="ra" />
           <Text style={{
             color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
             letterSpacing: -0.9, marginTop: 6,
@@ -200,7 +265,8 @@ export default function Auth(
                   autoFocus value={name} onChangeText={setName}
                   placeholder="Your name" placeholderTextColor={t.ink3}
                   autoCapitalize="words" autoComplete="name" returnKeyType="next"
-                  style={inputStyle}
+                  onFocus={onFieldFocus('name')} onBlur={onFieldBlur}
+                  style={fieldStyle('name')}
                 />
               )}
               <TextInput
@@ -208,7 +274,8 @@ export default function Auth(
                 placeholder="you@example.com" placeholderTextColor={t.ink3}
                 keyboardType="email-address" autoCapitalize="none" autoComplete="email"
                 returnKeyType="next"
-                style={inputStyle}
+                onFocus={onFieldFocus('email')} onBlur={onFieldBlur}
+                style={fieldStyle('email')}
               />
               <TextInput
                 value={password} onChangeText={setPassword}
@@ -217,7 +284,8 @@ export default function Auth(
                 autoComplete={creating ? 'new-password' : 'current-password'}
                 returnKeyType={creating ? 'next' : 'go'}
                 onSubmitEditing={creating ? undefined : withPassword}
-                style={inputStyle}
+                onFocus={onFieldFocus('password')} onBlur={onFieldBlur}
+                style={fieldStyle('password')}
               />
               {creating && (
                 <TextInput
@@ -225,7 +293,8 @@ export default function Auth(
                   onSubmitEditing={withPassword} returnKeyType="go"
                   placeholder="Confirm password" placeholderTextColor={t.ink3}
                   secureTextEntry autoCapitalize="none" autoComplete="new-password"
-                  style={inputStyle}
+                  onFocus={onFieldFocus('confirm')} onBlur={onFieldBlur}
+                  style={fieldStyle('confirm')}
                 />
               )}
 
@@ -255,6 +324,12 @@ export default function Auth(
                 </Text>
               </Pressable>
             </View>
+          )}
+
+          {creating && (
+            <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', marginTop: 16 }}>
+              No inbox clutter, no productivity guilt emails. Your tasks stay yours.
+            </Text>
           )}
 
           <View style={{ flex: 1, minHeight: 20 }} />

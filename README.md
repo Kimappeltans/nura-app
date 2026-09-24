@@ -3,7 +3,13 @@
 **This is the app. The landing page is a separate project (`nura-site/`) — plain
 static HTML with no shared code.**
 
-Local-only: no accounts, no server, no analytics. Nothing leaves the device.
+Local-first: every screen works fully offline with no account, on-device SQLite
+as the source of truth, no analytics, nothing sent anywhere unless you sign in.
+Signing in (Apple/Google/email via Supabase — `src/supabase.ts`, `src/sync.ts`)
+is optional and only ever adds cross-device sync of tasks/habits on top; it
+never gates a feature, and no third-party data collection exists beyond that.
+See `supabase/schema.sql` for the two-actor setup (code vs. Supabase-dashboard
+steps) needed before sign-in actually works.
 
 ## The architecture — Nu and Ra are modes, not branding
 
@@ -129,5 +135,9 @@ visualisation, the home-screen widget, micro-step breakdown.
 
 `app.json` already carries the privacy manifest (React Native touches
 `UserDefaults`, a required-reason API — without this the upload is rejected) and
-`usesNonExemptEncryption: false`. Change `bundleIdentifier` to your own before
-building. The rest is in `nura-appstore-checklist.md`.
+`usesNonExemptEncryption: false`. Change `bundleIdentifier`/`package` (currently
+the placeholder `com.yourname.nura`) to your own before building — the same
+value has to be registered in the Apple Developer portal for Sign in with
+Apple to work (see `supabase/schema.sql`'s header comment). Copy `.env.example`
+to `.env` and fill in your real Supabase project values before sign-in will
+do anything but fail gracefully.

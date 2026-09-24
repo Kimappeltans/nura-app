@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
 import { resetOnboarding, getFlag, setFlag, totalLight, totalWins } from '../src/db';
 import { hasCalendarPermission } from '../src/calendar';
+import { supabase } from '../src/supabase';
 import { rankFor } from '../src/reward';
 import { radius, type as T } from '../src/theme';
 import { Mica, Surface, IconChevron, IconCalendar, IconBell, IconCheck, Character } from '../src/ui';
@@ -21,9 +22,10 @@ import { Mica, Surface, IconChevron, IconCalendar, IconBell, IconCheck, Characte
  */
 export default function Settings() {
   const t = useTheme();
-  const { light, total } = useStore();
+  const { light, total, session } = useStore();
   const [cal, setCal] = useState(false);
   const [notif, setNotif] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // useFocusEffect, not a mount-only effect — this screen stays mounted
   // underneath Integrations/Connect while the user grants permissions there,
@@ -51,6 +53,21 @@ export default function Settings() {
         },
       ],
     );
+  };
+
+  // The store's `session` clears itself — supabase.auth.onAuthStateChange
+  // in app/_layout.tsx is the one listener for that, same as sign-in. This
+  // never touches local data: everything captured stays on the phone,
+  // signed in or not.
+  const signOut = () => {
+    Alert.alert('Sign out?', 'Your tasks stay on this phone either way — signing out only stops syncing them.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: async () => {
+        setSigningOut(true);
+        await supabase.auth.signOut();
+        setSigningOut(false);
+      } },
+    ]);
   };
 
   const rank = rankFor(light);
@@ -123,11 +140,20 @@ export default function Settings() {
         </Surface>
 
         <Group title="Account">
-          <Row
-            title="Sign in or create an account"
-            sub="Sync across devices and unlock the integrations that need a server."
-            onPress={() => router.push('/auth')}
-          />
+          {session ? (
+            <Row
+              title={session.user.email ?? 'Signed in'}
+              sub={signingOut ? 'Signing out…' : 'Syncing your tasks across devices.'}
+              right={signingOut ? undefined : <On />}
+              onPress={signingOut ? undefined : signOut}
+            />
+          ) : (
+            <Row
+              title="Sign in or create an account"
+              sub="Sync across devices and unlock the integrations that need a server."
+              onPress={() => router.push('/auth')}
+            />
+          )}
         </Group>
 
         <Group title="Connections">
@@ -153,6 +179,22 @@ export default function Settings() {
             title="Companions"
             sub="How far they've grown, and every scene you've found."
             onPress={() => router.push('/companions')}
+          />
+        </Group>
+
+        <Group title="Backlog">
+          <Row
+            title="One pass through your backlog"
+            sub="Go through what's waiting, one decision each. Not graded."
+            onPress={() => router.push('/triage')}
+          />
+        </Group>
+
+        <Group title="Habits">
+          <Row
+            title="Add a habit"
+            sub="A cue and a tiny action — not a recurring task, no streak."
+            onPress={() => router.push('/habit')}
           />
         </Group>
 

@@ -111,8 +111,19 @@ export function IconChevron({ size = 28, color }: IconProps) {
  * unreadable in exactly the state most people are in the first time they see
  * it (mode defaults to 'nu' before onboarding ever sets anything).
  */
-export function Mica({ force }: { force?: Parameters<typeof useTheme>[0] } = {}) {
+export function Mica(
+  { force, sunProgress }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
+) {
   const t = useTheme(force);
+  // The coral glow literally rises and brightens as the day's completions add
+  // up — Home's "the sun comes up as you do things" mechanic. 0 when nothing
+  // has been finished yet (glow sits low, at its normal resting strength); 1
+  // once the day's target is well underway (glow climbs toward centre and
+  // warms). Every other screen just omits the prop and gets the old static glow.
+  const s = sunProgress == null ? 0 : Math.max(0, Math.min(1, sunProgress));
+  const raCy = 86 - s * 32;       // 86% (low, resting) -> 54% (risen)
+  const raOpacity = t.glowRa + s * 0.20;
+
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
       <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} locations={[0, 0.55, 1]}
@@ -128,8 +139,8 @@ export function Mica({ force }: { force?: Parameters<typeof useTheme>[0] } = {})
             <Stop offset="0" stopColor={t.nu} stopOpacity={t.glowNu} />
             <Stop offset="1" stopColor={t.nu} stopOpacity="0" />
           </RadialGradient>
-          <RadialGradient id="mica-ra" cx="96%" cy="86%" r="66%">
-            <Stop offset="0" stopColor={t.ra} stopOpacity={t.glowRa} />
+          <RadialGradient id="mica-ra" cx="96%" cy={`${raCy}%`} r="66%">
+            <Stop offset="0" stopColor={t.ra} stopOpacity={raOpacity} />
             <Stop offset="1" stopColor={t.ra} stopOpacity="0" />
           </RadialGradient>
         </Defs>
@@ -823,15 +834,16 @@ export function WeekBars({ data, height = 84, accent = 'ra' }: { data: { label: 
  */
 export function GradientText(
   { children, size, lineHeight, colors, font, id = 'gt' }:
-  { children: string; size: number; lineHeight: number; colors: readonly [string, string];
+  { children: string; size: number; lineHeight: number; colors: readonly string[];
     font?: string; id?: string },
 ) {
   return (
     <Svg width="100%" height={lineHeight}>
       <Defs>
         <SvgGradient id={id} x1="0" y1="0" x2="1" y2="0.6">
-          <Stop offset="0" stopColor={colors[0]} />
-          <Stop offset="1" stopColor={colors[1]} />
+          {colors.map((c, i) => (
+            <Stop key={i} offset={colors.length > 1 ? i / (colors.length - 1) : 0} stopColor={c} />
+          ))}
         </SvgGradient>
       </Defs>
       <SvgText

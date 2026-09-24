@@ -17,6 +17,143 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
 const sameDay = (a: Date, b: Date) => iso(a) === iso(b);
 
+const DAY_START_H = 7, DAY_END_H = 22, HOUR_ROW = 56;
+const fmtHour = (h: number) => h === 0 || h === 24 ? '12a' : h === 12 ? '12p' : h > 12 ? `${h - 12}p` : `${h}a`;
+const fmtDur = (ms: number) => {
+  const mins = Math.round(ms / 60000);
+  return mins < 60 ? `${mins}m` : `${Math.round(mins / 30) / 2}h`;
+};
+
+interface TimedItem {
+  kind: 'event' | 'task';
+  id: string;
+  title: string;
+  start: number;
+  end: number;
+  task?: Task;
+}
+
+/**
+ * The day, as a line down the middle of it rather than a list beside it.
+ * Additive to the month grid above, not a replacement — the month view
+ * answers "which day", this answers "when, exactly, on this one" and where
+ * the actual open stretches are. Only items with a real time show up here;
+ * an all-day task has no honest position on an hourly grid.
+ */
+function TimelineDay({ picked, dayEvents, dayTasks }: {
+  picked: Date; dayEvents: UpcomingEvent[]; dayTasks: Task[];
+}) {
+  const t = useTheme();
+  const hours = useMemo(
+    () => Array.from({ length: DAY_END_H - DAY_START_H + 1 }, (_, i) => DAY_START_H + i),
+    [],
+  );
+  const dayStart = new Date(picked).setHours(DAY_START_H, 0, 0, 0);
+  const dayEnd = new Date(picked).setHours(DAY_END_H, 0, 0, 0);
+  const totalHeight = (DAY_END_H - DAY_START_H) * HOUR_ROW;
+  const timeToY = (ms: number) =>
+    Math.max(0, Math.min(totalHeight, ((ms - dayStart) / 3600_000) * HOUR_ROW));
+
+  const items: TimedItem[] = useMemo(() => [
+    ...dayEvents.map(e => ({ kind: 'event' as const, id: e.id, title: e.title, start: e.startsAt, end: Math.max(e.endsAt, e.startsAt + 20 * 60000) })),
+    ...dayTasks.filter(x => x.has_time && x.due_at).map(x => ({
+      kind: 'task' as const, id: x.id, title: x.title, start: x.due_at!,
+      end: x.due_at! + (x.est_minutes ?? 20) * 60000, task: x,
+    })),
+  ].sort((a, b) => a.start - b.start), [dayEvents, dayTasks]);
+
+  // Clear water: the open stretches once the busy blocks are merged. A day
+  // with nothing on it is one giant gap — worth naming, not just implying.
+  const gaps = useMemo(() => {
+    const merged: [number, number][] = [];
+    for (const it of items) {
+      const s = Math.max(it.start, dayStart), e = Math.min(it.end, dayEnd);
+      if (e <= s) continue;
+      const last = merged[merged.length - 1];
+      if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+      else merged.push([s, e]);
+    }
+    const out: [number, number][] = [];
+    let cursor = dayStart;
+    for (const [s, e] of merged) {
+      if (s - cursor >= 20 * 60000) out.push([cursor, s]);
+      cursor = Math.max(cursor, e);
+    }
+    if (dayEnd - cursor >= 20 * 60000) out.push([cursor, dayEnd]);
+    return out;
+  }, [items, dayStart, dayEnd]);
+
+  const now = Date.now();
+  const showNow = sameDay(picked, new Date()) && now >= dayStart && now <= dayEnd;
+
+  return (
+    <Surface>
+      <View style={{ padding: 14, flexDirection: 'row' }}>
+        <View style={{ width: 38 }}>
+          {hours.map(h => (
+            <View key={h} style={{ height: HOUR_ROW }}>
+              <Text style={{ color: t.ink3, fontSize: 11 }}>{fmtHour(h)}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ flex: 1, height: totalHeight, position: 'relative' }}>
+          {hours.map((h, i) => (
+            <View key={h} style={{
+              position: 'absolute', left: 0, right: 0, top: i * HOUR_ROW,
+              height: 1, backgroundColor: t.stroke,
+            }} />
+          ))}
+
+          {gaps.map(([s, e], i) => {
+            const top = timeToY(s), h = Math.max(18, timeToY(e) - timeToY(s));
+            return (
+              <View key={i} style={{
+                position: 'absolute', left: 2, right: 2, top, height: h,
+                borderRadius: radius.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: t.strokeStrong,
+                padding: 4, justifyContent: 'flex-end',
+              }}>
+                {h > 26 && (
+                  <Text style={{ color: t.ink3, fontSize: 10.5 }}>clear · {fmtDur(e - s)}</Text>
+                )}
+              </View>
+            );
+          })}
+
+          {items.map(it => {
+            const top = timeToY(it.start), h = Math.max(20, timeToY(it.end) - timeToY(it.start));
+            const isEvent = it.kind === 'event';
+            const done = it.task?.state === 'done';
+            return (
+              <Pressable key={`${it.kind}-${it.id}`}
+                disabled={isEvent}
+                onPress={() => it.task && router.push({ pathname: '/task/[id]', params: { id: it.task.id } })}
+                style={{
+                  position: 'absolute', left: 2, right: 2, top, height: h,
+                  borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden',
+                  backgroundColor: done ? t.subtle : isEvent ? t.nuWash : t.raWash,
+                  borderLeftWidth: 3, borderLeftColor: isEvent ? t.nu : t.ra,
+                }}>
+                <Text numberOfLines={1} style={{
+                  color: done ? t.ink3 : t.ink, fontSize: 12.5, fontFamily: T.brand,
+                  textDecorationLine: done ? 'line-through' : 'none',
+                }}>{it.title}</Text>
+              </Pressable>
+            );
+          })}
+
+          {showNow && (
+            <View style={{ position: 'absolute', left: -4, right: 0, top: timeToY(now) - 1, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: t.ra }} />
+              <View style={{ flex: 1, height: 1.5, backgroundColor: t.ra }} />
+            </View>
+          )}
+        </View>
+      </View>
+    </Surface>
+  );
+}
+
 function gridFor(year: number, month: number) {
   const lead = (new Date(year, month, 1).getDay() + 6) % 7;
   const days = new Date(year, month + 1, 0).getDate();
@@ -45,6 +182,7 @@ export default function CalendarScreen() {
   const [picked, setPicked] = useState(() => new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
+  const [dayView, setDayView] = useState<'list' | 'timeline'>('list');
 
   const load = useCallback(async () => {
     const from = new Date(cursor.getFullYear(), cursor.getMonth(), 1).getTime();
@@ -155,12 +293,35 @@ export default function CalendarScreen() {
           </View>
         </Surface>
 
-        <Text style={{
-          color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
-          marginTop: 20, marginBottom: 8, marginLeft: 4,
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 8,
         }}>
-          {picked.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
-        </Text>
+          <Text style={{
+            flex: 1, color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand, marginLeft: 4,
+          }}>
+            {picked.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
+          </Text>
+
+          {/* List vs. timeline — the list is the honest default (it's
+              everything, timed or not); the timeline only earns its keep
+              once there's at least one thing with a real time on it. */}
+          {agenda.some(it => it.kind === 'event' || it.task.has_time) && (
+            <View style={{ flexDirection: 'row', gap: 3, padding: 3, borderRadius: radius.pill, backgroundColor: t.layer, borderWidth: 1, borderColor: t.stroke }}>
+              {(['list', 'timeline'] as const).map(v => (
+                <Pressable key={v} onPress={() => { Haptics.selectionAsync(); setDayView(v); }}
+                  style={{
+                    paddingHorizontal: 11, paddingVertical: 5, borderRadius: radius.pill,
+                    backgroundColor: dayView === v ? t.ra : 'transparent',
+                  }}>
+                  <Text style={{
+                    color: dayView === v ? t.onRa : t.ink2, fontSize: 12,
+                    fontFamily: dayView === v ? T.brand : undefined,
+                  }}>{v === 'list' ? 'List' : 'Timeline'}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
         {!agenda.length ? (
           <Surface>
@@ -168,6 +329,8 @@ export default function CalendarScreen() {
               Nothing on this day. That's allowed.
             </Text>
           </Surface>
+        ) : dayView === 'timeline' ? (
+          <TimelineDay picked={picked} dayEvents={dayEvents} dayTasks={dayTasks} />
         ) : (
           <Surface>
             {agenda.map((it, i) => (

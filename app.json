@@ -77,7 +77,9 @@
         {
           "calendarPermission": "Nura reads your calendar to tell you how long you have before your next commitment. It never writes to it, and nothing leaves your phone."
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

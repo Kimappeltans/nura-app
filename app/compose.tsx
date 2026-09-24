@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useStore } from '../src/store';
@@ -59,11 +59,15 @@ export default function Compose() {
   const t = raTheme;
   const refresh = useStore(s => s.refresh);
   const showToast = useStore(s => s.showToast);
+  // Chat's "too big to start" nudge hands off here with the typed-out thing
+  // and a suggested first-ten-minutes size — prefilled, not forced, same as
+  // every other field on this screen.
+  const { title: titleParam, minutes: minutesParam } = useLocalSearchParams<{ title?: string; minutes?: string }>();
 
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(titleParam ?? '');
   const [label, setLabel] = useState<LabelId | null>(null);
   const [touchedLabel, setTouchedLabel] = useState(false);
-  const [minutes, setMinutes] = useState<number | null>(null);
+  const [minutes, setMinutes] = useState<number | null>(minutesParam ? parseInt(minutesParam, 10) : null);
   const [due, setDue] = useState<number | null>(null);
   const [hasTime, setHasTime] = useState(false);
   const [repeat, setRepeat] = useState<RepeatRule | null>(null);

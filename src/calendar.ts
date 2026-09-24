@@ -27,7 +27,7 @@ export async function hasCalendarPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
-export type UpcomingEvent = { id: string; title: string; startsAt: number };
+export type UpcomingEvent = { id: string; title: string; startsAt: number; endsAt: number };
 
 /**
  * The next real (non-all-day) event starting within `lookaheadMs`. Returns
@@ -47,7 +47,11 @@ export async function nextEvent(lookaheadMs = 4 * 3600_000): Promise<UpcomingEve
   );
   const upcoming = events
     .filter(e => !e.allDay)
-    .map(e => ({ id: e.id, title: e.title || 'Busy', startsAt: new Date(e.startDate as string).getTime() }))
+    .map(e => ({
+      id: e.id, title: e.title || 'Busy',
+      startsAt: new Date(e.startDate as string).getTime(),
+      endsAt: new Date(e.endDate as string).getTime(),
+    }))
     .filter(e => e.startsAt > now)
     .sort((a, b) => a.startsAt - b.startsAt);
 
@@ -69,7 +73,11 @@ export async function todayEvents(): Promise<UpcomingEvent[]> {
   const events = await Calendar.getEventsAsync(calendars.map(c => c.id), start, end);
   return events
     .filter(e => !e.allDay)
-    .map(e => ({ id: e.id, title: e.title || 'Busy', startsAt: new Date(e.startDate as string).getTime() }))
+    .map(e => ({
+      id: e.id, title: e.title || 'Busy',
+      startsAt: new Date(e.startDate as string).getTime(),
+      endsAt: new Date(e.endDate as string).getTime(),
+    }))
     .sort((a, b) => a.startsAt - b.startsAt);
 }
 
@@ -84,7 +92,11 @@ export async function eventsBetween(fromMs: number, toMs: number): Promise<Upcom
       calendars.map(c => c.id), new Date(fromMs), new Date(toMs));
     return events
       .filter(e => !e.allDay)
-      .map(e => ({ id: e.id, title: e.title || 'Busy', startsAt: new Date(e.startDate as string).getTime() }))
+      .map(e => ({
+      id: e.id, title: e.title || 'Busy',
+      startsAt: new Date(e.startDate as string).getTime(),
+      endsAt: new Date(e.endDate as string).getTime(),
+    }))
       .sort((a, b) => a.startsAt - b.startsAt);
   } catch { return []; }
 }

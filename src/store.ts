@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import type { Session } from '@supabase/supabase-js';
 import * as db from './db';
 import { nextEvent, todayEvents, type UpcomingEvent } from './calendar';
 import { nuTheme, raTheme, type Theme } from './theme';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
+import { scheduleSync } from './sync';
 
 export interface Celebration { award: Award; line: string; at: number; rankUp: Rank | null }
 
@@ -36,8 +38,13 @@ interface State {
   /** non-blocking micro-toast (captures, small events). */
   toast: { text: string; at: number } | null;
   profile: db.Profile;
+  /** null = signed out. Distinct from authLoading, which is only true until
+   *  the very first getSession() resolves on boot — see app/_layout.tsx. */
+  session: Session | null;
+  authLoading: boolean;
 
   setEnergy: (e: db.Energy) => Promise<void>;
+  setSession: (session: Session | null) => void;
   toNu: () => Promise<void>;
   toRa: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -54,6 +61,8 @@ export const useStore = create<State>((set, get) => ({
   inbox: [], todayPicked: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
+  session: null, authLoading: true,
+  setSession: (session) => set({ session }),
 
   finishOnboarding: async () => {
     await db.completeOnboarding();
@@ -102,6 +111,11 @@ export const useStore = create<State>((set, get) => ({
         nextEvent(), todayEvents(), db.getProfile(),
       ]);
     set({ mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    // Piggybacks the debounced sync onto refresh() rather than every
+    // individual mutation — refresh() already runs after ~35 call sites
+    // across the app, so no screen (compose, task detail, the action
+    // sheets, habits) needs to know sync exists.
+    if (get().session) scheduleSync();
   },
 }));
 

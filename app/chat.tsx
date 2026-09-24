@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Image,
   KeyboardAvoidingView, Platform,
@@ -14,7 +14,7 @@ import { activityById, SCENES, type ActivityId } from '../src/activities';
 import { rankFor } from '../src/reward';
 import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Character, IconChevron, IconSearch } from '../src/ui';
-import { LabelGlyph } from '../src/components/LabelIcon';
+import { LabelGlyph, LabelTile } from '../src/components/LabelIcon';
 
 interface Msg {
   id: string;
@@ -23,6 +23,8 @@ interface Msg {
   draft?: Draft;
   /** set once the draft has been added, so the card locks */
   added?: boolean;
+  /** "that's a whole project, not a task" nudge instead of a normal draft card */
+  vague?: boolean;
 }
 
 const uid = () => Math.random().toString(36).slice(2);
@@ -57,6 +59,14 @@ export default function Chat() {
     from: 'nura',
     text: 'Tell me what needs doing, the way you’d say it out loud. I’ll work out the date, the repeat and how long — and show you before anything is saved.',
   }]);
+
+  // Proof it's held, not lost — the last few things caught without a date
+  // yet attached, newest first. Only shown before a conversation starts, so
+  // it doesn't compete with an actual exchange once one's under way.
+  const recentlyCaught = useMemo(
+    () => [...inbox].filter(x => !x.due_at).sort((a, b) => b.created_at - a.created_at).slice(0, 3),
+    [inbox],
+  );
 
   const push = (m: Omit<Msg, 'id'>) => {
     setMsgs(prev => [...prev, { ...m, id: uid() }]);
@@ -106,6 +116,9 @@ export default function Chat() {
         text: open.length ? `${open.length} waiting. One at a time.` : 'Nothing waiting.',
       });
     }
+    if (intent.kind === 'vague') {
+      return push({ from: 'nura', draft: intent.draft, vague: true });
+    }
     push({ from: 'nura', draft: intent.draft });
   }, [now, light, today]);
 
@@ -149,7 +162,18 @@ export default function Chat() {
                 {d.title}
               </Text>
               {!!meta && (
-                <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 4 }}>{meta}</Text>
+                // What was actually understood, as chips rather than a run-on
+                // line — closer to "here's my working", easier to scan.
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {meta.split(' · ').map((bit, i) => (
+                    <View key={i} style={{
+                      paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill,
+                      backgroundColor: `${c}22`, borderWidth: 1, borderColor: `${c}3D`,
+                    }}>
+                      <Text style={{ color: t.ink2, fontSize: 12, fontFamily: T.brand }}>{bit}</Text>
+                    </View>
+                  ))}
+                </View>
               )}
               {!!d.label && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 }}>
@@ -193,6 +217,49 @@ export default function Chat() {
     );
   };
 
+  /**
+   * "Work on the presentation" isn't a task — there's no first physical
+   * action in it, so it just sits looking exactly as actionable as
+   * everything else on the list. This offers the one thing that actually
+   * unsticks that: a ten-minute slice, handed straight to Compose.
+   */
+  const VagueCard = ({ m }: { m: Msg }) => {
+    const d = m.draft!;
+    return (
+      <View style={[{
+        borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
+        borderWidth: 1, borderColor: `${t.ra}44`,
+      }, elevation.e4]}>
+        <View style={{ backgroundColor: t.raWash, padding: 14, gap: 10 }}>
+          <Text style={{ color: t.raDeep, fontSize: 11, letterSpacing: 1.8, fontFamily: T.brand }}>
+            TOO BIG TO START
+          </Text>
+          <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>
+            That could mean anything, so it'll sit. Want the first ten minutes of it instead?
+          </Text>
+          {m.added ? (
+            <Text style={{ color: t.ra, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>
+          ) : (
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
+                router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
+              }}
+              style={{
+                alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
+                backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
+              }}>
+              <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>
+                Open it and write one line · 10 min
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica />
@@ -213,7 +280,7 @@ export default function Chat() {
 
           {msgs.map(m => (
             <View key={m.id} style={{ alignItems: m.from === 'you' ? 'flex-end' : 'flex-start' }}>
-              {m.draft ? <DraftCard m={m} /> : (
+              {m.draft ? (m.vague ? <VagueCard m={m} /> : <DraftCard m={m} />) : (
                 <View style={{
                   maxWidth: '88%', paddingHorizontal: 15, paddingVertical: 11,
                   borderRadius: radius.lg,
@@ -238,6 +305,32 @@ export default function Chat() {
                   <Text style={{ color: t.ink2, fontSize: 14 }}>{x}</Text>
                 </Pressable>
               ))}
+            </View>
+          )}
+
+          {msgs.length <= 1 && !!recentlyCaught.length && (
+            <View style={{ marginTop: 18 }}>
+              <Text style={{
+                color: t.ink3, fontSize: 11.5, letterSpacing: 1.8, fontFamily: T.brand, marginBottom: 7, marginLeft: 3,
+              }}>RECENTLY CAUGHT</Text>
+              <Surface>
+                {recentlyCaught.map((task, i) => (
+                  <View key={task.id}>
+                    {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
+                    <Pressable
+                      onPress={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
+                      style={({ pressed }) => ({
+                        flexDirection: 'row', alignItems: 'center', gap: 12,
+                        paddingHorizontal: 14, paddingVertical: 12,
+                        backgroundColor: pressed ? t.subtle : 'transparent',
+                      })}>
+                      <LabelTile id={task.label} size={30} />
+                      <Text numberOfLines={1} style={{ color: t.ink, fontSize: 15, flex: 1 }}>{task.title}</Text>
+                      <IconChevron size={14} color={t.ink3} />
+                    </Pressable>
+                  </View>
+                ))}
+              </Surface>
             </View>
           )}
         </ScrollView>

@@ -4,8 +4,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../src/store';
 import { radius, type as T } from '../src/theme';
-import { rankFor, nextRank, rankProgress, skyLabel } from '../src/reward';
+import { skyLabel } from '../src/reward';
 import { Mica, Card, RingStat, WeekBars, SunArc, Character } from '../src/ui';
+import { RankCard, ContributionGrid } from '../src/components/Rank';
 
 const weekdayLetter = (isoDay: string) =>
   new Date(`${isoDay}T12:00:00`).toLocaleDateString('en-US', { weekday: 'narrow' });
@@ -22,11 +23,6 @@ export default function Wins() {
   const t = useTheme();
   const { wins, total, light, today, momentum, grid, refresh } = useStore();
   useFocusEffect(useCallback(() => { refresh(); }, []));
-  const step = (n: number) => t.scale[Math.min(n, t.scale.length - 1)];
-
-  const rank = rankFor(light);
-  const next = nextRank(light);
-  const p = rankProgress(light);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
@@ -37,26 +33,11 @@ export default function Wins() {
         </Pressable>
 
         {/* The light. Earned, never spent, never decayed, never lost. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: t.ra, fontSize: 62, fontFamily: T.displayLight, letterSpacing: -2 }}>{light}</Text>
-            <Text style={{ color: t.ink, fontSize: 16.5, fontFamily: T.brand, marginTop: -4 }}>
-              light · {rank.name}
-            </Text>
-            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>{rank.blurb}</Text>
+            <RankCard light={light} />
           </View>
           <Character name="ra-celebrate" size={92} motion="bob" />
-        </View>
-
-        {/* Rank bar — you can be short of the next one, you can never fall out
-            of the one you have. */}
-        <View style={{ gap: 6 }}>
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: t.track, overflow: 'hidden' }}>
-            <View style={{ width: `${Math.round(p * 100)}%`, height: '100%', backgroundColor: t.ra, borderRadius: 4 }} />
-          </View>
-          <Text style={{ color: t.ink3, fontSize: 12 }}>
-            {next ? `${next.at - light} to ${next.name}` : 'Every rank there is.'}
-          </Text>
         </View>
 
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -91,11 +72,7 @@ export default function Wins() {
         <View>
           <Text style={{ color: t.ink3, fontSize: 13, marginBottom: 8 }}>Last 6 months</Text>
           {/* gaps read as a pattern, not as failure */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-            {grid.slice(-182).map((d, i) => (
-              <View key={i} style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: step(d.n) }} />
-            ))}
-          </View>
+          <ContributionGrid grid={grid} months={6} />
         </View>
 
         <View style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}>

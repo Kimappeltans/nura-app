@@ -11,6 +11,8 @@ import {
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
 import { useStore } from '../src/store';
+import { supabase } from '../src/supabase';
+import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
 
@@ -29,6 +31,13 @@ export default function Root() {
   useEffect(() => {
     (async () => {
       await getDb(); await migrate();
+      // Hydrate the session BEFORE the first refresh() — refresh() checks
+      // `session` to decide whether to kick off a sync, so a session that
+      // arrives after the first refresh would silently miss it until the
+      // next mutation.
+      const { data: { session } } = await supabase.auth.getSession();
+      useStore.getState().setSession(session);
+      useStore.setState({ authLoading: false });
       await refresh();
       // Returning users have already answered the permission prompt — see
       // Nu.tsx, where it is asked once, in context, after the first capture.
@@ -43,13 +52,26 @@ export default function Root() {
     );
     const del = attachDeliveryHandler();
 
+    // The one place the app reacts to a sign-in/out — Auth.tsx's job is
+    // only ever "produce a session," never to know what sync is.
+    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      useStore.getState().setSession(session);
+      if (event === 'SIGNED_IN') {
+        if (await hasAdopted()) await runSync(); else await adoptLocalData();
+        await refresh();
+      }
+    });
+
     const app = AppState.addEventListener('change', async s => {
-      if (s === 'active') { refresh(); reconcileNudges(); scheduleTransitionWarning(); }
+      if (s === 'active') {
+        refresh(); reconcileNudges(); scheduleTransitionWarning();
+        if (useStore.getState().session) runSync();
+      }
       // leaving mid-task: drop a breadcrumb while the context still exists
       if (s === 'background' && running.current) await dropCrumb(running.current);
     });
 
-    return () => { sub.remove(); del.remove(); app.remove(); };
+    return () => { sub.remove(); del.remove(); app.remove(); authSub.subscription.unsubscribe(); };
   }, []);
 
   if (!fontsLoaded) return <Loading />;
@@ -78,6 +100,9 @@ export default function Root() {
         <Stack.Screen name="integrations" options={{ presentation: 'modal' }} />
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
         <Stack.Screen name="retro" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="triage" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="tide" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
       </Stack>
       {/* Above everything, including the native modals — a reward that appears
           behind the screen you earned it on is not a reward. */}

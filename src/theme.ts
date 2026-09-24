@@ -36,6 +36,17 @@ export interface Palette {
   atmosphere: readonly [string, string, string];
   /** sequential ramp for the pixel grid, light -> saturated */
   scale: readonly string[];
+  /**
+   * The "one thing" wash — a diagonal warm-into-indigo 3-stop gradient for
+   * whatever single card on the screen is meant to feel lifted and lit
+   * (Nu's hero task card, a rank-up card). Warm at the top, cooling to indigo.
+   */
+  heroWash: readonly [string, string, string];
+  /** the calmer, indigo-only cousin of heroWash — for a card that should read
+   * "active" but not "the one warm thing" (a triage item mid-review, a ritual
+   * card).
+   */
+  emphasisWash: readonly [string, string];
   statusBar: 'light' | 'dark';
 }
 
@@ -77,6 +88,8 @@ export const nuTheme: Palette = {
   glowNu: 0.30, glowRa: 0.16,
   atmosphere: ['#0B1030', '#070C26', '#04091E'],
   scale: ['#161D42', '#222C68', '#2F3D93', '#4150C4', '#5B6CF0', '#95A0F8'],
+  heroWash: ['rgba(255,150,100,0.30)', 'rgba(140,151,246,0.16)', 'rgba(91,108,240,0.10)'],
+  emphasisWash: ['rgba(140,151,246,0.20)', 'rgba(91,108,240,0.08)'],
   statusBar: 'light',
 };
 
@@ -116,6 +129,8 @@ export const raTheme: Palette = {
   glowNu: 0.07, glowRa: 0.10,
   atmosphere: ['#FFFDF8', '#FAF7F0', '#F4EDDF'],
   scale: ['#F0EADC', '#FBD9C4', '#FCB995', '#FB8A54', '#F2621F', '#C2410C'],
+  heroWash: ['rgba(255,150,100,0.16)', 'rgba(67,56,202,0.08)', 'rgba(67,56,202,0.05)'],
+  emphasisWash: ['rgba(67,56,202,0.10)', 'rgba(67,56,202,0.04)'],
   statusBar: 'dark',
 };
 

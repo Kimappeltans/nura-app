@@ -11,7 +11,7 @@ import type { Task } from '../db';
 
 /** Warm, specific, and never a grade. */
 const PRAISE = ['Great job!', 'Nicely done.', 'That one is gone.', 'Logged.', 'Done and dusted.'];
-const praiseFor = (id: string) =>
+export const praiseFor = (id: string) =>
   PRAISE[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % PRAISE.length];
 
 /**
@@ -136,7 +136,7 @@ export function ActivityCard(
  * broken for a plain task.
  */
 export function HeroCard(
-  { task, onStart }: { task: Task; onStart: () => void },
+  { task, onStart, why }: { task: Task; onStart: () => void; why?: string | null },
 ) {
   const t = useTheme();
   const custom = isCustom(task.activity);
@@ -191,6 +191,14 @@ export function HeroCard(
               {!!sub && (
                 <Text numberOfLines={1} style={{ color: t.ink2, fontSize: 15, marginTop: 3 }}>
                   {sub}
+                </Text>
+              )}
+
+              {/* The reason this one, not a different one — so "recommended"
+                  is a sentence you can check, not a black box. */}
+              {!!why && (
+                <Text numberOfLines={1} style={{ color: t.ink2, fontSize: 13, marginTop: 6 }}>
+                  Why: {why}
                 </Text>
               )}
             </View>

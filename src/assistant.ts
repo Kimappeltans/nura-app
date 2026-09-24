@@ -271,12 +271,23 @@ export function parseTask(input: string): Draft {
 
 export type Intent =
   | { kind: 'create'; draft: Draft }
+  | { kind: 'vague'; draft: Draft }
   | { kind: 'now' }
   | { kind: 'today' }
   | { kind: 'progress' }
   | { kind: 'count' }
   | { kind: 'help' }
   | { kind: 'hello' };
+
+/**
+ * "Work on the presentation" isn't a task, it's a whole open-ended project
+ * wearing a task's clothes — there's no first physical action in it, so it
+ * just sits, unstarted, looking exactly as done as everything else on the
+ * list. Catching the shape of it (a vague verb with nothing concrete after
+ * it) and offering a ten-minute first slice is worth more than parsing it
+ * perfectly.
+ */
+const VAGUE_RE = /^(work on|think about|sort out|deal with|look into|figure out)\b/i;
 
 export function route(input: string): Intent {
   const s = input.trim().toLowerCase();
@@ -287,6 +298,7 @@ export function route(input: string): Intent {
   if (/\bwhat('| i)?s (on |up )?(for )?today\b|\bmy day\b|\bschedule\b|\bagenda\b/.test(s)) return { kind: 'today' };
   if (/\bhow am i doing\b|\bprogress\b|\bhow's it going\b|\bmy light\b|\bmy rank\b/.test(s)) return { kind: 'progress' };
   if (/\bhow (many|much).*(left|to do|outstanding)\b|\bwhat('| i)?s left\b/.test(s)) return { kind: 'count' };
+  if (VAGUE_RE.test(s)) return { kind: 'vague', draft: parseTask(input) };
 
   return { kind: 'create', draft: parseTask(input) };
 }

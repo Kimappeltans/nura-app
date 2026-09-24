@@ -72,14 +72,16 @@ export default function Welcome(
               letterSpacing: -1, textAlign: 'center',
             }}>{copy.slogan[0]}</Text>
 
-            <GradientText size={32} lineHeight={39} colors={[t.ra, t.raDeep]} id="slogan">
-              {copy.slogan[1]}
-            </GradientText>
-
             <Text style={{
               color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display,
               letterSpacing: -1, textAlign: 'center',
-            }}>{copy.slogan[2]}</Text>
+            }}>{copy.slogan[1]}</Text>
+
+            {/* The emphasis lands on the last beat — the follow-through — not
+                the middle one, matching the prototype's headline treatment. */}
+            <GradientText size={32} lineHeight={39} colors={[t.nu, t.nuSoft, t.ra, t.raDeep]} id="slogan">
+              {copy.slogan[2]}
+            </GradientText>
           </View>
 
           {/* No sub-line. The slogan says it, and the clip shows it — a

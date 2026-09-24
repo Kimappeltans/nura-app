@@ -1,16 +1,14 @@
 import { useCallback, useState } from 'react';
-import { View, Text, Image, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
 import { unlockedActivities } from '../src/db';
-import { ACTIVITIES, SCENES, type ActivityId } from '../src/activities';
 import { stageFor, nextStage, stageProgress, STAGES, collectionFrom } from '../src/growth';
-import { radius, elevation, type as T } from '../src/theme';
+import { type as T } from '../src/theme';
 import { Mica, Surface, Character, Bar, Count, IconChevron } from '../src/ui';
+import { SceneGallery } from '../src/components/Rank';
 
 /**
  * Nu and Ra, and everything you've found.
@@ -140,45 +138,7 @@ export default function Companions() {
           Planning one doesn't count — only doing it.
         </Text>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {ACTIVITIES.map(a => {
-            const got = col.unlocked.has(a.id);
-            const c = t.key === 'ra' ? a.onLight : a.tint;
-            return (
-              <Pressable key={a.id}
-                onPress={() => Haptics.selectionAsync()}
-                style={{ width: '31.5%' }}>
-                <View style={[{
-                  borderRadius: radius.lg, overflow: 'hidden',
-                  borderWidth: 1, borderColor: got ? `${c}44` : t.stroke,
-                }, got ? elevation.e4 : elevation.e0]}>
-                  <LinearGradient
-                    colors={got ? [`${c}30`, `${c}10`] : [t.surface[0], t.surface[1]]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                    style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 8 }}>
-                    <Image
-                      source={SCENES[a.id as ActivityId]}
-                      style={{
-                        width: 74, height: 58,
-                        // locked scenes render as a flat silhouette: you can see
-                        // the shape of what's missing without being shown it
-                        opacity: got ? 1 : 0.16,
-                        tintColor: got ? undefined : t.ink3,
-                      }}
-                      resizeMode="contain"
-                    />
-                    <Text numberOfLines={1} style={{
-                      color: got ? c : t.ink3, fontSize: 11.5, marginTop: 2,
-                      fontFamily: got ? T.brand : undefined,
-                    }}>
-                      {got ? a.name : '—'}
-                    </Text>
-                  </LinearGradient>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SceneGallery unlocked={col.unlocked} />
 
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginTop: 20, paddingHorizontal: 4 }}>
           They never shrink and they never get sad at you. Growth here only

@@ -65,19 +65,22 @@ export function award(reason: RewardReason): Award {
 }
 
 /* ------------------------------------------------------------------ *
- *  Ranks — named for where the sun is. They only ever climb.
+ *  Ranks — named for the tide going out and the light coming up.
+ *  They only ever climb.
  * ------------------------------------------------------------------ */
 
 export interface Rank { at: number; name: string; blurb: string }
 
 export const RANKS: Rank[] = [
-  { at: 0,    name: 'First Light',  blurb: 'Something has begun.' },
-  { at: 60,   name: 'Dawn',         blurb: 'It is happening more than once.' },
-  { at: 200,  name: 'Sunrise',      blurb: 'This is a habit now, whatever it feels like.' },
-  { at: 500,  name: 'Morning',      blurb: 'Long past the point most people stop.' },
-  { at: 1200, name: 'High Sun',     blurb: 'Months of small starts add up to this.' },
-  { at: 2600, name: 'Golden Hour',  blurb: 'Very few get here. You did.' },
-  { at: 5000, name: 'Solstice',     blurb: 'The longest light there is.' },
+  { at: 0,   name: 'Drifter',     blurb: 'Something has begun.' },
+  { at: 25,  name: 'Ripple',      blurb: 'It is happening more than once.' },
+  { at: 60,  name: 'Current',     blurb: 'This is a habit now, whatever it feels like.' },
+  { at: 105, name: 'Tidewalker',  blurb: 'Long past the point most people stop.' },
+  { at: 150, name: 'Lightkeeper', blurb: 'You keep it going, day by ordinary day.' },
+  { at: 220, name: 'Dawnbringer', blurb: 'Months of small starts add up to this.' },
+  { at: 310, name: 'Sunward',     blurb: 'Facing it, consistently, on purpose.' },
+  { at: 420, name: 'Benben',      blurb: 'Very few get here. You did.' },
+  { at: 560, name: 'Horizon',     blurb: 'The longest light there is.' },
 ];
 
 export function rankFor(light: number): Rank {
