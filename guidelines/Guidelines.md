@@ -59,3 +59,4 @@ still counts," not "session state: partial."
 | `tokens.md` | Every raw value: hex codes, spacing scale, radius scale |
 | `styles.md` | How tokens are applied — color roles, type pairing, elevation |
 | `components/overview.md` | Button, card, checkbox, icon patterns |
+| `design-system/index.html` | The design system page, rendered: every token, character, component and real screen in one place. Open it in a browser. When a token changes in `theme.ts`, update this page — not the other way round. |

@@ -1,0 +1,664 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Nura — Design System</title>
+<style>
+  @font-face { font-family: 'Poppins'; font-weight: 400; src: url(assets/fonts/poppins-400.ttf) format('truetype'); }
+  @font-face { font-family: 'Poppins'; font-weight: 500; src: url(assets/fonts/poppins-500.ttf) format('truetype'); }
+  @font-face { font-family: 'Poppins'; font-weight: 600; src: url(assets/fonts/poppins-600.ttf) format('truetype'); }
+
+  :root {
+    --base: #0B1029; --layer: #111838; --card: #161D42; --subtle: #1D2551;
+    --ink: #F2F4FB; --ink2: #B7BFDB; --ink3: #949DC0;
+    --stroke: rgba(170,185,255,0.14); --strokeStrong: rgba(170,185,255,0.26);
+    --nu: #8C97F6; --nuWash: rgba(91,108,240,0.16); --nuBtnA: #3E45C9; --nuBtnB: #5C67E8; --onNu: #FFFFFF;
+    --ra: #FF8A5C; --raDeep: #FFA05C; --raWash: rgba(255,107,53,0.16); --raBtnA: #FF6B35; --raBtnB: #FFA05C; --onRa: #3B1204;
+    --track: #1E2652;
+    --sp1: 4px; --sp2: 8px; --sp3: 12px; --sp4: 16px; --sp5: 24px; --sp6: 32px; --sp7: 48px; --sp8: 64px;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --base: #FAF7F0; --layer: #F3EEE2; --card: #FFFFFF; --subtle: #EFE9DB;
+      --ink: #171313; --ink2: #413A37; --ink3: #6B6350;
+      --stroke: rgba(23,19,19,0.10); --strokeStrong: rgba(23,19,19,0.18);
+      --nu: #4338CA; --nuWash: rgba(67,56,202,0.09); --nuBtnA: #3E36B8; --nuBtnB: #5B51DC; --onNu: #FFFFFF;
+      --ra: #FF6B35; --raDeep: #C2410C; --raWash: rgba(255,107,53,0.12); --raBtnA: #FF6B35; --raBtnB: #FFA05C; --onRa: #3B1204;
+      --track: #E8E1D2;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="dark"] {
+    --base: #0B1029; --layer: #111838; --card: #161D42; --subtle: #1D2551;
+    --ink: #F2F4FB; --ink2: #B7BFDB; --ink3: #949DC0;
+    --stroke: rgba(170,185,255,0.14); --strokeStrong: rgba(170,185,255,0.26);
+    --nu: #8C97F6; --nuWash: rgba(91,108,240,0.16); --nuBtnA: #3E45C9; --nuBtnB: #5C67E8; --onNu: #FFFFFF;
+    --ra: #FF8A5C; --raDeep: #FFA05C; --raWash: rgba(255,107,53,0.16); --raBtnA: #FF6B35; --raBtnB: #FFA05C; --onRa: #3B1204;
+    --track: #1E2652; color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --base: #FAF7F0; --layer: #F3EEE2; --card: #FFFFFF; --subtle: #EFE9DB;
+    --ink: #171313; --ink2: #413A37; --ink3: #6B6350;
+    --stroke: rgba(23,19,19,0.10); --strokeStrong: rgba(23,19,19,0.18);
+    --nu: #4338CA; --nuWash: rgba(67,56,202,0.09); --nuBtnA: #3E36B8; --nuBtnB: #5B51DC; --onNu: #FFFFFF;
+    --ra: #FF6B35; --raDeep: #C2410C; --raWash: rgba(255,107,53,0.12); --raBtnA: #FF6B35; --raBtnB: #FFA05C; --onRa: #3B1204;
+    --track: #E8E1D2; color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--base); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--raDeep); }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .display { font-family: 'Poppins', sans-serif; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .brand { font-family: 'Poppins', sans-serif; font-weight: 500; }
+
+  .shell { display: grid; grid-template-columns: 232px minmax(0,1fr); align-items: start; }
+  @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } .side { display: none; } }
+
+  .side {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: var(--sp6) var(--sp5); border-right: 1px solid var(--stroke);
+  }
+  .side .brandline { display: flex; align-items: center; gap: var(--sp2); margin-bottom: var(--sp6); }
+  .side .brandline img { width: 22px; height: auto; }
+  .side .brandline span { font-family: 'Poppins',sans-serif; font-weight: 600; font-size: 15px; }
+  .side nav { display: flex; flex-direction: column; gap: var(--sp6); }
+  .side .navgroup .navtitle {
+    font-family: 'Poppins',sans-serif; font-weight: 600; font-size: 10.5px; letter-spacing: 0.08em;
+    color: var(--ink3); text-transform: uppercase; margin-bottom: var(--sp2);
+  }
+  .side .navgroup a {
+    display: block; font-size: 13.5px; color: var(--ink2); text-decoration: none;
+    padding: var(--sp1) 0; border-left: 2px solid transparent; padding-left: var(--sp3);
+    margin-left: calc(var(--sp3) * -1);
+  }
+  .side .navgroup a:hover { color: var(--ink); }
+  .side .navgroup a.active { color: var(--ra); border-left-color: var(--ra); font-family: 'Poppins',sans-serif; font-weight: 500; }
+
+  main { max-width: 760px; padding: var(--sp8) var(--sp6) var(--sp8); margin: 0 auto; }
+
+  .hero {
+    background: var(--layer); border: 1px solid var(--stroke); border-radius: 4px;
+    padding: var(--sp6); margin-bottom: var(--sp8);
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp6);
+  }
+  .hero .txt { max-width: 460px; }
+  .hero .eyebrow {
+    font-family: 'Poppins',sans-serif; font-weight: 500; font-size: 11px; letter-spacing: 0.1em;
+    color: var(--ra); text-transform: uppercase; margin: 0 0 var(--sp2);
+  }
+  .hero h1 { font-size: 32px; line-height: 1.15; margin: 0 0 var(--sp3); }
+  .hero p { color: var(--ink2); margin: 0; font-size: 14.5px; }
+  .hero .mark { width: 84px; height: auto; flex-shrink: 0; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3)); }
+  .modeline { display: inline-flex; align-items: center; gap: var(--sp2); font-size: 11.5px; color: var(--ink3); margin-top: var(--sp4); }
+  .modeline .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ra); }
+
+  section.sec { padding-top: var(--sp8); scroll-margin-top: var(--sp5); }
+  section.sec:first-of-type { padding-top: 0; }
+  section.sec + section.sec { border-top: 1px solid var(--stroke); }
+  .sec .eyebrow-row { display: flex; align-items: center; gap: var(--sp2); margin-bottom: var(--sp2); }
+  .sec .num { font-family: 'Poppins',sans-serif; font-weight: 600; font-size: 11.5px; color: var(--nu); }
+  .sec h2 { font-size: 22px; margin: 0 0 var(--sp2); }
+  .sec .dek { color: var(--ink3); font-size: 13.5px; margin: 0 0 var(--sp6); max-width: 60ch; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp4); }
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: var(--sp4); }
+  .grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp4); }
+  @media (max-width: 640px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 420px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
+
+  .rule-card { border: 1px solid var(--stroke); border-radius: 4px; padding: var(--sp4); display: flex; flex-direction: column; gap: var(--sp1); }
+  .rule-card b { font-family:'Poppins',sans-serif; font-weight: 600; font-size: 13.5px; }
+  .rule-card span { color: var(--ink3); font-size: 12.5px; line-height: 1.45; }
+
+  .swatch-card { border: 1px solid var(--stroke); border-radius: 4px; overflow: hidden; }
+  .swatch-card .head { padding: var(--sp3) var(--sp4); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(128,128,128,0.14); }
+  .swatch-card .head b { font-family:'Poppins',sans-serif; font-weight: 600; font-size: 13px; }
+  .swatch-card .head span { font-size: 10.5px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.05em; }
+  .row { display: flex; align-items: center; gap: var(--sp3); padding: var(--sp2) var(--sp4); }
+  .row + .row { border-top: 1px solid rgba(128,128,128,0.10); }
+  .chip { width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.15); }
+  .row .name { font-family:'Poppins',sans-serif; font-weight: 500; font-size: 12.5px; flex: 1; }
+  .row .role { font-size: 11px; opacity: 0.6; flex: 2; }
+  .row .hex { font-size: 11px; opacity: 0.55; font-family: ui-monospace, Menlo, monospace; }
+  .nu-card { background: #0B1029; color: #F2F4FB; }
+  .ra-card { background: #FAF7F0; color: #171313; }
+
+  .ramp { display: flex; height: 40px; border-radius: 4px; overflow: hidden; border: 1px solid var(--stroke); }
+  .ramp div { flex: 1; }
+  .ramp-cap { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--ink3); margin-top: var(--sp2); font-family: ui-monospace, Menlo, monospace; }
+
+  .specimen { display: flex; align-items: baseline; gap: var(--sp5); padding: var(--sp3) 0; border-top: 1px solid var(--stroke); }
+  .specimen:first-of-type { border-top: none; }
+  .specimen .tag { width: 120px; flex-shrink: 0; font-size: 11px; color: var(--ink3); }
+  .specimen .tag b { display: block; color: var(--ink2); font-size: 12px; font-family:'Poppins',sans-serif; font-weight: 500; }
+
+  table.ref { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: var(--sp4); }
+  table.ref th, table.ref td { text-align: left; padding: var(--sp2) var(--sp3); border-top: 1px solid var(--stroke); }
+  table.ref th { color: var(--ink3); font-weight: 500; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  table.ref td.num { font-variant-numeric: tabular-nums; color: var(--ink2); }
+
+  .scale-row { display: flex; align-items: flex-end; gap: var(--sp4); flex-wrap: wrap; }
+  .scale-item { display: flex; flex-direction: column; align-items: center; gap: var(--sp2); }
+  .scale-item .sw { background: var(--nuWash); border: 1px solid var(--strokeStrong); }
+  .scale-item .lbl { font-size: 10.5px; color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .rad-item .sq { width: 56px; height: 56px; background: var(--layer); border: 1.5px solid var(--strokeStrong); }
+  .elev-item .card { width: 72px; height: 52px; border-radius: 10px; background: var(--card); border: 1px solid var(--stroke); }
+  .e2 { box-shadow: 0 1px 3px rgba(0,0,0,0.16); } .e4 { box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+  .e8 { box-shadow: 0 8px 18px rgba(0,0,0,0.26); } .e16 { box-shadow: 0 12px 28px rgba(0,0,0,0.32); }
+  .ewarm { box-shadow: 0 8px 20px rgba(255,107,53,0.38); }
+
+  .icongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px,1fr)); gap: var(--sp3); }
+  .icon-tile { display: flex; flex-direction: column; align-items: center; gap: var(--sp2); padding: var(--sp4) var(--sp2); border: 1px solid var(--stroke); border-radius: 4px; }
+  .icon-tile span { font-size: 10px; color: var(--ink3); }
+
+  .btn-primary { display: inline-flex; align-items: center; gap: var(--sp2); padding: var(--sp4) var(--sp5); border-radius: 18px; border: none; cursor: pointer; font-family:'Poppins',sans-serif; font-weight: 600; font-size: 15px; background: linear-gradient(135deg, var(--raBtnA), var(--raBtnB)); color: var(--onRa); box-shadow: 0 8px 20px rgba(255,107,53,0.3); }
+  .btn-primary.nu { background: linear-gradient(135deg, var(--nuBtnA), var(--nuBtnB)); color: var(--onNu); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+  .btn-ghost { padding: var(--sp3) var(--sp5); border-radius: 12px; border: 1px solid var(--strokeStrong); background: transparent; color: var(--ink2); font-family:'Poppins',sans-serif; font-weight: 500; font-size: 13px; cursor: pointer; }
+  .pill { display: inline-flex; align-items: center; padding: var(--sp2) var(--sp3); border-radius: 999px; border: 1.5px solid var(--stroke); color: var(--ink3); font-size: 12px; }
+  .pill.on { border-color: var(--ra); background: var(--raWash); color: var(--raDeep); font-family:'Poppins',sans-serif; font-weight: 500; }
+  .cb { width: 20px; height: 20px; border-radius: 10px; border: 1.8px solid var(--ink3); }
+  .cb.on { border-color: var(--ra); background: var(--ra); display:flex; align-items:center; justify-content:center; }
+  .row-flex { display: flex; gap: var(--sp3); flex-wrap: wrap; align-items: center; }
+
+  .surface-demo { border: 1px solid var(--strokeStrong); border-radius: 4px; padding: var(--sp4); }
+  .activity-demo { border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,138,92,0.28); background: linear-gradient(135deg, rgba(255,138,92,0.18), rgba(255,138,92,0.06)); padding: var(--sp4); display:flex; align-items:center; gap: var(--sp3); }
+  .scene-dot { width: 40px; height: 40px; border-radius: 12px; background: var(--raWash); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+
+  .status { display: inline-flex; align-items:center; gap: var(--sp1); font-size: 10.5px; font-family:'Poppins',sans-serif; font-weight:500; padding: 3px 8px; border-radius: 999px; }
+  .status.live { background: rgba(120,200,140,0.16); color: #6FCB86; }
+  .status.spec { background: var(--nuWash); color: var(--nu); }
+
+  .case { border: 1px solid var(--stroke); border-radius: 4px; overflow: hidden; margin-top: var(--sp4); }
+  .case .row2 { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) { .case .row2 { grid-template-columns: 1fr; } }
+  .case .row2 > div { padding: var(--sp4); font-size: 12.5px; color: var(--ink2); }
+  .case .before { border-right: 1px solid var(--stroke); }
+  @media (max-width: 640px) { .case .before { border-right: none; border-bottom: 1px solid var(--stroke); } }
+  .case .tag2 { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-family:'Poppins',sans-serif; font-weight: 600; display:block; margin-bottom: var(--sp1); }
+  .case .before .tag2 { color: #E5766F; } .case .after .tag2 { color: #6FCB86; }
+  .case-file { font-size: 11px; color: var(--ink3); margin-top: var(--sp1); font-family: ui-monospace, Menlo, monospace; }
+
+  .phone { max-width: 300px; margin: var(--sp6) 0; border-radius: 26px; border: 1px solid var(--strokeStrong); background: var(--base); padding: var(--sp3); }
+  .phone-screen { background: var(--layer); border-radius: 16px; padding: var(--sp3); display: flex; flex-direction: column; gap: var(--sp2); }
+  .trow { display: flex; align-items: center; gap: var(--sp3); padding: var(--sp2) var(--sp3); border-radius: 12px; }
+  .trow .ic { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .trow .t .ttl { font-size: 13px; font-family:'Poppins',sans-serif; font-weight: 500; }
+  .trow .t .tm { font-size: 10.5px; color: var(--ink3); }
+  .trow.done { opacity: 0.7; } .trow.done .ttl { text-decoration: line-through; }
+  .trow.pending { background: var(--card); border: 1px solid var(--stroke); }
+  .trow.now { background: var(--raWash); border: 1px solid rgba(255,138,92,0.4); }
+
+  /* ---------- Character portraits ---------- */
+  .char-card { border: 1px solid var(--stroke); border-radius: 4px; overflow: hidden; text-align: center; }
+  .char-card .stage { background: var(--layer); padding: var(--sp4) 0; display: flex; align-items: center; justify-content: center; }
+  .char-card img { width: 88px; height: 88px; }
+  .char-card .cap { padding: var(--sp3) var(--sp3) var(--sp4); }
+  .char-card .cap b { display: block; font-family:'Poppins',sans-serif; font-weight: 500; font-size: 12.5px; margin-bottom: 2px; }
+  .char-card .cap span { font-size: 11px; color: var(--ink3); line-height: 1.4; }
+
+  /* ---------- Screens catalog ---------- */
+  .screen-card { border: 1px solid var(--stroke); border-radius: 4px; overflow: hidden; }
+  .screen-card .frame { background: var(--layer); aspect-ratio: 300/649; overflow: hidden; display:flex; }
+  .screen-card .frame img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .screen-card .cap { padding: var(--sp3) var(--sp4); }
+  .screen-card .cap b { display: block; font-family:'Poppins',sans-serif; font-weight: 500; font-size: 12.5px; margin-bottom: 2px; }
+  .screen-card .cap span { font-size: 11px; color: var(--ink3); line-height: 1.4; }
+  .loading-mock { background: var(--layer); aspect-ratio: 300/649; display: flex; align-items: center; justify-content: center; }
+  .loading-mock img { width: 46px; height: auto; opacity: 0.9; }
+
+  footer.colophon { max-width: 760px; margin: 0 auto; padding: var(--sp6) 0 var(--sp8); color: var(--ink3); font-size: 11.5px; display: flex; justify-content: space-between; gap: var(--sp4); flex-wrap: wrap; border-top: 1px solid var(--stroke); }
+</style>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brandline">
+      <img src="assets/images/nura-mark.png" alt="" />
+      <span>Nura</span>
+    </div>
+    <nav id="sidenav">
+      <div class="navgroup">
+        <div class="navtitle">Foundations</div>
+        <a href="#principles">Principles</a>
+        <a href="#logo">Logo</a>
+        <a href="#characters">Characters &amp; story</a>
+        <a href="#color">Color</a>
+        <a href="#type">Typography</a>
+        <a href="#scale">Spacing &amp; radius</a>
+      </div>
+      <div class="navgroup">
+        <div class="navtitle">Components</div>
+        <a href="#icons">Icons</a>
+        <a href="#buttons">Buttons</a>
+        <a href="#surfaces">Surfaces &amp; activity cards</a>
+      </div>
+      <div class="navgroup">
+        <div class="navtitle">Mobile</div>
+        <a href="#mobile">Rules &amp; gestures</a>
+      </div>
+      <div class="navgroup">
+        <div class="navtitle">Screens</div>
+        <a href="#screens">Full catalog</a>
+      </div>
+      <div class="navgroup">
+        <div class="navtitle">Patterns</div>
+        <a href="#today">Today overview</a>
+      </div>
+      <div class="navgroup">
+        <div class="navtitle">Changelog</div>
+        <a href="#cases">Fixed this week</a>
+      </div>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <div class="txt">
+        <p class="eyebrow">Design system · v1</p>
+        <h1 class="display">Nura, as it's actually built.</h1>
+        <p>The tokens already live in <code class="mono">theme.ts</code> and <code class="mono">ui.tsx</code> — this pulls them into one reference.</p>
+        <div class="modeline"><span class="dot"></span>Mode-aware: this page renders in Nu or Ra to match your system theme.</div>
+      </div>
+      <img class="mark" src="assets/images/nura-mark.png" alt="Nura mark" />
+    </div>
+
+    <section class="sec" id="principles">
+      <div class="eyebrow-row"><span class="num">00</span></div>
+      <h2 class="display">Principles</h2>
+      <p class="dek">Four rules everything else is downstream of.</p>
+      <div class="grid2">
+        <div class="rule-card"><b>Mode ≠ theme</b><span>Nu and Ra are chosen by task — capture vs. focus — never by OS light/dark.</span></div>
+        <div class="rule-card"><b>No number goes down</b><span>Light only accumulates. No streaks reset, nothing turns red.</span></div>
+        <div class="rule-card"><b>Layered, not flat</b><span>Every raised surface: a light wash, a hairline, a real shadow.</span></div>
+        <div class="rule-card"><b>One thing, full size</b><span>Focus shows one task with no card around it.</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="logo">
+      <div class="eyebrow-row"><span class="num">01</span></div>
+      <h2 class="display">Logo &amp; wordmark</h2>
+      <p class="dek">Sun disc over water. Both files are cropped to their true alpha bounds — a requested size is the size you get.</p>
+      <div class="grid2">
+        <div class="swatch-card">
+          <div style="padding: var(--sp6); display:flex; justify-content:center;">
+            <img src="assets/images/nura-mark.png" style="width:96px; height:auto;" alt="Nura mark" />
+          </div>
+          <div class="row" style="border-top:1px solid var(--stroke);"><span class="role">Mark — 1020:1064, tight crop</span></div>
+        </div>
+        <div class="swatch-card">
+          <div style="padding: var(--sp6); display:flex; justify-content:center; align-items:center; background:#0B1029;">
+            <img src="assets/images/nura-wordmark.png" style="width:180px; height:auto;" alt="Nura wordmark" />
+          </div>
+          <div class="row" style="border-top:1px solid var(--stroke);"><span class="role">Wordmark — tints to <code class="mono">ink</code>, drawn not typeset</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="characters">
+      <div class="eyebrow-row"><span class="num">02</span></div>
+      <h2 class="display">Characters &amp; story</h2>
+      <p class="dek">The whole brand argument in two mascots: <b class="brand" style="color:var(--ink2)">Nu</b> is the water — capture, everything lives here, nothing is startable. <b class="brand" style="color:var(--ink2)">Ra</b> is the light — focus, one thing, warm and bright. Switching mode is switching character, not tabs.</p>
+
+      <div class="grid4">
+        <div class="char-card">
+          <div class="stage"><img src="assets/images/nu-idle.png" alt="Nu idle" /></div>
+          <div class="cap"><b>Nu · idle</b><span>Resting, arms down. Default state, header avatar.</span></div>
+        </div>
+        <div class="char-card">
+          <div class="stage"><img src="assets/images/nu-thinking.png" alt="Nu thinking" /></div>
+          <div class="cap"><b>Nu · thinking</b><span>Hand at chin, eyes up. Plays right after you capture something.</span></div>
+        </div>
+        <div class="char-card">
+          <div class="stage"><img src="assets/images/ra-wave.png" alt="Ra wave" /></div>
+          <div class="cap"><b>Ra · wave</b><span>Arm raised, open smile. Auth screens, Focus fallback.</span></div>
+        </div>
+        <div class="char-card">
+          <div class="stage"><img src="assets/images/ra-celebrate.png" alt="Ra celebrate" /></div>
+          <div class="cap"><b>Ra · celebrate</b><span>Both arms up, rays out. Every completion, full screen.</span></div>
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top: var(--sp5);">
+        <div class="rule-card">
+          <b>One pose, not a flipbook</b>
+          <span>Each pack ships four drawn poses, but only <i>one</i> renders per state — moved with a spring on scale/rotation, not cross-faded between frames. The poses aren't related drawings of one motion; playing them in sequence reads as a glitch, a continuous spring never can.</span>
+        </div>
+        <div class="rule-card">
+          <b>The slogan, in three beats</b>
+          <span style="display:block; margin-top:2px; font-family:'Poppins',sans-serif; color:var(--ink2); font-size:13px; line-height:1.7;">Find clarity.<br/><span style="color:var(--ra);">Begin gently.</span><br/>Move forward.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="color">
+      <div class="eyebrow-row"><span class="num">03</span></div>
+      <h2 class="display">Color</h2>
+      <p class="dek">One semantic slot, two values — a component reads <code class="mono">t.ink</code>, never <code class="mono">if(mode)</code>.</p>
+      <div class="grid2">
+        <div class="swatch-card nu-card">
+          <div class="head"><b>Nu</b><span>navy · indigo</span></div>
+          <div class="row"><div class="chip" style="background:#0B1029"></div><span class="name">base</span><span class="role">ground</span><span class="hex">#0B1029</span></div>
+          <div class="row"><div class="chip" style="background:#161D42"></div><span class="name">card</span><span class="role">surface</span><span class="hex">#161D42</span></div>
+          <div class="row"><div class="chip" style="background:#F2F4FB"></div><span class="name">ink</span><span class="role">16.4:1</span><span class="hex">#F2F4FB</span></div>
+          <div class="row"><div class="chip" style="background:#949DC0"></div><span class="name">ink3</span><span class="role">5.63:1</span><span class="hex">#949DC0</span></div>
+          <div class="row"><div class="chip" style="background:#8C97F6"></div><span class="name">nu</span><span class="role">accent</span><span class="hex">#8C97F6</span></div>
+          <div class="row"><div class="chip" style="background:#FF8A5C"></div><span class="name">ra</span><span class="role">accent</span><span class="hex">#FF8A5C</span></div>
+        </div>
+        <div class="swatch-card ra-card">
+          <div class="head"><b>Ra</b><span>cream · coral</span></div>
+          <div class="row"><div class="chip" style="background:#FAF7F0; border-color: rgba(0,0,0,0.15);"></div><span class="name">base</span><span class="role">ground</span><span class="hex">#FAF7F0</span></div>
+          <div class="row"><div class="chip" style="background:#FFFFFF; border-color: rgba(0,0,0,0.15);"></div><span class="name">card</span><span class="role">surface</span><span class="hex">#FFFFFF</span></div>
+          <div class="row"><div class="chip" style="background:#171313"></div><span class="name">ink</span><span class="role">16.4:1</span><span class="hex">#171313</span></div>
+          <div class="row"><div class="chip" style="background:#6B6350"></div><span class="name">ink3</span><span class="role">5.96:1</span><span class="hex">#6B6350</span></div>
+          <div class="row"><div class="chip" style="background:#4338CA"></div><span class="name">nu</span><span class="role">accent</span><span class="hex">#4338CA</span></div>
+          <div class="row"><div class="chip" style="background:#C2410C"></div><span class="name">raDeep</span><span class="role">5.3:1 — text coral</span><span class="hex">#C2410C</span></div>
+        </div>
+      </div>
+
+      <p class="dek" style="margin-top: var(--sp6); margin-bottom: var(--sp3);">Sequential scale — the pixel-grid ramp, light to saturated.</p>
+      <div class="grid2">
+        <div>
+          <div class="ramp">
+            <div style="background:#161D42"></div><div style="background:#222C68"></div><div style="background:#2F3D93"></div>
+            <div style="background:#4150C4"></div><div style="background:#5B6CF0"></div><div style="background:#95A0F8"></div>
+          </div>
+          <div class="ramp-cap"><span>161D42</span><span>Nu</span><span>95A0F8</span></div>
+        </div>
+        <div>
+          <div class="ramp">
+            <div style="background:#F0EADC"></div><div style="background:#FBD9C4"></div><div style="background:#FCB995"></div>
+            <div style="background:#FB8A54"></div><div style="background:#F2621F"></div><div style="background:#C2410C"></div>
+          </div>
+          <div class="ramp-cap"><span>F0EADC</span><span>Ra</span><span>C2410C</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="type">
+      <div class="eyebrow-row"><span class="num">04</span></div>
+      <h2 class="display">Typography</h2>
+      <p class="dek">Poppins carries voice — headlines, buttons, labels. Body stays on the OS system font.</p>
+
+      <div class="specimen"><div class="tag"><b>Display</b>Poppins 600 · 34</div><div class="display" style="font-size:30px;">Two screens, that's all.</div></div>
+      <div class="specimen"><div class="tag"><b>Title</b>Poppins 600 · 21</div><div class="display" style="font-size:20px;">Nothing left today.</div></div>
+      <div class="specimen"><div class="tag"><b>Brand</b>Poppins 500 · 15.5</div><div class="brand" style="font-size:15px;">Begin · 5 minutes</div></div>
+      <div class="specimen"><div class="tag"><b>Body</b>System 400 · 16.5</div><div style="color:var(--ink2); font-size:15px;">Here is everything you have to do today.</div></div>
+      <div class="specimen"><div class="tag"><b>Meta</b>System 400 · 12.5</div><div style="color:var(--ink3); font-size:12.5px;">before Dentist · 47m</div></div>
+
+      <table class="ref">
+        <tr><th>Token</th><th>Size</th><th>Family</th><th>Used for</th></tr>
+        <tr><td>display</td><td class="num">34</td><td>Poppins 600</td><td>Headlines, empty states</td></tr>
+        <tr><td>title</td><td class="num">21</td><td>Poppins 600</td><td>Section headers</td></tr>
+        <tr><td>body</td><td class="num">16.5</td><td>System 400</td><td>Task titles, copy</td></tr>
+        <tr><td>bodySm</td><td class="num">15</td><td>System 400</td><td>Secondary lines</td></tr>
+        <tr><td>meta</td><td class="num">12.5</td><td>System 400</td><td>Timestamps, chips</td></tr>
+        <tr><td>label</td><td class="num">12</td><td>Poppins 500 +1.8</td><td>Letterspaced caps</td></tr>
+      </table>
+    </section>
+
+    <section class="sec" id="scale">
+      <div class="eyebrow-row"><span class="num">05</span></div>
+      <h2 class="display">Spacing, radius, elevation</h2>
+      <p class="dek">4pt base unit. Five-step radius. Shadow reserved for what actually lifts off the page.</p>
+
+      <div class="scale-row" style="margin-bottom: var(--sp6);">
+        <div class="scale-item"><div class="sw" style="width:8px;height:20px;"></div><span class="lbl">8</span></div>
+        <div class="scale-item"><div class="sw" style="width:12px;height:20px;"></div><span class="lbl">12</span></div>
+        <div class="scale-item"><div class="sw" style="width:16px;height:20px;"></div><span class="lbl">16</span></div>
+        <div class="scale-item"><div class="sw" style="width:24px;height:20px;"></div><span class="lbl">24</span></div>
+        <div class="scale-item"><div class="sw" style="width:32px;height:20px;"></div><span class="lbl">32</span></div>
+        <div class="scale-item"><div class="sw" style="width:48px;height:20px;"></div><span class="lbl">48</span></div>
+      </div>
+
+      <div class="scale-row" style="margin-bottom: var(--sp6);">
+        <div class="scale-item rad-item"><div class="sq" style="border-radius:6px;"></div><span class="lbl">sm 6</span></div>
+        <div class="scale-item rad-item"><div class="sq" style="border-radius:12px;"></div><span class="lbl">md 12</span></div>
+        <div class="scale-item rad-item"><div class="sq" style="border-radius:18px;"></div><span class="lbl">lg 18</span></div>
+        <div class="scale-item rad-item"><div class="sq" style="border-radius:26px;"></div><span class="lbl">xl 26</span></div>
+        <div class="scale-item rad-item"><div class="sq" style="border-radius:999px; width:40px;"></div><span class="lbl">pill</span></div>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-item elev-item"><div class="card"></div><span class="lbl">e0</span></div>
+        <div class="scale-item elev-item"><div class="card e2"></div><span class="lbl">e2</span></div>
+        <div class="scale-item elev-item"><div class="card e4"></div><span class="lbl">e4</span></div>
+        <div class="scale-item elev-item"><div class="card e8"></div><span class="lbl">e8</span></div>
+        <div class="scale-item elev-item"><div class="card e16"></div><span class="lbl">e16</span></div>
+        <div class="scale-item elev-item"><div class="card ewarm"></div><span class="lbl">warm</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="icons">
+      <div class="eyebrow-row"><span class="num">06</span></div>
+      <h2 class="display">Iconography</h2>
+      <p class="dek">Line-drawn, rounded caps, one stroke weight — 1.8px.</p>
+      <div class="icongrid">
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M9 6l6 6-6 6"/></svg><span>chevron</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>check</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><circle cx="11" cy="11" r="7"/><path d="M16.3 16.3L21 21"/></svg><span>search</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M4 9h16M9 3v4M15 3v4"/></svg><span>calendar</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>clock</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span>bell</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg><span>doc</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink2)"><path d="M20.3 5.7a5 5 0 00-7.1 0L12 6.9l-1.2-1.2a5 5 0 10-7.1 7.1l8.3 8.3 8.3-8.3a5 5 0 000-7.1z"/></svg><span>heart</span></div>
+        <div class="icon-tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3.2l1.8 4.4 4.4 1.8-4.4 1.8L12 15.6l-1.8-4.4L5.8 9.4l4.4-1.8z" fill="var(--ink2)"/><path d="M18.4 15.2l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="var(--ink2)"/></svg><span>sparkle</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="buttons">
+      <div class="eyebrow-row"><span class="num">07</span></div>
+      <h2 class="display">Buttons &amp; controls</h2>
+      <p class="dek">One primary per screen. Everything else is a ghost, a chip, or plain text.</p>
+      <div class="row-flex" style="margin-bottom: var(--sp4);">
+        <button class="btn-primary">Focus on one thing</button>
+        <button class="btn-primary nu">Add anything…</button>
+        <button class="btn-ghost">Something else</button>
+      </div>
+      <div class="row-flex" style="margin-bottom: var(--sp4);">
+        <span class="pill on">5m</span><span class="pill">15m</span><span class="pill">25m</span><span class="pill">45m</span>
+      </div>
+      <div class="row-flex">
+        <div class="cb"></div>
+        <div class="cb on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--onRa)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <span style="font-size:11.5px; color:var(--ink3);">unchecked → filled, no midpoint style</span>
+      </div>
+      <table class="ref">
+        <tr><th>Control</th><th>Interaction</th><th>Physics</th></tr>
+        <tr><td>Primary press</td><td>scale down</td><td class="num">f7 / t220 → 0.975×</td></tr>
+        <tr><td>Checkbox fill</td><td>tap</td><td class="num">overshoot 1.18× → settle</td></tr>
+        <tr><td>Celebrate pop-in</td><td>modal open</td><td class="num">f6 / t90</td></tr>
+      </table>
+    </section>
+
+    <section class="sec" id="surfaces">
+      <div class="eyebrow-row"><span class="num">08</span></div>
+      <h2 class="display">Surfaces &amp; activity cards</h2>
+      <p class="dek"><b class="brand">Surface</b> is the neutral list container, used for maybe five or six things at once. <b class="brand">ActivityCard</b> tints to the task's own activity color and carries its scene art — reserved for a handful of items, because a screen of these is a mood board, not a list.</p>
+      <div class="grid2">
+        <div class="surface-demo">
+          <div style="display:flex; align-items:center; gap: var(--sp3);">
+            <div style="width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--raBtnA),var(--raBtnB));"></div>
+            <span style="color:var(--ink3); font-size:14px;">Add anything…</span>
+          </div>
+        </div>
+        <div class="activity-demo">
+          <div style="flex:1;">
+            <div class="brand" style="font-size:13px;">10:00 <span style="color:var(--ink3); font-weight:400;">· 10 min</span></div>
+            <div class="display" style="font-size:19px; margin-top:2px;">Email</div>
+            <div style="font-size:12.5px; color:var(--ink2); margin-top:1px;">email the registrar</div>
+          </div>
+          <div class="scene-dot">✉️</div>
+        </div>
+      </div>
+      <p class="dek" style="margin-top: var(--sp5); margin-bottom: var(--sp3);">The hero deck, live — this is the actual Home screen, populated.</p>
+      <div style="max-width: 300px;">
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/home-screen-populated.jpg" alt="Home screen, populated" /></div>
+          <div class="cap"><b>Home, with real data</b><span>2 done, 2 to do — the Today list carries the receipt, the strip carries the total.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="mobile">
+      <div class="eyebrow-row"><span class="num">09</span></div>
+      <h2 class="display">Mobile &amp; gestures</h2>
+      <p class="dek">No desktop breakpoint — "responsive" means safe-area correctness and reach, not reflow.</p>
+      <div class="grid2">
+        <div class="surface-demo">
+          <b class="brand" style="font-size:13px;">Hard rules</b>
+          <ul style="font-size:12.5px; color:var(--ink2); padding-left: var(--sp4); margin: var(--sp2) 0 0; line-height:1.7;">
+            <li>44×44pt minimum tap target</li>
+            <li>Primary action in the thumb zone</li>
+            <li>Header sits ≥8pt below the safe-area inset</li>
+            <li>One pinned control per screen, max</li>
+          </ul>
+        </div>
+        <div class="surface-demo">
+          <b class="brand" style="font-size:13px;">Gestures</b>
+          <div style="margin-top: var(--sp3); display:flex; flex-direction:column; gap: var(--sp2);">
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:12.5px;">Deck paging</span><span class="status live">● built</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:12.5px;">Row add/remove</span><span class="status live">● built</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:12.5px;">Swipe-to-complete</span><span class="status spec">○ spec only</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:12.5px;">Swipe-to-snooze</span><span class="status spec">○ spec only</span></div>
+          </div>
+          <p style="font-size:11px; color:var(--ink3); margin-top: var(--sp3);">No <code class="mono">react-native-gesture-handler</code> yet — the deck "swipe" is a snapping <code class="mono">ScrollView</code>, not a pan gesture.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="screens">
+      <div class="eyebrow-row"><span class="num">10</span></div>
+      <h2 class="display">Screens</h2>
+      <p class="dek">Every real screen in the flow, captured from the running build — not mocked. Onboarding chrome (Welcome, Connect, Sign in) is fixed to Ra regardless of mode; everything past it follows Nu/Ra as normal.</p>
+
+      <div class="grid3">
+        <div class="screen-card">
+          <div class="loading-mock"><img src="assets/images/nura-mark.png" alt="Loading" /></div>
+          <div class="cap"><b>Loading</b><span>One mark, breathing. Usually on-screen under a second — nothing else competes with it.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/welcome-screen.jpg" alt="Welcome screen" /></div>
+          <div class="cap"><b>Welcome</b><span>The slogan and the intro clip. No sub-line — one explanation of the idea, not two.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/connect-screen.jpg" alt="Connect screen" /></div>
+          <div class="cap"><b>Connect your day</b><span>Anything that doesn't work yet says SOON and can't be tapped — no faked integrations.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/sign-in-screen.jpg" alt="Sign in screen" /></div>
+          <div class="cap"><b>Sign in</b><span>Never a gate — every path here has a "keep using Nura without an account" escape.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/focus-screen.jpg" alt="Focus screen" /></div>
+          <div class="cap"><b>Focus</b><span>One task, full size, no card around it — the screen the whole app points at.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/calendar-screen.jpg" alt="Calendar screen" /></div>
+          <div class="cap"><b>Calendar</b><span>Your commitments and your dated work in one grid. Read-only for events, always.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/reminders-permission-ask.jpg" alt="Reminders permission ask" /></div>
+          <div class="cap"><b>Reminders ask</b><span>Contextual, one at a time. "They get quieter if you're not answering" — a real promise, not copy.</span></div>
+        </div>
+        <div class="screen-card">
+          <div class="frame"><img src="assets/images/profile-avatar-screen.jpg" alt="Profile / avatar screen" /></div>
+          <div class="cap"><b>Profile &amp; avatar</b><span>Rank, not streak. The header avatar is the same Character component, just smaller.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="today">
+      <div class="eyebrow-row"><span class="num">11</span></div>
+      <h2 class="display">Pattern — Today overview</h2>
+      <p class="dek">"2 done · 3 to do" answers how many. This answers which ones.</p>
+      <div class="phone">
+        <div class="phone-screen">
+          <span style="font-size:10px; letter-spacing:0.1em; color:var(--ink3); text-transform:uppercase; padding:0 4px;">Today</span>
+          <div class="trow done"><div class="ic" style="background:rgba(140,151,246,0.16);">✓</div><div class="t"><div class="ttl">Meditate</div><div class="tm">8:30 AM · 15 min</div></div></div>
+          <div class="trow done"><div class="ic" style="background:rgba(140,151,246,0.16);">✓</div><div class="t"><div class="ttl">Workout</div><div class="tm">5:45 AM · 45 min</div></div></div>
+          <div class="trow now"><div class="ic" style="background:var(--raWash);">→</div><div class="t"><div class="ttl">Email the registrar</div><div class="tm">up next · 10 min</div></div></div>
+          <div class="trow pending"><div class="ic" style="background:var(--layer); border:1px solid var(--stroke);">◷</div><div class="t"><div class="ttl">Team meeting</div><div class="tm">1:00 PM · 1 hr</div></div></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="rule-card"><b>What carries over</b><span>Done-state anatomy from <code class="mono">ActivityCard</code>: tinted icon, line-through, existing praise line. Data already exists in <code class="mono">wins</code> — this is a filter, not new plumbing.</span></div>
+        <div class="rule-card"><b>What's different on purpose</b><span>The reference used a red "not enough time" card. Dropped — rule 00 is no number goes down, and a red fail-card on a task you <i>did</i> do is exactly the scolding this app avoids.</span></div>
+      </div>
+    </section>
+
+    <section class="sec" id="cases">
+      <div class="eyebrow-row"><span class="num">12</span></div>
+      <h2 class="display">Fixed this week</h2>
+      <p class="dek">The system catching real drift.</p>
+
+      <div class="case">
+        <div class="row2">
+          <div class="before"><span class="tag2">Before</span>Hero card reserved 26pt to peek at a next card, even with one task — narrower than every card below it.</div>
+          <div class="after"><span class="tag2">After</span>Peek space only reserves when there's something to peek at.</div>
+        </div>
+      </div>
+      <div class="case-file">src/components/ActivityCard.tsx</div>
+
+      <div class="case">
+        <div class="row2">
+          <div class="before"><span class="tag2">Before</span>Focus screen's session pills — <code class="mono">5m 15m 25m 45m</code> — had no heading.</div>
+          <div class="after"><span class="tag2">After</span>Added "How long this time?" above the row.</div>
+        </div>
+      </div>
+      <div class="case-file">src/screens/Ra.tsx</div>
+
+      <div class="case">
+        <div class="row2">
+          <div class="before"><span class="tag2">Before</span>Placeholder text read as real data already typed into the field.</div>
+          <div class="after"><span class="tag2">After</span>Prefixed every example placeholder with <code class="mono">e.g.</code></div>
+        </div>
+      </div>
+      <div class="case-file">src/screens/Ra.tsx</div>
+
+      <div class="case">
+        <div class="row2">
+          <div class="before"><span class="tag2">Before</span>Home's greeting never showed a name, even after saving one in Settings.</div>
+          <div class="after"><span class="tag2">After</span><code class="mono">refresh()</code> never re-fetched <code class="mono">profile</code> — now it does. No ask-card added — it stays silent either way.</div>
+        </div>
+      </div>
+      <div class="case-file">src/store.ts</div>
+
+      <div class="case">
+        <div class="row2">
+          <div class="before"><span class="tag2">Before</span>Connect and Compose pin themselves to the cream palette, but the shared background still read the global mode — near-black text on a near-black ground the first time anyone sees onboarding.</div>
+          <div class="after"><span class="tag2">After</span><code class="mono">&lt;Mica force="ra" /&gt;</code> — background and foreground now always agree.</div>
+        </div>
+      </div>
+      <div class="case-file">src/ui.tsx, src/screens/Connect.tsx, app/compose.tsx</div>
+    </section>
+  </main>
+</div>
+
+<footer class="colophon">
+  <span>Generated from <code class="mono">theme.ts</code>, <code class="mono">ui.tsx</code>, <code class="mono">reward.ts</code> — screens captured live, not mocked</span>
+  <span>Update this page when a token changes — not the other way around.</span>
+</footer>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('#sidenav a'));
+    var sections = links.map(function (l) { return document.querySelector(l.getAttribute('href')); }).filter(Boolean);
+    if (!('IntersectionObserver' in window) || !sections.length) return;
+    var current = null;
+    function setActive(id) {
+      if (id === current) return;
+      current = id;
+      links.forEach(function (l) { l.classList.toggle('active', l.getAttribute('href') === '#' + id); });
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
+    }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function (s) { io.observe(s); });
+    setActive(sections[0].id);
+  })();
+</script>
+
+</body></html>
