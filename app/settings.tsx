@@ -43,20 +43,28 @@ export default function Settings() {
   }, []));
 
   const replay = () => {
-    Alert.alert(
-      'Show the intro again?',
-      'You will land back on the welcome screen. Nothing you have written down is touched.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Show it', onPress: async () => {
-            await resetOnboarding();
-            await useStore.getState().refresh();
-            router.replace('/');
-          },
-        },
-      ],
-    );
+    const go = async () => {
+      await resetOnboarding();
+      await useStore.getState().refresh();
+      // Settings is a sheet, usually over Profile, also a sheet. replace('/')
+      // only swapped the top sheet for a second home screen, so on the phone
+      // the intro could land under the Profile sheet. Closing every sheet
+      // shows the home screen underneath, which now renders the intro.
+      if (router.canDismiss()) router.dismissAll();
+      else router.replace('/');
+    };
+    const title = 'Show the intro again?';
+    const body = 'You will land back on the welcome screen. Nothing you have written down is touched.';
+    // react-native-web's Alert.alert does nothing, so on the web this button
+    // was dead; the browser's own confirm dialog stands in for it there.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${body}`)) go();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Show it', onPress: go },
+    ]);
   };
 
   // The store's `session` clears itself — supabase.auth.onAuthStateChange

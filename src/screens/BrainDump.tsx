@@ -63,7 +63,7 @@ export default function BrainDump({ onNext }: { onNext: (ids: string[]) => void 
 
           <TextInput
             value={text} onChangeText={setText} multiline autoFocus
-            placeholder={'Reply to Sam\nBook the dentist\nCall mum tomorrow at 6'}
+            placeholder={'Reply to Sam\nBook the dentist\nCall mum tomorrow at 6pm'}
             placeholderTextColor={t.ink3}
             style={{
               marginTop: 22, minHeight: 170, textAlignVertical: 'top',

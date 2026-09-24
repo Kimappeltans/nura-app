@@ -40,6 +40,11 @@ const WEEKDAYS: [RegExp, number][] = [
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
+/** Where the parser took a date, time or length out of the sentence. */
+const GAP = '\u0000';
+/** A word that only introduced what was taken out: "by", "this", "on the". */
+const DATE_LEAD = /\b(on|at|by|this|next|every|the|before|until|due|for|in|from)\s*\u0000/gi;
+
 /** Monday = 1 … Sunday = 7, matching the rest of the app. */
 const isoDay = (d: Date) => (d.getDay() + 6) % 7 + 1;
 
@@ -99,7 +104,9 @@ export interface Draft {
 export function parseTask(input: string): Draft {
   let s = ` ${input.trim()} `;
   const found: string[] = [];
-  const eat = (re: RegExp) => { s = s.replace(re, ' '); };
+  // what the parser takes out leaves a marker, so the small words that only
+  // introduced it ("by friday", "this tuesday", "on the 3rd") can go too
+  const eat = (re: RegExp) => { s = s.replace(re, ` ${GAP} `); };
 
   /* --- repeats --- */
   let repeat: RepeatRule | null = null;
@@ -232,8 +239,17 @@ export function parseTask(input: string): Draft {
   }
 
   /* --- what's left is the title --- */
-  let title = s
-    .replace(/\b(every|on|at|the|a|an|this|next)\b/gi, ' ')
+  // Only words standing right before something the parser took out are
+  // dropped. This used to strip "the", "a", "on", "at" from the whole title,
+  // so "Book the dentist" became "Book dentist" and "Finish the report by
+  // friday" became "Finish report by".
+  let title = s, before: string;
+  do {
+    before = title;
+    title = title.replace(DATE_LEAD, ` ${GAP} `);
+  } while (title !== before);
+  title = title
+    .split(GAP).join(' ')
     .replace(/[,;]+/g, ' ')
     // "gym tuesday and thursday" -> the weekdays are eaten, and a lone "and"
     // is left behind. Strip conjunctions that no longer join anything, plus
@@ -244,6 +260,8 @@ export function parseTask(input: string): Draft {
     .replace(/\b\d{1,2}(st|nd|rd|th)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\s+(and|&|or|plus)$/i, '')
+    // "Urgent: fix the bug" -> the colon outlives the word it followed
+    .replace(/^[\s:;,.\-–—]+|[\s:;,\-–—]+$/g, '')
     .trim();
   if (!title) title = input.trim();
   title = title.charAt(0).toUpperCase() + title.slice(1);

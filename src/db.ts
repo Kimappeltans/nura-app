@@ -522,7 +522,7 @@ const LIVE = `state NOT IN ('done','dropped')
  * re-derived in priority.ts, a second copy of these tiers that could drift.
  * 'chosen' is the one rule the engine didn't apply: you picked it yourself.
  */
-export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'upcoming' | 'fits' | 'smallest';
+export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'priority' | 'upcoming' | 'fits' | 'smallest';
 export interface Pick { task: Task; rule: PickRule }
 
 export async function pickNow(exclude: string[] = []): Promise<Task | null> {
@@ -638,31 +638,72 @@ async function writePassed(ids: string[]) {
 const isLive = (t: Task | null): t is Task =>
   !!t && t.state !== 'done' && t.state !== 'dropped' && !(t.snoozed_until && t.snoozed_until > Date.now());
 
-/** The one thing, right now. Everything that shows Ra's task reads this. */
+/**
+ * The one thing, right now — and it is never forced on you.
+ *
+ *   1. A task you chose yourself ("Focus on this"), until it's done, dropped
+ *      or snoozed.
+ *   2. Otherwise the top of YOUR Today list: anything already started, then
+ *      your priority label (High, Medium, Low), then the soonest date.
+ *   3. Otherwise nothing. Ra then offers suggestions() and you pick one.
+ *
+ * This used to fall back to the engine choosing from everything you'd ever
+ * written down and holding it in front of you — which, the first time Kim
+ * used the app for real, felt like the app shoving a task at her. Choosing
+ * is yours; the engine only suggests.
+ */
 export async function currentPick(): Promise<Pick | null> {
   const passed = await passedToday();
   const pin = await readPin();
-  if (pin && pin.day === dayKey()) {
+  if (pin && pin.day === dayKey() && pin.rule === 'chosen') {
     const held = await getTask(pin.id);
-    if (isLive(held)) {
-      // A pick the engine made yields to a deadline that has since come
-      // within two hours. One you chose yourself never does.
-      if (pin.rule !== 'chosen' && pin.rule !== 'due') {
-        const fresh = await pickWithRule(passed);
-        if (fresh?.rule === 'due' && fresh.task.id !== held.id) {
-          await writePin({ id: fresh.task.id, rule: 'due' });
-          return fresh;
-        }
-      }
-      return { task: held, rule: pin.rule };
-    }
+    if (isLive(held)) return { task: held, rule: 'chosen' };
   }
-  let p = await pickWithRule(passed);
-  // everything has been passed over today: start the round again rather
-  // than show an empty screen with tasks still in the water
-  if (!p && passed.length) { await writePassed([]); p = await pickWithRule(); }
-  await writePin(p ? { id: p.task.id, rule: p.rule } : null);
-  return p;
+  const top = (await todayOrdered()).find(t => !passed.includes(t.id));
+  if (top) return { task: top, rule: top.state === 'doing' ? 'started' : 'today' };
+  return null;
+}
+
+/** Your Today list in the order Focus works through it. */
+export async function todayOrdered(): Promise<Task[]> {
+  const db = await getDb();
+  return db.getAllAsync<Task>(
+    `SELECT * FROM task WHERE state IN ('today','doing') AND parent_id IS NULL
+       AND (snoozed_until IS NULL OR snoozed_until <= ?)
+     ORDER BY (state = 'doing') DESC, COALESCE(priority,0) DESC, COALESCE(due_at, 9e15) ASC, created_at ASC`,
+    Date.now());
+}
+
+/**
+ * What Ra offers when you haven't picked anything: a few candidates with the
+ * reason each is worth considering. Deadlines within two hours first, then
+ * your priority labels, then dates in the next three days, then whatever fits
+ * the energy you said you have.
+ */
+export async function suggestions(n = 3): Promise<Pick[]> {
+  const db = await getDb();
+  const now = Date.now();
+  const energy = await getEnergy();
+  const ceiling = CEILING[energy];
+  const soon = now + 2 * 3600_000, threeDays = now + 72 * 3600_000;
+  const rows = await db.getAllAsync<Task>(
+    `SELECT * FROM task WHERE state NOT IN ('done','dropped') AND parent_id IS NULL
+       AND (snoozed_until IS NULL OR snoozed_until <= ?) LIMIT 200`, now);
+  const scored = rows.map(t => {
+    const pr = t.priority ?? 0;
+    const rule: PickRule =
+      t.due_at != null && t.due_at <= soon ? 'due'
+      : pr >= 2 ? 'priority'
+      : t.due_at != null && t.due_at <= threeDays ? 'upcoming'
+      : (t.est_minutes ?? 15) <= ceiling ? 'fits' : 'smallest';
+    const tier = { due: 0, priority: 1, upcoming: 2, fits: 3, smallest: 4, chosen: 9, started: 9, today: 9 }[rule];
+    return { task: t, rule, key: [tier, -pr, t.due_at ?? 9e15, t.est_minutes ?? 15, t.created_at] };
+  });
+  scored.sort((a, b) => {
+    for (let i = 0; i < a.key.length; i++) if (a.key[i] !== b.key[i]) return a.key[i] - b.key[i];
+    return 0;
+  });
+  return scored.slice(0, n).map(({ task, rule }) => ({ task, rule }));
 }
 
 /** You chose this one. It stays until it's done, dropped or snoozed. */
@@ -671,7 +712,8 @@ export async function chooseTask(id: string) {
   await markActed('choose');
 }
 
-/** "Something else instead": not today, not this one — show the next. */
+/** "Something else instead": not this one, not today — the next on your
+ *  Today list, or nothing (and Ra offers suggestions). */
 export async function passOn(id: string): Promise<Pick | null> {
   const pin = await readPin();
   await writePassed([...(await passedToday()).filter(x => x !== id), id]);

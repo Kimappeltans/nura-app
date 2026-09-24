@@ -1,3 +1,4 @@
+import type React from 'react';
 import { Modal, View, Text, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { radius, elevation, type as T } from '../theme';
@@ -24,10 +25,12 @@ export interface SheetAction {
  * itself styled as an action, so dismissing never reads as a sixth choice.
  */
 export function ActionSheet(
-  { visible, title, subtitle, actions, dismissLabel = 'Keep it', onDismiss }: {
+  { visible, title, subtitle, actions, dismissLabel = 'Keep it', onDismiss, children }: {
     visible: boolean;
     title: string;
     subtitle?: string;
+    /** extra controls above the actions, e.g. a priority picker */
+    children?: React.ReactNode;
     actions: SheetAction[];
     dismissLabel?: string;
     onDismiss: () => void;
@@ -48,6 +51,8 @@ export function ActionSheet(
           {!!subtitle && (
             <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14, marginTop: 3 }}>{subtitle}</Text>
           )}
+
+          {children}
 
           <View style={{ marginTop: 14, gap: 6 }}>
             {actions.map(a => (

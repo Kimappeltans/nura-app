@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useStore } from '../store';
-import { logEvent, setBlockers, currentPick, getTask, getEnergy, type Blocker, type Task, type PickRule } from '../db';
+import { logEvent, setBlockers, suggestions, getTask, getEnergy, pickForToday, type Blocker, type Task, type PickRule } from '../db';
 import { whyLine } from '../priority';
 import Welcome from './Welcome';
 import Blockers from './Blockers';
@@ -47,18 +47,21 @@ export default function Onboarding() {
 
   const toRise = async (ids: string[]) => {
     const tasks = (await Promise.all(ids.map(getTask))).filter((x): x is Task => !!x);
-    const p = await currentPick();
+    // the engine only suggests — the screen lets you pick a different one
+    const p = (await suggestions(1))[0];
     if (!p) return finish(false);
     setRise({ tasks, pick: p.task, rule: p.rule, why: whyLine(p.rule, p.task, await getEnergy()) });
     setStep('rise');
   };
 
-  const finish = async (start: boolean) => {
-    await log('done', { started: start });
+  const finish = async (start: boolean, picked?: Task) => {
+    const task = picked ?? rise?.pick;
+    await log('done', { started: start, changedPick: !!picked && picked.id !== rise?.pick.id });
     await finishOnboarding();
-    if (start && rise) {
-      await focusOn(rise.pick.id);
-      router.push({ pathname: '/timer', params: { id: rise.pick.id, mins: '5' } });
+    if (start && task) {
+      await pickForToday(task.id, true);     // what you start is on your Today
+      await focusOn(task.id);
+      router.push({ pathname: '/timer', params: { id: task.id, mins: '5' } });
     } else {
       await toNu();
     }
@@ -104,7 +107,7 @@ export default function Onboarding() {
   if (step === 'rise' && rise) {
     return (
       <OneRises tasks={rise.tasks} pick={rise.pick} why={rise.why}
-        onStart={() => finish(true)} onEverything={() => finish(false)} />
+        onStart={task => finish(true, task)} onEverything={() => finish(false)} />
     );
   }
 

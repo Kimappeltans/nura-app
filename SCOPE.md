@@ -30,7 +30,7 @@ Everything in scope serves this loop. Anything that doesn't is frozen or cut.
 | Step | What happens | Today |
 |---|---|---|
 | **Capture** | Type anything into Nu. It costs nothing and sorts nothing. | Works |
-| **Choose** | Say your energy; Ra shows exactly one task that fits. | Works, but the choice doesn't always stick (fix A) |
+| **Choose** | You put tasks on Today and give them a priority; Ra opens on the top one. With Today empty, Ra suggests three and you pick. | Works (decision 5) |
 | **Start** | See the first physical action, pick a length, begin. Stopping early still counts. | Works, but stopping finishes the task (fix B) |
 | **Recover** | No overdue state, reminders that back off, where-you-were breadcrumbs, the evening "what did you actually do?" | Built, but partly unreachable (fix C) |
 
@@ -143,7 +143,7 @@ diagnosis named.
 | 2 | **What happens with your to-do list?** (pick any; answers are first-person situations, not labels) | *"I know what to do, but I don't start"* → Ra asks for the first physical move before anything else. *"Everything feels urgent…"* → Nura opens on your one thing instead of the list. *"Things slip my mind…"* → reminders are offered at the end of setup. *"After a bad week, I stop looking at my list"* → an evening card asks what you actually did, even without reminders. |
 | 3 | **What do you need to get done?** | Everything on your plate, one per line — the sentence parser picks up dates and lengths. This is Nu, learned by using it. |
 | 4 | **Reminders** (only if *Remembering*, iPhone only) | One plain ask before the system prompt. |
-| 5 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra lifts one: "Start here", with why. *Start · 5 minutes* opens the timer; *Show me everything* opens Nu. |
+| 5 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra suggests one ("Start here?", with why). The others sit below it: tap one to pick it instead. *Start · 5 minutes* puts it on Today and opens the timer; *Show me everything* opens Nu. |
 
 **How we'll know it works** (logged as `onboarding` events): how many people
 finish it, how many add at least one task, how long from opening to the
@@ -188,6 +188,11 @@ iOS is proven.
 
 ## Status (24 September)
 
+Decision 5 is built and checked on the web build (onboarding pick, Nu,
+priority sheet, Focus, the Settings intro replay). The sentence parser no
+longer drops "the", "a", "on" and "at" from titles; it only drops the words
+that introduced a date or time it took out.
+
 Built and checked on the web build: fixes 1–18, Measure (events, start rate,
 estimate accuracy, "Export activity log" in Settings), and the Google
 Calendar / Outlook cut. Added at Kim's request: the session length and the
@@ -205,3 +210,16 @@ development build.
    To Do) are open; until Kim decides, they and "Give it to someone" stay.
 3. **Habits** — agreed: frozen, left working.
 4. **The two progress ladders** — agreed: keep both until testing.
+5. **You choose; Nura suggests.** After using the app, Kim found that Ra
+   pushed a single task on the user and that Nu's overview was too busy.
+   Now:
+   - **Nu** is a calm list: Add, **Today** (sorted by priority; tap to focus,
+     tick to finish), **Everything else** (**+** puts it on Today), and one
+     *Focus* button that opens the top of Today. Holding a task opens a sheet
+     with **Priority** (High, Medium, Low, None) and the task actions. The
+     hero cards, progress strip, habits group and the extra cards are gone
+     from Nu; progress lives behind *Your day*.
+   - **Ra** opens on what you picked, or on the top of Today. With nothing
+     on Today, it asks "What feels doable now?" and shows three suggestions
+     with their reasons instead of choosing for you.
+   - Priority sorts Today, and the suggestions, before due date and age.

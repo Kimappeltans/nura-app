@@ -86,11 +86,14 @@ function Waves({ width }: { width: number }) {
 
 export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
   tasks: Task[];
+  /** the suggestion that rises first — you can pick a different one */
   pick: Task;
   why: string | null;
-  onStart: () => void;
+  onStart: (task: Task) => void;
   onEverything: () => void;
 }) {
+  const [chosen, setChosen] = useState<Task>(pick);
+  const others = tasks.filter(x => x.id !== chosen.id).slice(0, 3);
   const { width: W, height: H } = Dimensions.get('window');
   const [instant, setInstant] = useState(false);
   const sun = useRef(new Animated.Value(0)).current;
@@ -159,12 +162,31 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
           backgroundColor: 'rgba(255,243,234,0.96)',
           shadowColor: '#FF6B35', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
         }}>
-          <Text style={{ color: '#C2410C', fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>START HERE</Text>
-          <Text style={{ color: '#171313', fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
-            {pick.title}
+          <Text style={{ color: '#C2410C', fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>
+            {chosen.id === pick.id ? 'START HERE?' : 'YOUR PICK'}
           </Text>
-          {!!why && <Text style={{ color: '#4A4340', fontSize: 14 }}>Why this one: {why}</Text>}
+          <Text style={{ color: '#171313', fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
+            {chosen.title}
+          </Text>
+          {chosen.id === pick.id && !!why && <Text style={{ color: '#4A4340', fontSize: 14 }}>Why this one: {why}</Text>}
         </View>
+
+        {/* it's a suggestion — any of the others can rise instead */}
+        {!!others.length && (
+          <View style={{ marginTop: 14, gap: 8 }}>
+            <Text style={{ color: '#FFE3CE', fontSize: 13.5 }}>Or pick another:</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {others.map(o => (
+                <Pressable key={o.id} onPress={() => setChosen(o)} style={{
+                  paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
+                  backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+                }}>
+                  <Text numberOfLines={1} style={{ color: '#FFF3EA', fontSize: 13.5, maxWidth: 220 }}>{o.title}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
       </Animated.View>
 
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
@@ -175,7 +197,7 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
         <Waves width={W} />
         <LinearGradient colors={['transparent', 'rgba(8,13,36,0.94)']} locations={[0, 0.45]}
           style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: 34, gap: 14 }}>
-          <Primary label="Start · 5 minutes" tone="ra" onPress={onStart} />
+          <Primary label="Start · 5 minutes" tone="ra" onPress={() => onStart(chosen)} />
           <Pressable onPress={onEverything} hitSlop={10}>
             <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>
           </Pressable>

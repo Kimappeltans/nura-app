@@ -8,7 +8,7 @@ import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { useStore, useTheme } from '../store';
 import {
   complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickForToday, logEvent,
-  getBlockers,
+  getBlockers, suggestions, type Pick,
 } from '../db';
 import { reconcileNudges } from '../notifications';
 import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
@@ -16,6 +16,7 @@ import { radius, type as T, copy } from '../theme';
 import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
 import { whyLine } from '../priority';
 import { DurationDial, ESTIMATE_STOPS, SESSION_STOPS } from '../components/DurationDial';
+import { PriorityChip } from '../components/PriorityChip';
 import type { Energy } from '../db';
 
 // Each task Ra shows is logged once per app session, not on every re-render.
@@ -150,6 +151,14 @@ export default function Ra() {
     await passOn();
   };
 
+  // Nothing picked (your Today is empty, nothing chosen): Ra offers a few
+  // suggestions and you choose. It never picks for you.
+  const [sugs, setSugs] = useState<Pick[]>([]);
+  useEffect(() => {
+    if (now) return;
+    suggestions(3).then(setSugs);
+  }, [now?.id, energy, inbox.length]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // What Ra showed, and why — the measure the start rate is built on.
   useEffect(() => {
     if (!now || now.id === lastShown) return;
@@ -255,7 +264,44 @@ export default function Ra() {
           />
         )}
 
-        {!now ? (
+        {!now && sugs.length ? (
+          <View style={{ gap: 12 }}>
+            <Eyebrow label="Your pick" />
+            <Text style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
+              What feels doable now?
+            </Text>
+            <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>
+              Choose one. Anything you put on Today in Nu comes first next time.
+            </Text>
+            {sugs.map(sg => {
+              const why = whyLine(sg.rule, sg.task, energy);
+              const pr = sg.task.priority ?? 0;
+              return (
+                <Pressable key={sg.task.id}
+                  onPress={async () => { Haptics.selectionAsync(); await focusOn(sg.task.id); }}
+                  style={({ pressed }) => ({
+                    borderRadius: radius.lg, padding: 16, gap: 5,
+                    backgroundColor: pressed ? t.subtle : t.card,
+                    borderWidth: 1, borderColor: t.strokeStrong,
+                  })}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ flex: 1, color: t.ink, fontSize: 18, lineHeight: 24, fontFamily: T.brand }} numberOfLines={2}>
+                      {sg.task.title}
+                    </Text>
+                    {pr > 0 && <PriorityChip n={pr} />}
+                  </View>
+                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>
+                    {why ? why.charAt(0).toUpperCase() + why.slice(1) : ''}
+                    {sg.task.est_minutes ? `${why ? ' · ' : ''}≈ ${sg.task.est_minutes} min` : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={back} hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 6 }}>
+              <Text style={{ color: t.nu, fontSize: 14 }}>See everything ›</Text>
+            </Pressable>
+          </View>
+        ) : !now ? (
           <View style={{ gap: 10 }}>
             <Eyebrow label="Nothing pending" />
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 41, fontFamily: T.display, letterSpacing: -0.9 }}>
