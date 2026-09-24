@@ -13,3 +13,6 @@ expo-env.d.ts
 # regenerate them rather than editing or committing them.
 /ios
 /android
+
+# npm run screens output (scripts/screens.sh)
+/screens/

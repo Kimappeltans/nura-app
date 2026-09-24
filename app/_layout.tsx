@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState } from 'react-native';
+import { AppState, LogBox } from 'react-native';
 import {
   useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
@@ -15,6 +15,11 @@ import { supabase } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
+
+// An unsigned simulator build has no keychain access, so expo-notifications
+// can't read its saved push registration and says so on every launch. It
+// can't happen in a signed build; hidden in development only.
+if (__DEV__) LogBox.ignoreLogs(['[expo-notifications] Error reading persisted server registration']);
 
 export default function Root() {
   const refresh = useStore(s => s.refresh);
@@ -52,14 +57,22 @@ export default function Root() {
       // Nu.tsx, where it is asked once, in context, after the first capture.
       // requestPermissionsAsync is a no-op re-check once decided, so this is
       // safe on every launch and pops nothing for a first-time user.
-      if (useStore.getState().onboarded) await initNotifications();
+      // Not awaited: if the notifications module fails or never answers (it
+      // does on an unsigned simulator build), the rest of startup still runs.
+      if (useStore.getState().onboarded) {
+        initNotifications().catch(e => console.warn('[nura] notifications not set up', e));
+      }
       // Dev only: open a screen at launch, so each screen can be checked on
       // a simulator without tapping or the "Open in Nura?" prompt a link
       // brings — set the flag `dev.open` to a route and relaunch. Used once,
-      // then cleared. Compiled out of release builds.
+      // then cleared ("/" just clears it: the home screen, once it's ready).
+      // scripts/screens.sh uses it. Compiled out of release builds.
       if (__DEV__) {
         const route = await getFlag('dev.open');
-        if (route) { await setFlag('dev.open', ''); setTimeout(() => router.push(route as never), 300); }
+        if (route) {
+          await setFlag('dev.open', '');
+          if (route !== '/') setTimeout(() => router.push(route as never), 300);
+        }
       }
     })();
 
