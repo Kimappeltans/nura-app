@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, TextInput } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
-import { Primary, Mica } from '../ui';
-import { radius, type as T } from '../theme';
+import { Primary } from '../ui';
+import { radius } from '../theme';
+import { OnbFrame } from '../components/OnbFrame';
 import { capture } from '../db';
 import { parseTask } from '../assistant';
 
@@ -14,21 +14,19 @@ import { parseTask } from '../assistant';
  * The whole app depends on capture costing nothing, so onboarding's job is
  * to make the first capture happen, not to describe it. One line per thing,
  * no order, no fields. Each line goes through the same on-device sentence
- * parser as Chat, so "call mum tomorrow at 6" still lands with its date —
- * but nobody has to know that to use it.
+ * parser as Chat, so "call the bank tomorrow at 6pm" still lands with its
+ * date — but nobody has to know that to use it.
+ *
+ * This screen used to offer ready-made tasks to tap ("Reply to Sam"). They
+ * were someone else's life: tapping one put a stranger's errand on your
+ * list. What helps a blank page is a nudge for your own memory instead —
+ * the places things hide — so that's all it offers.
  */
-const EXAMPLES = ['Reply to Sam', 'Book the dentist', 'Do the laundry', 'Finish the report'];
-
-export default function BrainDump({ onNext }: { onNext: (ids: string[]) => void }) {
+export default function BrainDump({ onNext, onBack }: { onNext: (ids: string[]) => void; onBack: () => void }) {
   const t = useTheme();
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-  const add = (example: string) => {
-    Haptics.selectionAsync();
-    setText(v => (v.trim() ? `${v.replace(/\n*$/, '')}\n${example}` : example));
-  };
 
   const save = async () => {
     if (!lines.length || saving) return;
@@ -47,61 +45,28 @@ export default function BrainDump({ onNext }: { onNext: (ids: string[]) => void 
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 28, paddingBottom: 12 }}>
-          <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand }}>2 OF 3</Text>
-          <Text style={{
-            color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
-            letterSpacing: -0.8, marginTop: 8,
-          }}>What do you need to get done?</Text>
-          <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, marginTop: 8 }}>
-            Everything on your plate — work, errands, calls. One per line, in any order.
-          </Text>
-
-          <TextInput
-            value={text} onChangeText={setText} multiline autoFocus
-            placeholder={'Reply to Sam\nBook the dentist\nCall mum tomorrow at 6pm'}
-            placeholderTextColor={t.ink3}
-            style={{
-              marginTop: 22, minHeight: 170, textAlignVertical: 'top',
-              color: t.ink, fontSize: 17, lineHeight: 26,
-              padding: 16, borderRadius: radius.lg,
-              backgroundColor: t.layer, borderWidth: 1, borderColor: t.strokeStrong,
-              borderLeftWidth: 3, borderLeftColor: t.nu,
-            }}
-          />
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-            {EXAMPLES.filter(e => !lines.includes(e)).map(e => (
-              <Pressable key={e} onPress={() => add(e)} style={{
-                paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
-                backgroundColor: t.subtle, borderWidth: 1, borderColor: t.stroke,
-              }}>
-                <Text style={{ color: t.ink2, fontSize: 13.5 }}>+ {e}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={{ flex: 1, minHeight: 24 }} />
-
-          <View style={{ gap: 14 }}>
-            {lines.length ? (
-              <Primary tone="ra" onPress={save}
-                label={saving ? 'Putting it down…' : `That’s it for now · ${lines.length} thing${lines.length === 1 ? '' : 's'}`} />
-            ) : (
-              <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
-                Write one thing, or tap an example.
-              </Text>
-            )}
-            <Pressable onPress={() => onNext([])} hitSlop={10}>
-              <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>I’ll add things later</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <OnbFrame step={2} onBack={onBack} onSkip={() => onNext([])}
+      title="What do you need to get done?"
+      sub="Everything on your plate, one per line. Add a day or time if there is one."
+      footer={
+        <Primary tone="ra" onPress={save} disabled={!lines.length}
+          label={saving ? 'Saving…' : lines.length ? `Continue · ${lines.length} thing${lines.length === 1 ? '' : 's'}` : 'Continue'} />
+      }>
+      <TextInput
+        value={text} onChangeText={setText} multiline autoFocus
+        placeholder={'Pay the phone bill\nBook a haircut\nSend the report by friday'}
+        placeholderTextColor={t.ink3}
+        style={{
+          marginTop: 22, minHeight: 170, textAlignVertical: 'top',
+          color: t.ink, fontSize: 17, lineHeight: 26,
+          padding: 16, borderRadius: radius.lg,
+          backgroundColor: t.layer, borderWidth: 1, borderColor: t.strokeStrong,
+          borderLeftWidth: 3, borderLeftColor: t.nu,
+        }}
+      />
+      <Text style={{ color: t.ink3, fontSize: 14.5, lineHeight: 21, marginTop: 14 }}>
+        Stuck? Think about work, home, errands, bills, and anyone waiting to hear from you.
+      </Text>
+    </OnbFrame>
   );
 }

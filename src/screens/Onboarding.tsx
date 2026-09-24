@@ -8,6 +8,7 @@ import Welcome from './Welcome';
 import Blockers from './Blockers';
 import BrainDump from './BrainDump';
 import RemindAsk from './RemindAsk';
+import ProfileStep from './ProfileStep';
 import OneRises from './OneRises';
 import Auth from './Auth';
 
@@ -20,22 +21,24 @@ import Auth from './Auth';
  *                        something, and says what.
  *   3. BRAIN DUMP     — "What's on your mind?" Nu, learned by using it.
  *   4. REMINDERS      — only if "remembering" was picked, iPhone only.
- *   5. ONE RISES      — your tasks sink, the sun rises, Ra lifts one. Start it.
+ *   5. PROFILE        — "Create your profile", now that there's a list to
+ *                        keep. Skippable; not shown when already signed in.
+ *   6. ONE RISES      — your tasks sink, the sun rises, Ra suggests one and
+ *                        you can pick another. Start it.
  *
  * The metaphor used to be explained on its own screen before you had written
- * anything down; now it happens to your own tasks. Sign-in isn't a step any
- * more — an account only adds sync, so it lives on the welcome screen's
- * "Sign in" link (for people who already have one) and in Settings. Every
- * step can be skipped, and each is logged as an `onboarding` event so the
+ * anything down; now it happens to your own tasks. Every step can be
+ * skipped, and each is logged as an `onboarding` event so the
  * first-minute funnel can be read back (SCOPE.md → Measure).
  */
-type Step = 'welcome' | 'blockers' | 'dump' | 'remind' | 'rise' | 'auth';
+type Step = 'welcome' | 'blockers' | 'dump' | 'remind' | 'profile' | 'rise' | 'auth';
 
 export default function Onboarding() {
   const finishOnboarding = useStore(s => s.finishOnboarding);
   const refresh = useStore(s => s.refresh);
   const focusOn = useStore(s => s.focusOn);
   const toNu = useStore(s => s.toNu);
+  const session = useStore(s => s.session);
 
   const [step, setStep] = useState<Step>('welcome');
   const [picks, setPicks] = useState<Blocker[]>([]);
@@ -53,6 +56,11 @@ export default function Onboarding() {
     setRise({ tasks, pick: p.task, rule: p.rule, why: whyLine(p.rule, p.task, await getEnergy()) });
     setStep('rise');
   };
+
+  // after the brain dump (and reminders): the profile ask, unless there's
+  // already an account, then the list rises — or Nu, if nothing was written
+  const afterDump = () => (session ? afterProfile() : setStep('profile'));
+  const afterProfile = () => (dumped.current.length ? toRise(dumped.current) : finish(false));
 
   const finish = async (start: boolean, picked?: Task) => {
     const task = picked ?? rise?.pick;
@@ -73,7 +81,7 @@ export default function Onboarding() {
 
   if (step === 'blockers') {
     return (
-      <Blockers onNext={async picked => {
+      <Blockers onBack={() => setStep('welcome')} onNext={async picked => {
         setPicks(picked);
         await setBlockers(picked);
         await log('blockers', { picked });
@@ -84,13 +92,12 @@ export default function Onboarding() {
 
   if (step === 'dump') {
     return (
-      <BrainDump onNext={async ids => {
+      <BrainDump onBack={() => setStep('blockers')} onNext={async ids => {
         await log('dump', { captured: ids.length });
         await refresh();
-        if (!ids.length) return finish(false);
         dumped.current = ids;
-        if (picks.includes('remembering') && Platform.OS !== 'web') return setStep('remind');
-        return toRise(ids);
+        if (ids.length && picks.includes('remembering') && Platform.OS !== 'web') return setStep('remind');
+        return afterDump();
       }} />
     );
   }
@@ -99,7 +106,16 @@ export default function Onboarding() {
     return (
       <RemindAsk onDone={async granted => {
         await log('remind', { granted });
-        await toRise(dumped.current);
+        afterDump();
+      }} />
+    );
+  }
+
+  if (step === 'profile') {
+    return (
+      <ProfileStep onDone={async () => {
+        await log('profile', { signedIn: !!useStore.getState().session });
+        afterProfile();
       }} />
     );
   }

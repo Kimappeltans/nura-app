@@ -1,41 +1,46 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
-import { Primary, Mica } from '../ui';
+import { Primary } from '../ui';
 import { radius, type as T } from '../theme';
+import { OnbFrame } from '../components/OnbFrame';
 import type { Blocker } from '../db';
 
 /**
- * "What happens with your to-do list?" — the one question onboarding asks.
+ * "What do you want help with?" — the one question onboarding asks.
  *
- * Asked of someone who may have installed five apps this week and doesn't
- * yet know what this one is, so the question names the thing (your to-do
- * list) and the answers are situations you'd recognise in yourself, in your
- * own words — not category labels to decode ("Getting started" of what?).
+ * It used to read "What happens with your to-do list?", which made people
+ * stop and work out what was being asked. Now the question says what it's
+ * for, and each answer has a short name to scan (Getting started) over the
+ * situation in your own words (I know what to do, but I put it off) — the
+ * name alone was too vague, the sentence alone too slow to scan. Square
+ * checkboxes, because more than one can be true.
  *
  * A question earns its place only if the answer changes the app, and the
- * person can see that it will: each option shows what Nura will do
- * differently the moment it's picked. Answers that changed nothing would be a
- * longer wait dressed up as personalisation. Where each one lands:
+ * person can see that it will: each option says what Nura will do
+ * differently the moment it's picked. Where each one lands:
  *   starting    → Ra asks for the first physical move before anything else
  *   choosing    → the app opens on the one thing, not the list
  *   remembering → reminders are offered at the end of setup
  *   returning   → an evening card asks what you actually did
  */
-const OPTIONS: { key: Blocker; title: string; effect: string }[] = [
-  { key: 'starting', title: 'I know what to do, but I don’t start.',
-    effect: 'Nura will ask for the very first move — small enough to just begin.' },
-  { key: 'choosing', title: 'Everything feels urgent, so I don’t know where to begin.',
-    effect: 'Nura will open on one thing, not the whole list.' },
-  { key: 'remembering', title: 'Things slip my mind until it’s too late.',
-    effect: 'Nura will offer gentle reminders at the end.' },
-  { key: 'returning', title: 'After a bad week, I stop looking at my list.',
-    effect: 'Each evening Nura will ask what you did. Small things count.' },
+const OPTIONS: { key: Blocker; name: string; line: string; effect: string }[] = [
+  { key: 'starting', name: 'Getting started',
+    line: 'I know what to do, but I put it off.',
+    effect: 'Nura will ask for the very first move, small enough to just begin.' },
+  { key: 'choosing', name: 'Knowing what to do first',
+    line: 'Everything feels urgent at once.',
+    effect: 'Nura will open on one task, not the whole list.' },
+  { key: 'remembering', name: 'Remembering',
+    line: 'Things slip my mind until it’s too late.',
+    effect: 'Nura will offer gentle reminders at the end of setup.' },
+  { key: 'returning', name: 'Getting back on track',
+    line: 'After a bad week, I stop looking at my list.',
+    effect: 'Each evening Nura will ask what you got done. Small things count.' },
 ];
 
-export default function Blockers({ onNext }: { onNext: (picked: Blocker[]) => void }) {
+export default function Blockers({ onNext, onBack }: { onNext: (picked: Blocker[]) => void; onBack: () => void }) {
   const t = useTheme();
   const [picked, setPicked] = useState<Blocker[]>([]);
   const toggle = (k: Blocker) => {
@@ -44,57 +49,40 @@ export default function Blockers({ onNext }: { onNext: (picked: Blocker[]) => vo
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 28, paddingBottom: 12 }}>
-        <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand }}>1 OF 3</Text>
-        <Text style={{
-          color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
-          letterSpacing: -0.8, marginTop: 8,
-        }}>What happens with your to-do list?</Text>
-        <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, marginTop: 8 }}>
-          Pick any that sound like you. Nura adjusts to each one.
-        </Text>
-
-        <View style={{ gap: 11, marginTop: 24 }}>
-          {OPTIONS.map(o => {
-            const on = picked.includes(o.key);
-            return (
-              <Pressable key={o.key} onPress={() => toggle(o.key)}
-                accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-                style={({ pressed }) => ({
-                  borderRadius: radius.lg, padding: 16, gap: 4,
-                  backgroundColor: on ? t.raWash : t.layer,
-                  borderWidth: 1.5, borderColor: on ? t.ra : t.stroke,
-                  transform: [{ scale: pressed ? 0.985 : 1 }],
-                })}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text style={{ flex: 1, color: t.ink, fontSize: 16.5, lineHeight: 22, fontFamily: T.brand }}>{o.title}</Text>
-                  <View style={{
-                    width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
-                    borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong, backgroundColor: on ? t.ra : 'transparent',
-                  }}>
-                    {on && <Text style={{ color: t.onRa, fontSize: 13, fontFamily: T.brand, marginTop: -1 }}>✓</Text>}
-                  </View>
-                </View>
+    <OnbFrame step={1} onBack={onBack} onSkip={() => onNext([])}
+      title="What do you want help with?"
+      sub="Choose all that fit. Nura sets itself up for each one."
+      footer={<Primary label="Continue" tone="ra" disabled={!picked.length} onPress={() => onNext(picked)} />}>
+      <View style={{ gap: 11, marginTop: 24 }}>
+        {OPTIONS.map(o => {
+          const on = picked.includes(o.key);
+          return (
+            <Pressable key={o.key} onPress={() => toggle(o.key)}
+              accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+              accessibilityLabel={`${o.name}. ${o.line}`}
+              style={({ pressed }) => ({
+                borderRadius: radius.lg, paddingVertical: 15, paddingHorizontal: 16,
+                flexDirection: 'row', gap: 14,
+                backgroundColor: on ? t.raWash : t.layer,
+                borderWidth: 1.5, borderColor: on ? t.ra : t.stroke,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+              })}>
+              <View style={{
+                width: 24, height: 24, borderRadius: 7, marginTop: 1, alignItems: 'center', justifyContent: 'center',
+                borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong, backgroundColor: on ? t.ra : 'transparent',
+              }}>
+                {on && <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.brand, marginTop: -1 }}>✓</Text>}
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 22, fontFamily: T.display }}>{o.name}</Text>
+                <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{o.line}</Text>
                 {/* what changes, said the moment you pick it */}
-                {on && (
-                  <Text style={{ color: t.raSoft, fontSize: 13.5, lineHeight: 19, marginTop: 6 }}>{o.effect}</Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={{ flex: 1, minHeight: 24 }} />
-
-        <View style={{ gap: 14 }}>
-          <Primary label="Continue" tone="ra" onPress={() => onNext(picked)} />
-          <Pressable onPress={() => onNext([])} hitSlop={10}>
-            <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Skip</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+                {on && <Text style={{ color: t.raSoft, fontSize: 14, lineHeight: 19, marginTop: 5 }}>{o.effect}</Text>}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </OnbFrame>
   );
 }

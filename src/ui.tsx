@@ -881,15 +881,18 @@ export function Card({ children, style, raised }: { children: React.ReactNode; s
 }
 
 export function Primary(
-  { label, onPress, tone = 'nu', icon, sub }:
-  { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string },
+  { label, onPress, tone = 'nu', icon, sub, disabled }:
+  { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string;
+    /** stays in place, dimmed, until there's something to continue with */
+    disabled?: boolean },
 ) {
   const { colors, onColor } = useTone(tone);
   return (
     <Pressable
+      disabled={disabled} accessibilityState={{ disabled: !!disabled }}
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
       style={({ pressed }) => ({
-        opacity: pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
+        opacity: disabled ? 0.38 : pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
         transform: [{ scale: pressed ? 0.985 : 1 }],
         ...(tone === 'ra' ? elevation.warm : elevation.e4),
       })}>

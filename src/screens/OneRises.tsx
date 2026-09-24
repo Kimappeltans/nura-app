@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { type as T, radius } from '../theme';
 import { Primary, Character } from '../ui';
 import type { Task } from '../db';
+import { StepBar } from '../components/OnbFrame';
 
 /**
  * "Everything sinks. One thing rises." — shown, with your own tasks.
@@ -143,11 +144,11 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
           delay={i * STAGGER_MS} instant={instant} />
       ))}
 
-      <View style={{ paddingTop: 64, paddingHorizontal: 26 }}>
-        <Text style={{ color: '#FFCBA8', fontSize: 11, letterSpacing: 2.2, fontFamily: T.brand }}>3 OF 3</Text>
+      <View style={{ paddingTop: 56, paddingHorizontal: 26 }}>
+        <View style={{ flexDirection: 'row' }}><StepBar step={4} light /></View>
         <Text style={{
           color: '#FFF3EA', fontSize: 30, lineHeight: 36, fontFamily: T.display,
-          letterSpacing: -0.7, marginTop: 8,
+          letterSpacing: -0.7, marginTop: 22,
         }}>Everything sinks.{'\n'}One thing rises.</Text>
       </View>
 

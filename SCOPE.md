@@ -133,17 +133,19 @@ with nothing to set up and no account. The metaphor ("everything sinks, one
 thing rises") is experienced with your own tasks, not explained in advance.
 
 **Rules:** every question changes something you'll see, and says what; every
-step can be skipped; no sign-in in the flow (it's in Settings, and on the
-welcome screen for people who already have an account); warm, plain copy, no
+step can be skipped, with Skip at the top right; the main button sits at the
+bottom of the screen; the account is asked for only after the list exists,
+and never required (App Store Guideline 5.1.1(v)); warm, plain copy, no
 diagnosis named.
 
 | # | Screen | What it does |
 |---|---|---|
 | 1 | **Welcome** | Nu and Ra, the slogan, and one plain line saying what Nura is: "Put everything down. Nura hands you one thing to start." Get started; "Sign in" for existing accounts. |
-| 2 | **What happens with your to-do list?** (pick any; answers are first-person situations, not labels) | *"I know what to do, but I don't start"* → Ra asks for the first physical move before anything else. *"Everything feels urgent…"* → Nura opens on your one thing instead of the list. *"Things slip my mind…"* → reminders are offered at the end of setup. *"After a bad week, I stop looking at my list"* → an evening card asks what you actually did, even without reminders. |
-| 3 | **What do you need to get done?** | Everything on your plate, one per line — the sentence parser picks up dates and lengths. This is Nu, learned by using it. |
+| 2 | **What do you want help with?** (choose all that fit) | Each answer is a short name over a first-person line. *Getting started* ("I know what to do, but I put it off") → Ra asks for the first physical move before anything else. *Knowing what to do first* ("Everything feels urgent at once") → Nura opens on one task instead of the list. *Remembering* → reminders are offered at the end of setup. *Getting back on track* ("After a bad week, I stop looking at my list") → an evening card asks what you actually did, even without reminders. |
+| 3 | **What do you need to get done?** | Everything on your plate, one per line; the sentence parser picks up dates, lengths and "urgent". No ready-made tasks to tap (they put a stranger's errands on your list), only a prompt for your own memory: work, home, errands, bills, anyone waiting to hear from you. This is Nu, learned by using it. |
 | 4 | **Reminders** (only if *Remembering*, iPhone only) | One plain ask before the system prompt. |
-| 5 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra suggests one ("Start here?", with why). The others sit below it: tap one to pick it instead. *Start · 5 minutes* puts it on Today and opens the timer; *Show me everything* opens Nu. |
+| 5 | **Create your profile** (not shown when signed in) | Asked once the list exists, when there's something to keep. Apple (iPhone), Google, or email with a first name and password; the name becomes the greeting. Skip keeps everything on the phone. |
+| 6 | **One thing rises** | Your tasks sink into the water, the sun comes up, and Ra suggests one ("Start here?", with why). The others sit below it: tap one to pick it instead. *Start · 5 minutes* puts it on Today and opens the timer; *Show me everything* opens Nu. |
 
 **How we'll know it works** (logged as `onboarding` events): how many people
 finish it, how many add at least one task, how long from opening to the
@@ -223,3 +225,10 @@ development build.
      on Today, it asks "What feels doable now?" and shows three suggestions
      with their reasons instead of choosing for you.
    - Priority sorts Today, and the suggestions, before due date and age.
+6. **Onboarding you can follow, with a profile** (24 September). After
+   going through it on the iPhone, Kim asked for the buttons at the bottom,
+   a clearer to-do list question, an obvious Skip, no ready-made tasks, and a
+   screen to create a profile. Every step now shares one frame (back,
+   progress bar, Skip top right, main button pinned to the bottom); the
+   question became "What do you want help with?"; the profile step comes
+   after the brain dump. Nu's Focus button is pinned to the bottom too.

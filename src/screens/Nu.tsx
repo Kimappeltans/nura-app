@@ -382,14 +382,20 @@ export default function Nu() {
                 </View>
               </Surface>
             ) : null}
-
-            {/* opens the task it names — toRa() would reopen whatever was
-                picked earlier, even after a higher priority went on top */}
-            <Primary label={today.length ? `Focus · ${today[0].title}` : 'Focus'} tone="ra"
-              onPress={() => (today.length ? focusOn(today[0].id) : toRa())} />
           </>
         )}
       </ScrollView>
+
+      {/* pinned to the bottom, where the thumb is, however long the list —
+          it used to sit under the list, mid-screen on a short one. It opens
+          the task it names: toRa() would reopen whatever was picked earlier,
+          even after a higher priority went on top. */}
+      {!q.trim() && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 }}>
+          <Primary label={today.length ? `Focus · ${today[0].title}` : 'Focus'} tone="ra"
+            onPress={() => (today.length ? focusOn(today[0].id) : toRa())} />
+        </View>
+      )}
 
       {/* hold a task: its priority, and what else you can do with it */}
       <ActionSheet visible={!!menu} title={menu?.title ?? ''} actions={menuActions}
