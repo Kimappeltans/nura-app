@@ -228,8 +228,8 @@ export default function Auth(
             {creating ? 'Create your account.' : 'Welcome back.'}
           </Text>
           <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, marginTop: 8, maxWidth: 310 }}>
-            An account keeps your tasks on every device and unlocks the calendar
-            and work-app integrations. Everything already on this phone stays put.
+            An account keeps your tasks and habits on every device. Everything
+            already on this phone stays put, and nothing needs one.
           </Text>
 
           <View style={{ height: 24 }} />
@@ -237,7 +237,7 @@ export default function Auth(
           {mode === 'choose' ? (
             <View style={{ gap: 11 }}>
               {/* Apple first, and always present on iOS — Guideline 4.8. */}
-              {Platform.OS !== 'android' && (
+              {Platform.OS === 'ios' && (
                 <Social id="apple" dark label="Continue with Apple" glyph={<AppleGlyph color="#111111" />} />
               )}
               <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} />

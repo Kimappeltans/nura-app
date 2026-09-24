@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { View, Image, Animated, Easing } from 'react-native';
+import { View, Image, Text, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
+import { type as T } from '../theme';
 import { Mica } from '../ui';
 
 const mark = require('../../assets/brand/nura-logo-tight.png');
@@ -14,9 +15,10 @@ const mark = require('../../assets/brand/nura-logo-tight.png');
  * It used to show the logo, BOTH mascots at 60px, and three bouncing dots —
  * three competing focal points and a spinner, in a screen that is on for under
  * a second. That reads as a broken page, not a fast one. One mark, breathing.
- * Nothing else.
+ * Nothing else — except `note`, for the one wait that isn't a beat long: on
+ * web, Nura open in another tab.
  */
-export default function Loading() {
+export default function Loading({ note }: { note?: string }) {
   const t = useTheme();
   const fade = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
@@ -41,6 +43,11 @@ export default function Loading() {
         }}>
           <Image source={mark} style={{ width: 92, height: 104 }} resizeMode="contain" />
         </Animated.View>
+        {note ? (
+          <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 22, fontFamily: T.displayLight, textAlign: 'center', marginTop: 28, paddingHorizontal: 40 }}>
+            {note}
+          </Text>
+        ) : null}
       </View>
     </SafeAreaView>
   );

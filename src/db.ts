@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 import { award as rollAward, type RewardReason, type Award } from './reward';
 import { guessLabel, type LabelId } from './labels';
 import { guessActivity, activityById, type ActivityId } from './activities';
@@ -53,7 +54,9 @@ export interface Task {
 export type EventKind =
   | 'captured' | 'started' | 'paused' | 'completed'
   | 'skipped' | 'snoozed' | 'nudge_sent' | 'nudge_acted'
-  | 'reward';
+  | 'reward'
+  // the measure events (SCOPE.md) — what the 14-day review reads
+  | 'shown' | 'swapped' | 'session_start' | 'session_end' | 'resumed' | 'acted';
 
 // Memoize the in-flight *promise*, not just the resolved db — refresh() fans
 // out ~9 concurrent calls that each call getDb(), and on web (OPFS access
@@ -68,7 +71,41 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
   return _dbPromise;
 }
 
+// Web only. The browser keeps nura.db in one OPFS file that only one tab can
+// hold open, so a second tab's open threw NoModificationAllowedError and the
+// app died on the error overlay. Each tab now holds a lock for its whole life;
+// a second tab waits on it, says Nura is open elsewhere, and carries on the
+// moment the first tab closes. Native has one app instance, so it skips this.
+let _elsewhere = false;
+const _elsewhereListeners = new Set<(elsewhere: boolean) => void>();
+
+export function onOpenElsewhere(fn: (elsewhere: boolean) => void) {
+  _elsewhereListeners.add(fn);
+  fn(_elsewhere);
+  return () => { _elsewhereListeners.delete(fn); };
+}
+
+function setElsewhere(v: boolean) {
+  _elsewhere = v;
+  _elsewhereListeners.forEach(fn => fn(v));
+}
+
+function claimTab(): Promise<void> {
+  const locks = Platform.OS === 'web' ? (globalThis.navigator as any)?.locks : undefined;
+  if (!locks) return Promise.resolve();
+  const hold = () => new Promise<void>(() => {}); // released only when the tab goes
+  return new Promise(resolve => {
+    locks.request('nura.db', { ifAvailable: true }, (lock: unknown) => {
+      if (lock) { resolve(); return hold(); }
+      setElsewhere(true);
+      locks.request('nura.db', () => { setElsewhere(false); resolve(); return hold(); });
+      return undefined;
+    });
+  });
+}
+
 async function openDb() {
+  await claimTab();
   const db = await SQLite.openDatabaseAsync('nura.db');
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -285,6 +322,7 @@ export async function capture(title: string, opts: CaptureOpts = {}) {
     opts.repeat_rule ?? null, opts.priority ?? 0, activity, opts.repeat_days ?? null, now,
   );
   await logEvent('captured', id);
+  await markActed('capture');
   await grantLight('capture', id);
   return id;
 }
@@ -391,8 +429,23 @@ export async function complete(id: string, partial = false, reason?: RewardReaso
   // Time spent counts. Stopping early still logs a win, and still pays — this
   // is the single most important behaviour in the app.
   await logEvent('completed', id, { partial });
-  await markActed();
+  await markActed('complete');
   return grantLight(reason ?? (partial ? 'partial' : 'complete'), id);
+}
+
+/**
+ * Stopping a focus session early ends the SESSION, not the task. The time
+ * still counts — it pays the same partial light it always did — but the task
+ * stays open, back on today's plan, and the breadcrumb the timer drops is
+ * what Ra shows next time ("Where you were"). Previously Stop called
+ * complete(), so five minutes into a two-hour job the whole job was marked
+ * done.
+ */
+export async function endSession(id: string) {
+  const t = await getTask(id);
+  if (t && t.state === 'doing') await updateTask(id, { state: 'today' });
+  await markActed('session');
+  return grantLight('partial', id);
 }
 
 /**
@@ -416,7 +469,7 @@ export async function notNow(id: string, minutes = 180) {
     'UPDATE task SET state = ?, snoozed_until = ?, snooze_count = COALESCE(snooze_count, 0) + 1, updated_at = ? WHERE id = ?',
     'inbox', Date.now() + minutes * 60_000, Date.now(), id);
   await logEvent('skipped', id, { minutes });
-  await markActed();
+  await markActed('snooze');
 }
 
 /** Has this task slipped enough times that a plain "not now" has stopped
@@ -440,6 +493,11 @@ export type Energy = 'low' | 'steady' | 'focused';
 export async function setEnergy(e: Energy) {
   await setFlag('energy', e);
   await logEvent('nudge_acted', undefined, { energy: e });
+  await markActed('energy');
+  // A new energy level is a new question, so a pick the engine made for the
+  // old one is let go. A task you chose yourself stays.
+  const pin = await readPin();
+  if (pin && pin.rule !== 'chosen') await writePin(null);
 }
 
 export async function getEnergy(): Promise<Energy> {
@@ -458,6 +516,19 @@ const LIVE = `state NOT IN ('done','dropped')
               AND (snoozed_until IS NULL OR snoozed_until <= ?)`;
 
 /**
+ * Which rule put a task in front of you. The engine returns it with the task,
+ * so "Why this one" on screen is the rule that actually fired — it used to be
+ * re-derived in priority.ts, a second copy of these tiers that could drift.
+ * 'chosen' is the one rule the engine didn't apply: you picked it yourself.
+ */
+export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'upcoming' | 'fits' | 'smallest';
+export interface Pick { task: Task; rule: PickRule }
+
+export async function pickNow(exclude: string[] = []): Promise<Task | null> {
+  return (await pickWithRule(exclude))?.task ?? null;
+}
+
+/**
  * The NOW engine. Order matters more than the code:
  *   1 time-bound within 2h · 2 already started · 3 picked for today
  *   3.5 due in the next 72h (upcoming deadlines surface before random tasks)
@@ -466,7 +537,7 @@ const LIVE = `state NOT IN ('done','dropped')
  *     something big — this is the one case momentum beats importance)
  *   5 fallback: smallest thing regardless of energy rather than empty screen
  */
-export async function pickNow(exclude: string[] = []): Promise<Task | null> {
+export async function pickWithRule(exclude: string[] = []): Promise<Pick | null> {
   const db = await getDb();
   const now = Date.now();
   // "show me something else" passes the ids you've already seen, so Focus can
@@ -479,55 +550,134 @@ export async function pickNow(exclude: string[] = []): Promise<Task | null> {
   const ceiling = CEILING[energy];
   // low: shortest-first so you can actually start; steady/focused: oldest-first
   // so tasks don't get buried indefinitely behind everything quick and easy.
-  const inboxSort = energy === 'low'
-    ? 'COALESCE(est_minutes, 999) ASC, created_at ASC'
-    : 'created_at ASC, COALESCE(est_minutes, 999) ASC';
-
-  const q = async (sql: string, ...args: SQLite.SQLiteBindValue[]) =>
-    db.getFirstAsync<Task>(sql.replace('/*SKIP*/', skip), ...args, ...exclude);
-
   // Priority is a TIEBREAK, not a tier (see priority.ts) — it never earns a
-  // clause of its own, it only decides between rows that are already equal
-  // on the real sort key. Appended to every ORDER BY below; previously it
-  // wasn't referenced anywhere in this function, so the "High" you set on a
-  // task did nothing — pickNow() fell through to created_at/est_minutes as
-  // if priority didn't exist.
+  // clause of its own. But it has to come BEFORE age: created_at is a
+  // millisecond timestamp, so two tasks are never "equal" on it, and a
+  // priority sorted after it could never decide anything. It sits after the
+  // real key of each tier (the deadline, or shortness on a low day) and
+  // before age.
+  const inboxSort = energy === 'low'
+    ? 'COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC'
+    : 'priority DESC, created_at ASC, COALESCE(est_minutes, 999) ASC';
+
+  const q = async (rule: PickRule, sql: string, ...args: SQLite.SQLiteBindValue[]): Promise<Pick | null> => {
+    const task = await db.getFirstAsync<Task>(sql.replace('/*SKIP*/', skip), ...args, ...exclude);
+    return task ? { task, rule } : null;
+  };
+
   return (
     // 1. anything genuinely time-bound still wins, whatever your energy —
     //    a deadline doesn't care how you feel
-    (await q(
+    (await q('due',
       `SELECT * FROM task WHERE ${LIVE}
          AND due_at IS NOT NULL AND due_at <= ?/*SKIP*/ ORDER BY due_at ASC, priority DESC LIMIT 1`, now, soon)) ??
     // 2. resume what you already started
-    (await q(
+    (await q('started',
       `SELECT * FROM task WHERE state = 'doing'
          AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-       ORDER BY created_at ASC, priority DESC LIMIT 1`, now)) ??
+       ORDER BY priority DESC, created_at ASC LIMIT 1`, now)) ??
     // 3. picked for today, fits energy
-    (await q(
+    (await q('today',
       `SELECT * FROM task WHERE state = 'today'
          AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/ ORDER BY created_at ASC, priority DESC LIMIT 1`, now, ceiling)) ??
+         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/ ORDER BY priority DESC, created_at ASC LIMIT 1`, now, ceiling)) ??
     // 3.5 upcoming: not burning yet, but due in the next 72h — surface it now
-    (await q(
+    (await q('upcoming',
       `SELECT * FROM task WHERE state = 'inbox'
          AND due_at IS NOT NULL AND due_at > ? AND due_at <= ?
          AND (snoozed_until IS NULL OR snoozed_until <= ?)
          AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
          ORDER BY due_at ASC, priority DESC LIMIT 1`, soon, threeDays, now, ceiling)) ??
     // 4. inbox sorted by energy level — oldest for steady/focused, shortest for low
-    (await q(
+    (await q('fits',
       `SELECT * FROM task WHERE state = 'inbox'
          AND (snoozed_until IS NULL OR snoozed_until <= ?)
          AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
-         ORDER BY ${inboxSort}, priority DESC LIMIT 1`, now, ceiling)) ??
+         ORDER BY ${inboxSort} LIMIT 1`, now, ceiling)) ??
     // 5. still nothing fits — offer the smallest thing rather than an empty screen
-    (await q(
+    (await q('smallest',
       `SELECT * FROM task WHERE state = 'inbox'
          AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-         ORDER BY COALESCE(est_minutes, 999) ASC, created_at ASC, priority DESC LIMIT 1`, now)) ??
+         ORDER BY COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC LIMIT 1`, now)) ??
     null
   );
+}
+
+/* ---------------- the one thing, held ---------------- */
+
+/**
+ * Whatever Ra shows stays shown until something real changes: you finish it,
+ * drop it, snooze it, swap it with "Something else", change your energy (for
+ * a pick the engine made), or the day ends. Before this, the pick was
+ * recomputed on every refresh — answering an estimate, coming back from a
+ * modal, reopening the app — so the task you had just declined, or the one
+ * you had just chosen in Nu, could quietly be replaced by another.
+ *
+ * Stored as flags, not in memory, so it survives the app being closed.
+ */
+interface Pin { id: string; rule: PickRule; day: string }
+const dayKey = () => new Date().toDateString();
+
+async function readPin(): Promise<Pin | null> {
+  try { return JSON.parse((await getFlag('ra.pin')) ?? 'null'); } catch { return null; }
+}
+async function writePin(p: { id: string; rule: PickRule } | null) {
+  await setFlag('ra.pin', p ? JSON.stringify({ ...p, day: dayKey() }) : 'null');
+}
+async function passedToday(): Promise<string[]> {
+  try {
+    const v = JSON.parse((await getFlag('ra.passed')) ?? 'null');
+    return v && v.day === dayKey() ? v.ids : [];
+  } catch { return []; }
+}
+async function writePassed(ids: string[]) {
+  await setFlag('ra.passed', JSON.stringify({ day: dayKey(), ids }));
+}
+
+const isLive = (t: Task | null): t is Task =>
+  !!t && t.state !== 'done' && t.state !== 'dropped' && !(t.snoozed_until && t.snoozed_until > Date.now());
+
+/** The one thing, right now. Everything that shows Ra's task reads this. */
+export async function currentPick(): Promise<Pick | null> {
+  const passed = await passedToday();
+  const pin = await readPin();
+  if (pin && pin.day === dayKey()) {
+    const held = await getTask(pin.id);
+    if (isLive(held)) {
+      // A pick the engine made yields to a deadline that has since come
+      // within two hours. One you chose yourself never does.
+      if (pin.rule !== 'chosen' && pin.rule !== 'due') {
+        const fresh = await pickWithRule(passed);
+        if (fresh?.rule === 'due' && fresh.task.id !== held.id) {
+          await writePin({ id: fresh.task.id, rule: 'due' });
+          return fresh;
+        }
+      }
+      return { task: held, rule: pin.rule };
+    }
+  }
+  let p = await pickWithRule(passed);
+  // everything has been passed over today: start the round again rather
+  // than show an empty screen with tasks still in the water
+  if (!p && passed.length) { await writePassed([]); p = await pickWithRule(); }
+  await writePin(p ? { id: p.task.id, rule: p.rule } : null);
+  return p;
+}
+
+/** You chose this one. It stays until it's done, dropped or snoozed. */
+export async function chooseTask(id: string) {
+  await writePin({ id, rule: 'chosen' });
+  await markActed('choose');
+}
+
+/** "Something else instead": not today, not this one — show the next. */
+export async function passOn(id: string): Promise<Pick | null> {
+  const pin = await readPin();
+  await writePassed([...(await passedToday()).filter(x => x !== id), id]);
+  await writePin(null);
+  await logEvent('swapped', id, { rule: pin?.id === id ? pin.rule : null });
+  await markActed('swap');
+  return currentPick();
 }
 
 /** Every task carrying a date in a window — what the calendar screen draws. */
@@ -635,6 +785,8 @@ export async function updateTask(id: string, patch: TaskPatch) {
     `UPDATE task SET ${keys.map(k => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`,
     ...keys.map(k => patch[k] as SQLite.SQLiteBindValue), Date.now(), id,
   );
+  // every edit is you, here — it resets the reminder ladder like any other act
+  await markActed('edit');
 }
 
 export async function getTask(id: string) {
@@ -772,7 +924,7 @@ export async function resetOnboarding() {
 
 export async function completeOnboarding() {
   await setFlag('onboarded', '1');
-  await markActed();     // the ladder starts from "you just did something"
+  await markActed('onboarding');     // the ladder starts from "you just did something"
 }
 
 /** Replay Welcome → Auth without clearing app storage. Reachable from
@@ -856,6 +1008,7 @@ export async function logHabit(habitId: string, didMinimum = false) {
   await db.runAsync(
     'INSERT INTO habit_log (id, habit_id, at, did_minimum, updated_at) VALUES (?,?,?,?,?)',
     uid(), habitId, at, didMinimum ? 1 : 0, at);
+  await markActed('habit');
 }
 
 /** Every log for a habit in the last `days` — the raw material for
@@ -967,7 +1120,7 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
     banked += (await grantLight('retro', id)).total;
     n++;
   }
-  if (n) await markActed();
+  if (n) await markActed('retro');
   return { count: n, light: banked };
 }
 
@@ -1022,9 +1175,13 @@ export function anchorsBetween(from: number, to: number): number {
   return n;
 }
 
-/** The last time the user did literally anything. Everything resets this. */
-export async function markActed() {
+/** The last time the user did literally anything. Everything resets this —
+ *  capture, edits, energy, choosing, swapping, sessions, habits, completing,
+ *  snoozing, answering a reminder. Each call is also logged, so the 14-day
+ *  review can see which reminders were followed by action. */
+export async function markActed(source?: string) {
   await setFlag('last_acted_at', String(Date.now()));
+  await logEvent('acted', undefined, source ? { source } : undefined);
 }
 
 export async function lastActed(): Promise<number> {
@@ -1057,4 +1214,67 @@ export async function smallestTask(ceiling = 999) {
        AND (snoozed_until IS NULL OR snoozed_until <= ?)
        AND COALESCE(est_minutes, 15) <= ?
      ORDER BY COALESCE(est_minutes, 999) ASC, created_at ASC LIMIT 1`, now, ceiling);
+}
+
+/* ================================================================== *
+ *  Measure — what the 14-day review reads (SCOPE.md). Local only; the
+ *  event table is never synced.
+ * ================================================================== */
+
+/**
+ * The one number that says whether Nura works: of the tasks Ra showed you,
+ * how many you started — a focus session, or marking it done — within a day
+ * of being shown. Counted once per task per day, so a task shown on three
+ * refreshes of one morning is one showing, not three.
+ */
+export async function startRate(days = 14) {
+  const db = await getDb();
+  const since = Date.now() - days * 86_400_000;
+  const shown = await db.getAllAsync<{ task_id: string; at: number }>(
+    `SELECT task_id, MIN(at) AS at FROM event
+      WHERE kind = 'shown' AND at >= ? AND task_id IS NOT NULL
+      GROUP BY task_id, date(at/1000,'unixepoch','localtime')`, since);
+  let started = 0;
+  for (const s of shown) {
+    const hit = await db.getFirstAsync<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM event
+        WHERE task_id = ? AND kind IN ('session_start','completed') AND at >= ? AND at <= ?`,
+      s.task_id, s.at, s.at + 86_400_000);
+    if ((hit?.n ?? 0) > 0) started++;
+  }
+  return { shown: shown.length, started, rate: shown.length ? started / shown.length : null };
+}
+
+/**
+ * How far estimates are from reality, from focus sessions that ended with
+ * the task done and had an estimate at the moment they started. 1.0 means
+ * spot on; 2.0 means things take twice as long as guessed. Median, so one
+ * forgotten timer doesn't swamp it.
+ */
+export async function estimateAccuracy(days = 14) {
+  const db = await getDb();
+  const since = Date.now() - days * 86_400_000;
+  const rows = await db.getAllAsync<{ meta: string }>(
+    `SELECT meta FROM event WHERE kind = 'session_end' AND at >= ?`, since);
+  const ratios = rows
+    .map(r => { try { return JSON.parse(r.meta); } catch { return null; } })
+    .filter(m => m && m.done && m.est > 0 && m.minutes > 0)
+    .map(m => m.minutes / m.est)
+    .sort((a, b) => a - b);
+  const median = ratios.length ? ratios[Math.floor(ratios.length / 2)] : null;
+  return { sessions: ratios.length, median };
+}
+
+/** Everything the review needs, as one JSON document: the event log, the
+ *  tasks it refers to, and the two numbers above. Nothing is sent anywhere —
+ *  the caller hands it to the share sheet or a download. */
+export async function exportLog(): Promise<string> {
+  const db = await getDb();
+  const [events, tasks, start, estimate] = await Promise.all([
+    db.getAllAsync(`SELECT task_id, kind, at, meta FROM event ORDER BY at ASC`),
+    db.getAllAsync(`SELECT id, title, state, est_minutes, due_at, created_at, completed_at,
+                           label, activity, priority, repeat_rule, parent_id FROM task`),
+    startRate(), estimateAccuracy(),
+  ]);
+  return JSON.stringify({ exportedAt: new Date().toISOString(), startRate: start, estimateAccuracy: estimate, events, tasks }, null, 1);
 }

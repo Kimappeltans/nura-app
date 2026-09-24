@@ -10,7 +10,7 @@ import {
   checkInDue, markCheckInSeen, listHabits, habitLogs, logHabit, pauseHabit,
   type Task, type Energy, type Habit,
 } from '../db';
-import { priorityOf, whyNow } from '../priority';
+import { priorityOf, whyLine } from '../priority';
 import { statsFor, rateLine, type HabitStats } from '../habits';
 import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission, type UpcomingEvent } from '../calendar';
@@ -62,7 +62,7 @@ export default function Nu() {
   const [recoveryDismissed, setRecoveryDismissed] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitStats, setHabitStats] = useState<Record<string, HabitStats>>({});
-  const { inbox, todayPicked, agenda, energy, setEnergy, toRa, refresh, light, today, wins, celebrate, now, profile } = useStore();
+  const { inbox, todayPicked, agenda, energy, setEnergy, toRa, focusOn, refresh, light, today, wins, celebrate, now, nowRule, profile } = useStore();
   const showToast = useStore(s => s.showToast);
 
   useEffect(() => {
@@ -231,13 +231,22 @@ export default function Nu() {
     return out.slice(0, 5);
   }, [now, inbox, todayPicked]);
 
-  /** Chose a card that isn't the current pick: mark it for today so the engine
-   *  agrees with you, then hand over to Focus. */
+  /** Chose a card that isn't the current pick: it goes on today's plan and
+   *  Focus opens on exactly that task. It used to mark it for today and then
+   *  let Focus re-run the pick, which could hand you a different task. */
   const pickThen = useCallback(async (id: string) => {
     await pickForToday(id, true);
-    await refresh();
-    await toRa();
-  }, [refresh, toRa]);
+    await focusOn(id);
+  }, [focusOn]);
+
+  /** Everything else in the water — undated, not already in the deck above.
+   *  Nu's promise is "everything you're carrying"; these used to be computed
+   *  and never drawn, so past the first five they only surfaced in search. */
+  const anytime = useMemo(() => {
+    const inDeck = new Set(upNext.map(x => x.id));
+    return (groups.find(g => g.title === 'Anytime')?.data ?? [])
+      .flatMap(it => it.kind === 'task' && !inDeck.has(it.task.id) ? [it.task] : []);
+  }, [groups, upNext]);
 
   const rank = rankFor(light);
   const dayPct = Math.min(1, today / DAY_TARGET);
@@ -364,7 +373,7 @@ export default function Nu() {
           <View style={{ marginBottom: 16 }}>
             <HeroCard
               task={upNext[0]}
-              why={whyNow(upNext[0], energy)}
+              why={upNext[0].id === now?.id ? whyLine(nowRule, upNext[0], energy) : null}
               onStart={() => {
                 // the hero is what Focus would hand you anyway; picking a row
                 // below means "I want THAT one", so it's pinned before switching
@@ -404,23 +413,6 @@ export default function Nu() {
               </View>
             )}
           </View>
-        )}
-
-        {/* View all — shows count of tasks beyond the deck. */}
-        {!q && openCount > upNext.length && (
-          <Pressable onPress={() => router.push('/calendar')}
-            style={{ alignSelf: 'center', marginBottom: 16 }}>
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', gap: 7,
-              paddingHorizontal: 20, paddingVertical: 11, borderRadius: radius.pill,
-              backgroundColor: t.layer, borderWidth: 1, borderColor: t.strokeStrong,
-            }}>
-              <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand, letterSpacing: 0.6 }}>
-                + {openCount - upNext.length} more
-              </Text>
-              <IconChevron size={15} color={t.ink3} />
-            </View>
-          </Pressable>
         )}
 
         {/* Progress — one compact strip, not a headline. */}
@@ -490,6 +482,38 @@ export default function Nu() {
                 );
               });
             })()}
+          </Group>
+        )}
+
+        {/* The evening log, reachable any time — not only from the 20:00
+            reminder, which never fires on web, with reminders off, or once
+            the ladder has gone quiet. */}
+        {!q && (
+          <Pressable onPress={() => router.push('/retro')} hitSlop={8}
+            style={{ alignSelf: 'flex-start', marginTop: 10, marginLeft: 4 }}>
+            <Text style={{ color: t.nu, fontSize: 13.5 }}>Did something that isn't on here? Log it ›</Text>
+          </Pressable>
+        )}
+
+        {/* Anytime — the rest of the water, all of it. */}
+        {!q && !!anytime.length && (
+          <Group title="Anytime">
+            {anytime.map((task, i) => (
+              <View key={task.id} style={{ opacity: Math.max(0.6, 1 - i * 0.06) }}>
+                {i > 0 && <Divider />}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+                  <LabelTile id={task.label} />
+                  <Pressable style={{ flex: 1 }}
+                    onPress={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}>
+                    <Text numberOfLines={1} style={{ color: t.ink, fontSize: 16 }}>{task.title}</Text>
+                  </Pressable>
+                  {!!task.est_minutes && (
+                    <Text style={{ color: t.ink3, fontSize: 12.5 }}>{task.est_minutes}m</Text>
+                  )}
+                  <Check tone="ra" onPress={() => tick(task.id)} />
+                </View>
+              </View>
+            ))}
           </Group>
         )}
 

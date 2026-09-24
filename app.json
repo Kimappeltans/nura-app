@@ -79,7 +79,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "./plugins/withPodsDeploymentTarget"
     ],
     "experiments": {
       "typedRoutes": true

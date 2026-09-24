@@ -50,7 +50,8 @@ export default function Triage() {
     if (!current) return;
     Haptics.selectionAsync();
     switch (outcome) {
-      case 'kept': break;   // no mutation — it stays exactly where it is
+      // on today's plan — for an inbox task that's a real move, not a no-op
+      case 'kept': if (current.state === 'inbox') await pickForToday(current.id, true); break;
       case 'pushed': {
         const target = new Date(); target.setHours(19, 30, 0, 0);
         if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);

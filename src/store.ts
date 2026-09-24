@@ -12,6 +12,8 @@ interface State {
   mode: db.Mode;
   energy: db.Energy;
   now: db.Task | null;
+  /** which rule put `now` in front of you — see db.PickRule */
+  nowRule: db.PickRule | null;
   crumb: { crumb: db.Crumb; task: db.Task } | null;
   inbox: db.Task[];
   /** Tasks explicitly picked for today (state 'today'/'doing') — a separate
@@ -47,6 +49,10 @@ interface State {
   setSession: (session: Session | null) => void;
   toNu: () => Promise<void>;
   toRa: () => Promise<void>;
+  /** Open Ra on THIS task — you chose it, so it stays until it's done. */
+  focusOn: (id: string) => Promise<void>;
+  /** "Something else instead" — this one's passed over for today. */
+  passOn: () => Promise<void>;
   refresh: () => Promise<void>;
   finishOnboarding: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
@@ -57,7 +63,7 @@ interface State {
 }
 
 export const useStore = create<State>((set, get) => ({
-  mode: 'nu', energy: 'steady', now: null, crumb: null,
+  mode: 'nu', energy: 'steady', now: null, nowRule: null, crumb: null,
   inbox: [], todayPicked: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
@@ -77,13 +83,27 @@ export const useStore = create<State>((set, get) => ({
 
   setEnergy: async (e) => {
     await db.setEnergy(e);
-    set({ energy: e, now: await db.pickNow() });
+    const p = await db.currentPick();
+    set({ energy: e, now: p?.task ?? null, nowRule: p?.rule ?? null });
   },
 
   // Nu -> Ra is the only way to start anything, and Ra never sees a list.
+  // Every path reads db.currentPick(), which holds the one thing steady
+  // instead of re-picking on every refresh.
   toRa: async () => {
     await db.setMode('ra');
-    set({ mode: 'ra', now: await db.pickNow(), crumb: await db.latestCrumb() });
+    const p = await db.currentPick();
+    set({ mode: 'ra', now: p?.task ?? null, nowRule: p?.rule ?? null, crumb: await db.latestCrumb() });
+  },
+  focusOn: async (id) => {
+    await db.chooseTask(id);
+    await get().toRa();
+  },
+  passOn: async () => {
+    const { now } = get();
+    if (!now) return;
+    const p = await db.passOn(now.id);
+    set({ now: p?.task ?? null, nowRule: p?.rule ?? null });
   },
   toNu: async () => {
     await db.setMode('nu');
@@ -105,12 +125,12 @@ export const useStore = create<State>((set, get) => ({
   refresh: async () => {
     const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile] =
       await Promise.all([
-        db.getMode(), db.pickNow(), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
+        db.getMode(), db.currentPick(), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
         db.totalLight(), db.todayLight(),
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
         nextEvent(), todayEvents(), db.getProfile(),
       ]);
-    set({ mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    set({ mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action

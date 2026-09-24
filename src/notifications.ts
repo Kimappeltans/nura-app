@@ -179,10 +179,12 @@ async function computeDesired(): Promise<Desired[]> {
         // kept the OLD id (same taskId, same '24h'/'2h'/'20m' label) with its
         // OLD fireAt: the stale reminder survived the edit untouched, and the
         // correctly-timed one for the new due date never got scheduled.
-        id: `deadline.${t.id}.${label}.${fireAt}`,
+        id: `deadline.${t.id}.${label}.${fireAt}.${soft.offer ? 'offer' : 'ask'}`,
         fireAt, taskId: t.id,
         title: soft.offer ? 'No pressure' : t.title,
-        body: soft.offer ? `There's a smaller piece of this if you want it.` : body(t),
+        body: soft.offer
+          ? (t.first_action ? `${t.first_action} — only if you feel like it.` : 'Even five minutes of it counts.')
+          : body(t),
       });
     }
   }
@@ -257,7 +259,7 @@ export function attachResponseHandler(
     const taskId = res.notification.request.content.data?.taskId as string | undefined;
     const action = res.actionIdentifier;
     // ANY action resets the ladder — including "not this week"
-    await markActed();
+    await markActed('reminder');
     await logEvent('nudge_acted', taskId, { action });
 
     // the evening anchor opens retro-capture, not a task

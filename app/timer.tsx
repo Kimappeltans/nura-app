@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
-import { complete, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
+import { complete, endSession, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
 import { writeFocusBlock } from '../src/calendar';
 import { reconcileNudges } from '../src/notifications';
 import { Primary, Ghost, Mica, Character } from '../src/ui';
@@ -43,8 +43,9 @@ function breakMinutesFor(sessionMins: number) {
  * as the loud option. Counter-intuitively that's what makes starting cheap:
  * quitting is allowed, so beginning costs nothing.
  *
- * And stopping early still logs a win, and still pays light. Time spent is the
- * achievement, not task completion — the most important behaviour in the app.
+ * And stopping early still counts: it pays light, because time spent is the
+ * achievement. What it no longer does is mark the task done — Stop ends the
+ * SESSION and leaves a breadcrumb; only Done finishes the task.
  */
 export default function Timer() {
   const t = useTheme();
@@ -150,6 +151,11 @@ export default function Timer() {
   useEffect(() => {
     if (id) {
       logEvent('started', id);
+      // the estimate as it stood when you began — est_minutes gets edited in
+      // place later, so this is the only record of the guess being tested
+      getTask(id).then(tk => logEvent('session_start', id, {
+        planned: Math.round(initial / 60), est: tk?.est_minutes ?? null,
+      }));
       // Promotes the task above pickNow()'s tier 3 ("picked for today") to
       // tier 2 ("already started") — this state was defined and documented
       // in the NOW engine's priority order but never actually written
@@ -167,15 +173,21 @@ export default function Timer() {
 
   /**
    * Ends the WORK session — banks the award, then either offers a break or
-   * goes straight back. `offerBreak` is false for the "I have to leave"
-   * abandon path (a breadcrumb already covers that exit) and true for every
-   * genuine stop, early or on time — that's the moment a pause actually helps.
+   * goes straight back. `done` finishes the task; otherwise the session ends
+   * and the task stays open (db.endSession), still paying for the time.
+   * `offerBreak` is false for the mid-session Stop (a breadcrumb covers that
+   * exit) and true when the session ran its course or the task is done —
+   * that's the moment a pause actually helps.
    */
-  const finish = async (partial: boolean, offerBreak = false) => {
+  const finish = async (done: boolean, offerBreak = false) => {
     if (tick.current) clearInterval(tick.current);
     (globalThis as any).__nuraRunning?.(null);
     if (id) {
-      const award = await complete(id, partial);
+      const minutes = Math.round((Date.now() - startedAt.current) / 6000) / 10;
+      await logEvent('session_end', id, {
+        minutes, planned: Math.round(span / 60), est: task?.est_minutes ?? null, done,
+      });
+      const award = done ? await complete(id) : await endSession(id);
       celebrate(award);
       // Two-way sync, if it was turned on: the time you actually spent lands in
       // the same calendar as the meetings that ate the rest of the day. Fails
@@ -226,7 +238,7 @@ export default function Timer() {
           {phase === 'breakOffer'
             ? "you earned it"
             : dragging ? 'Turning the ring changes the length'
-            : onBreak ? `Phone quiet · back in ${breakMins} minutes` : `Phone quiet · ${spanMinsNum} minutes`}
+            : onBreak ? `Back in ${breakMins} minutes` : `${spanMinsNum} minutes`}
         </Text>
 
         {phase !== 'breakOffer' && (
@@ -296,41 +308,34 @@ export default function Timer() {
           ) : asking ? (
             <>
               <Text style={{ color: t.ink2, fontSize: 14.5, textAlign: 'center', marginBottom: 4, lineHeight: 21 }}>
-                {copy.contract}
+                {copy.contract(Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)))}
               </Text>
               <Primary label="Keep going · 10 more" tone="ra" onPress={() => runWork(10 * 60)} />
-              {/* stopping on purpose is not the same as not starting */}
-              <Ghost label={copy.stop} onPress={() => finish(true, true)} />
+              {/* stopping on purpose is not the same as not starting — and it
+                  isn't finishing either: the task stays open for next time */}
+              <Ghost label={copy.stop} onPress={async () => {
+                if (id) await dropCrumb(id);
+                finish(false, true);
+              }} />
+              <Ghost label="It's done" onPress={() => finish(true, true)} />
             </>
           ) : (
             // Done is the primary action — it's the button most sessions
-            // actually end on, and a filled button next to an outlined one
-            // says so at a glance instead of leaving the two to look like a
-            // coin flip. Stop's own label now carries the thing the old
-            // plain "Stop" never said out loud: it still counts, and it
-            // still marks the task done — reusing copy.stop, the same
-            // phrase already used for the identical action from the
-            // "keep going?" prompt below, so the two don't describe the same
-            // behaviour two different ways.
+            // actually end on. Stop ends the session and keeps the task: the
+            // time counts (copy.stop says so), a breadcrumb is left, and Ra
+            // opens on "Where you were" next time. A thought typed but not
+            // yet submitted is a separate thing to park, not a note on this
+            // task, so it goes into the inbox like "+ a thought" does.
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Ghost label={copy.stop} onPress={async () => {
-                  if (id) await dropCrumb(id, thought.trim() || undefined);
-                  // "Stop" always completes the task (see finish/complete —
-                  // time spent counts, whether or not the task is actually
-                  // done) — which means it's marked done in the same beat
-                  // this crumb is written. latestCrumb() excludes done tasks
-                  // by design, so that note would otherwise be saved
-                  // somewhere nothing ever reads again. Anything typed but
-                  // not yet submitted goes into the inbox instead, the same
-                  // way "+ a thought just arrived" does when you do submit
-                  // it — so it's not silently lost.
+                  if (id) await dropCrumb(id);
                   if (thought.trim()) await capture(thought.trim());
-                  finish(true, false);
+                  finish(false, false);
                 }} />
               </View>
               <View style={{ flex: 1 }}>
-                <Primary label="Done" tone="ra" onPress={() => finish(false, true)} />
+                <Primary label="Done" tone="ra" onPress={() => finish(true, true)} />
               </View>
             </View>
           )}

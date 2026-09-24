@@ -105,9 +105,10 @@ export function parseTask(input: string): Draft {
   let repeat: RepeatRule | null = null;
   let days: number[] = [];
 
-  if (/\bevery\s+(week)?day\b|\bdaily\b/i.test(s)) {
+  // "every weekday" must not fall into this branch — it's checked below
+  if (/\bevery\s*day\b|\bdaily\b/i.test(s)) {
     repeat = 'daily'; found.push('every day');
-    eat(/\bevery\s+(week)?day\b|\bdaily\b/i);
+    eat(/\bevery\s*day\b|\bdaily\b/i);
   } else if (/\bweekdays?\b|\bevery weekday\b/i.test(s)) {
     repeat = 'weekdays'; found.push('weekdays');
     eat(/\bevery weekday\b|\bweekdays?\b/i);

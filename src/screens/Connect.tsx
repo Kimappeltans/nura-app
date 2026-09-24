@@ -8,7 +8,6 @@ import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission } from '../calendar';
 import { Primary, Mica, Surface, IconCalendar, IconBell, IconCheck } from '../ui';
 import {
-  GoogleCalIcon, GoogleCalColor, OutlookIcon, OutlookColor,
   AsanaIcon, AsanaColor, NotionIcon, NotionColor, SlackIcon, SlackColor,
   JiraIcon, JiraColor, LinearIcon, LinearColor, TodoistIcon, TodoistColor,
   MsTodoIcon, MsTodoColor, AppleIcon, AppleColor,
@@ -115,16 +114,8 @@ export default function Connect(
         },
       ],
     },
-    {
-      title: 'Calendars',
-      note: 'Sign in directly, so changes you make in Nura appear in them and theirs appear here.',
-      rows: [
-        { key: 'gcal', title: 'Google Calendar', body: 'Changes sync both ways with your Google account.',
-          icon: () => <GoogleCalIcon />, tint: GoogleCalColor, status: 'soon' },
-        { key: 'outlook', title: 'Outlook', body: 'The same, for Microsoft and Exchange accounts.',
-          icon: () => <OutlookIcon />, tint: OutlookColor, status: 'soon' },
-      ],
-    },
+    // No Google Calendar or Outlook rows: the Calendar row above already reads
+    // every calendar on the phone, Google and Outlook accounts included.
     {
       title: 'Work apps',
       note: 'Your assigned work turns up in Nura automatically, and finishing it here checks it off there.',

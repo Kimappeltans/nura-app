@@ -17,13 +17,24 @@ import { radius, type as T } from '../src/theme';
  * still work.
  */
 export default function Retro() {
+  // Opened from the 20:00 reminder it's the afternoon being asked about; from
+  // the link in Nu it can be any time of day, so the question follows the
+  // clock, and what you log is dated to the middle of that stretch.
+  const since = (() => {
+    const h = new Date().getHours();
+    const at = (hh: number) => new Date().setHours(hh, 0, 0, 0);
+    if (h < 12) return { phrase: 'this morning', backdate: Math.min(Date.now(), at(Math.max(0, h - 1))) };
+    if (h < 17) return { phrase: 'so far today', backdate: at(Math.max(12, h - 1)) };
+    return { phrase: 'since lunch', backdate: at(15) };
+  })();
+
   const t = useTheme();
   const [text, setText] = useState('');
   const refresh = useStore(s => s.refresh);
   const celebrate = useStore(s => s.celebrate);
 
   const save = async () => {
-    const { count, light } = await retroCapture(text.split('\n'));
+    const { count, light } = await retroCapture(text.split('\n'), since.backdate);
     await refresh();
     if (count) {
       celebrate({
@@ -39,7 +50,7 @@ export default function Retro() {
       <Mica />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
         <Text style={{ color: t.ink, fontSize: 27, fontFamily: T.display, lineHeight: 35, letterSpacing: -0.6 }}>
-          What did you actually do{'\n'}since lunch?
+          What did you actually do{'\n'}{since.phrase}?
         </Text>
         <Text style={{ color: t.ink3, fontSize: 14, lineHeight: 20 }}>
           One per line. Nothing is too small — answering an email counts, so does

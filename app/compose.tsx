@@ -62,21 +62,25 @@ export default function Compose() {
   // Chat's "too big to start" nudge hands off here with the typed-out thing
   // and a suggested first-ten-minutes size — prefilled, not forced, same as
   // every other field on this screen.
-  const { title: titleParam, minutes: minutesParam } = useLocalSearchParams<{ title?: string; minutes?: string }>();
+  // Chat's "Edit" hands over its whole parsed draft the same way.
+  const params = useLocalSearchParams<{
+    title?: string; minutes?: string; due?: string; hasTime?: string; repeat?: string;
+    days?: string; priority?: string; activity?: string; label?: string;
+  }>();
 
-  const [title, setTitle] = useState(titleParam ?? '');
-  const [label, setLabel] = useState<LabelId | null>(null);
-  const [touchedLabel, setTouchedLabel] = useState(false);
-  const [minutes, setMinutes] = useState<number | null>(minutesParam ? parseInt(minutesParam, 10) : null);
-  const [due, setDue] = useState<number | null>(null);
-  const [hasTime, setHasTime] = useState(false);
-  const [repeat, setRepeat] = useState<RepeatRule | null>(null);
-  const [priority, setPriority] = useState(0);
+  const [title, setTitle] = useState(params.title ?? '');
+  const [label, setLabel] = useState<LabelId | null>((params.label as LabelId) ?? null);
+  const [touchedLabel, setTouchedLabel] = useState(!!params.label);
+  const [minutes, setMinutes] = useState<number | null>(params.minutes ? parseInt(params.minutes, 10) : null);
+  const [due, setDue] = useState<number | null>(params.due ? Number(params.due) : null);
+  const [hasTime, setHasTime] = useState(params.hasTime === '1');
+  const [repeat, setRepeat] = useState<RepeatRule | null>((params.repeat as RepeatRule) ?? null);
+  const [priority, setPriority] = useState(params.priority ? Number(params.priority) : 0);
   const [showCal, setShowCal] = useState(false);
-  const [activity, setActivity] = useState<ActivityId | null>(null);
-  const [touchedAct, setTouchedAct] = useState(false);
+  const [activity, setActivity] = useState<ActivityId | null>((params.activity as ActivityId) ?? null);
+  const [touchedAct, setTouchedAct] = useState(!!params.activity);
   const [actQuery, setActQuery] = useState('');
-  const [days, setDays] = useState<string>('');
+  const [days, setDays] = useState<string>(params.days ?? '');
 
   // the guess follows what you type, until you overrule it — after which it
   // stops second-guessing you

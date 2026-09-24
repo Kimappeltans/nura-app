@@ -203,7 +203,21 @@ export default function Chat() {
                 }}>
                   <Text style={{ color: t.ink, fontSize: 14.5, fontFamily: T.brand }}>Add it</Text>
                 </Pressable>
-                <Pressable onPress={() => { router.back(); router.push('/compose'); }} style={{
+                <Pressable onPress={() => {
+                  // the whole parsed draft goes across — Edit used to open an
+                  // empty form, so everything the parser understood was lost
+                  router.back();
+                  router.push({ pathname: '/compose', params: {
+                    title: d.title,
+                    ...(d.est_minutes ? { minutes: String(d.est_minutes) } : {}),
+                    ...(d.due_at ? { due: String(d.due_at), hasTime: d.has_time ? '1' : '0' } : {}),
+                    ...(d.repeat_rule ? { repeat: d.repeat_rule } : {}),
+                    ...(d.repeat_days ? { days: d.repeat_days } : {}),
+                    ...(d.priority ? { priority: String(d.priority) } : {}),
+                    ...(d.activity ? { activity: d.activity } : {}),
+                    ...(d.label ? { label: d.label } : {}),
+                  } });
+                }} style={{
                   paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
                   borderWidth: 1, borderColor: t.strokeStrong,
                 }}>

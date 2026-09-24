@@ -1,13 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppState } from 'react-native';
 import {
   useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
-import { getDb, migrate, dropCrumb } from '../src/db';
+import { getDb, migrate, dropCrumb, onOpenElsewhere } from '../src/db';
 import {
-  initNotifications, reconcileNudges, scheduleTransitionWarning,
+  initNotifications,
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
 import { useStore } from '../src/store';
@@ -22,6 +22,9 @@ export default function Root() {
   const onboarded = useStore(s => s.onboarded);
   const [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold });
   const running = useRef<string | null>(null);
+  const [elsewhere, setElsewhere] = useState(false);
+
+  useEffect(() => onOpenElsewhere(setElsewhere), []);
 
   // the timer tells us which task is in flight, so backgrounding can leave a crumb
   useEffect(() => {
@@ -64,7 +67,11 @@ export default function Root() {
 
     const app = AppState.addEventListener('change', async s => {
       if (s === 'active') {
-        refresh(); reconcileNudges(); scheduleTransitionWarning();
+        // The whole schedule, not just deadlines: the midday/evening anchors
+        // were only written on cold start, so a day the ladder had quietened
+        // stayed quiet until the app was killed and reopened. Checks the
+        // permission itself and does nothing without it.
+        refresh(); initNotifications();
         if (useStore.getState().session) runSync();
       }
       // leaving mid-task: drop a breadcrumb while the context still exists
@@ -75,6 +82,7 @@ export default function Root() {
   }, []);
 
   if (!fontsLoaded) return <Loading />;
+  if (elsewhere) return <Loading note="Nura is open in another tab. Close it and this one carries on." />;
 
   // The welcome screen is dark navy now (it's painted the intro clip's own
   // background colour), so the bar goes light there. Connect, the second

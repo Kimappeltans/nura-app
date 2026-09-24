@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Platform, Share } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
-import { resetOnboarding, getFlag, setFlag, totalLight, totalWins } from '../src/db';
+import { resetOnboarding, getFlag, setFlag, totalLight, totalWins, exportLog } from '../src/db';
 import { hasCalendarPermission } from '../src/calendar';
 import { supabase } from '../src/supabase';
 import { rankFor } from '../src/reward';
@@ -34,7 +35,10 @@ export default function Settings() {
   useFocusEffect(useCallback(() => {
     (async () => {
       setCal(await hasCalendarPermission());
-      setNotif((await getFlag('notif_asked')) === '1');
+      // the real permission, not "was asked" — the flag is also set when
+      // the answer was no, which made this row say On for someone who'd
+      // turned reminders down
+      setNotif(Platform.OS !== 'web' && (await Notifications.getPermissionsAsync()).status === 'granted');
     })();
   }, []));
 
@@ -168,7 +172,8 @@ export default function Settings() {
           <Row
             icon={<IconBell size={17} color={notif ? t.ra : t.nu} />}
             title="Reminders"
-            sub={notif ? 'Anchors are scheduled, and they soften if ignored.' : 'Not set up yet.'}
+            sub={notif ? 'A few a day, and they get quieter if ignored.'
+              : Platform.OS === 'web' ? 'Only in the iPhone app.' : 'Off.'}
             right={notif ? <On /> : undefined}
             onPress={() => router.push('/integrations')}
           />
@@ -198,6 +203,25 @@ export default function Settings() {
           />
         </Group>
 
+        <Group title="Your data">
+          <Row
+            title="Export activity log"
+            sub="What Nura has recorded — tasks shown, started, finished — as a file you keep. Nothing is sent anywhere."
+            onPress={async () => {
+              const json = await exportLog();
+              const name = `nura-activity-${new Date().toISOString().slice(0, 10)}.json`;
+              if (Platform.OS === 'web') {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+                a.download = name; a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+              } else {
+                await Share.share({ title: name, message: json });
+              }
+            }}
+          />
+        </Group>
+
         <Group title="Help">
           <Row
             title="Show the intro again"
@@ -207,8 +231,9 @@ export default function Settings() {
         </Group>
 
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginTop: 20, paddingHorizontal: 4 }}>
-          Everything you write down is stored on this phone. Nothing is uploaded,
-          and there is no account until you make one.
+          {session
+            ? 'Everything you write down is stored on this phone, and your tasks and habits are copied to your account so they reach your other devices. Your activity history stays here.'
+            : 'Everything you write down is stored on this phone. Nothing is uploaded, and there is no account until you make one.'}
         </Text>
       </ScrollView>
     </SafeAreaView>

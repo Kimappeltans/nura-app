@@ -7,17 +7,18 @@ import { Primary, Ghost, Mica, Surface, Character, Eyebrow, SunArc } from '../ui
 import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { useStore, useTheme } from '../store';
 import {
-  complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickNow, pickForToday,
+  complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickForToday, logEvent,
 } from '../db';
 import { reconcileNudges } from '../notifications';
 import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
 import { radius, type as T, copy } from '../theme';
 import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
-import { whyNow } from '../priority';
+import { whyLine } from '../priority';
+import { DurationDial, ESTIMATE_STOPS, SESSION_STOPS } from '../components/DurationDial';
 import type { Energy } from '../db';
 
-const MINUTES = [2, 5, 10, 15, 30, 60];
-const SESSIONS = [5, 15, 25, 45];
+// Each task Ra shows is logged once per app session, not on every re-render.
+let lastShown = '';
 
 function ago(ms: number) {
   const m = Math.round((Date.now() - ms) / 60000);
@@ -45,7 +46,7 @@ function ago(ms: number) {
  */
 export default function Ra() {
   const t = useTheme();
-  const { now, crumb, toNu, refresh, nextEvent, celebrate, today, energy, setEnergy, inbox } = useStore();
+  const { now, nowRule, crumb, toNu, refresh, nextEvent, celebrate, today, energy, setEnergy, inbox, passOn, focusOn } = useStore();
   const [wave, setWave] = useState(true);
   const [firstAction, setFirstAction] = useState('');
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
@@ -53,9 +54,9 @@ export default function Ra() {
 
   const act = activityById(now?.activity);
   const scene = act && !isCustom(now?.activity) ? SCENES[act.id as ActivityId] : null;
-  const [passed, setPassed] = useState<string[]>([]);   // seen-and-swapped this sitting
   const [picking, setPicking] = useState(false);   // task picker expanded
-  const [pickingMins, setPickingMins] = useState(false);   // session-length chips expanded
+  const [pickingMins, setPickingMins] = useState(false);   // session-length dial open
+  const [estPick, setEstPick] = useState(15);              // the estimate dial, before it's saved
   const [sheet, setSheet] = useState(false);   // "not this one?" action sheet
 
   // How long the next session should be. Sticky across sittings — once you've
@@ -130,18 +131,24 @@ export default function Ra() {
 
   /**
    * "Something else" — the escape hatch that makes a single-task screen
-   * bearable. It does NOT snooze or penalise the task; it just asks the
-   * engine for a different one, remembering what you've already been shown so
-   * it can't loop. Falls back to the first suggestion once you've seen them all.
+   * bearable. It does NOT snooze or penalise the task; it passes it over for
+   * the rest of today and asks the engine for a different one. The pass is
+   * stored (db.passOn), so a refresh can't bring the declined task back —
+   * it used to live in this screen's state and snapped back on the next
+   * refresh. Once everything has been passed over, the round starts again.
    */
   const somethingElse = async () => {
     if (!now) return;
     Haptics.selectionAsync();
-    const seen = [...passed, now.id];
-    const next = await pickNow(seen);
-    if (next) { setPassed(seen); useStore.setState({ now: next }); }
-    else { setPassed([]); useStore.setState({ now: await pickNow() }); }
+    await passOn();
   };
+
+  // What Ra showed, and why — the measure the start rate is built on.
+  useEffect(() => {
+    if (!now || now.id === lastShown) return;
+    lastShown = now.id;
+    logEvent('shown', now.id, { rule: nowRule, energy });
+  }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** "Waiting on someone" — stays in the water, just stops being asked for a
    *  while longer than a plain "later". Not a real status field (that's a
@@ -267,7 +274,10 @@ export default function Ra() {
             </Text>
             <View style={{ height: 4 }} />
             <Primary label="Pick it back up" tone="ra"
-              onPress={() => router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } })} />
+              onPress={() => {
+                logEvent('resumed', now.id);
+                router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } });
+              }} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Ghost label="Start it fresh" onPress={async () => {
                 await clearCrumbs(now.id); await refresh();
@@ -326,7 +336,7 @@ export default function Ra() {
             {/* Same reason the hero card on Nu gave for this one — repeated
                 here because Ra is where the "why should I trust this pick"
                 doubt actually surfaces, not where it was first shown. */}
-            {(() => { const why = whyNow(now, energy); return !!why && (
+            {(() => { const why = whyLine(nowRule, now, energy); return !!why && (
               <Text style={{ color: t.ink3, fontSize: 13.5 }}>Why this one: {why}</Text>
             ); })()}
 
@@ -346,18 +356,17 @@ export default function Ra() {
               *  this task.
               * ------------------------------------------------------------ */}
             {needs === 'est' && (
-              <View style={{ gap: 9 }}>
-                <Text style={{ color: t.ink2, fontSize: 14.5 }}>How long, roughly? Guessing is fine.</Text>
-                <View style={{ flexDirection: 'row', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {MINUTES.map(m => (
-                    <Pressable key={m} onPress={() => answerEst(m)} style={{
-                      paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill,
-                      borderWidth: 1.5, borderColor: t.ra, backgroundColor: t.raWash,
-                    }}>
-                      <Text style={{ color: t.raDeep, fontSize: 14, fontFamily: T.brand }}>{m}m</Text>
-                    </Pressable>
-                  ))}
-                  <Pressable onPress={() => skip('est')} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 9 }}>
+              <View style={{ gap: 10 }}>
+                <Text style={{ color: t.ink2, fontSize: 14.5 }}>How long, roughly? Turn it — guessing is fine.</Text>
+                <DurationDial stops={ESTIMATE_STOPS} value={estPick} onChange={setEstPick} size={148} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+                  <Pressable onPress={() => answerEst(estPick)} style={{
+                    paddingHorizontal: 18, paddingVertical: 10, borderRadius: radius.pill,
+                    borderWidth: 1.5, borderColor: t.ra, backgroundColor: t.raWash,
+                  }}>
+                    <Text style={{ color: t.raDeep, fontSize: 14, fontFamily: T.brand }}>About {estPick} min</Text>
+                  </Pressable>
+                  <Pressable onPress={() => skip('est')} hitSlop={10} style={{ paddingVertical: 10 }}>
                     <Text style={{ color: t.ink3, fontSize: 13.5 }}>skip</Text>
                   </Pressable>
                 </View>
@@ -425,24 +434,8 @@ export default function Ra() {
                 </View>
 
                 {pickingMins && (
-                  <View style={{ flexDirection: 'row', gap: 7 }}>
-                    {SESSIONS.map(m => {
-                      const on = sessionMins === m;
-                      return (
-                        <Pressable key={m} onPress={() => { chooseSession(m); setPickingMins(false); }} style={{
-                          flex: 1, alignItems: 'center',
-                          paddingVertical: 9, borderRadius: radius.pill,
-                          borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
-                          backgroundColor: on ? t.raWash : 'transparent',
-                        }}>
-                          <Text style={{
-                            color: on ? t.raDeep : t.ink, fontSize: 13.5,
-                            fontFamily: on ? T.brand : undefined,
-                          }}>{m}m</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <DurationDial stops={SESSION_STOPS} value={sessionMins}
+                    onChange={setSessionMins} onRelease={chooseSession} size={148} />
                 )}
 
                 <Primary label={`Begin · ${sessionMins} minutes`} tone="ra"
@@ -494,8 +487,7 @@ export default function Ra() {
                       onPress={async () => {
                         Haptics.selectionAsync();
                         await pickForToday(task.id, true);
-                        useStore.setState({ now: task });
-                        setPassed([]);
+                        await focusOn(task.id);    // held until it's done — see db.chooseTask
                         setPicking(false);
                       }}
                       style={({ pressed }) => ({

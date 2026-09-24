@@ -61,6 +61,7 @@ eas build --profile development --platform ios
 | `app/timer.tsx` | The 5-minute contract, with capture-without-leaving |
 | `app/retro.tsx` | "What did you actually do?" — backdated logging |
 | `app/wins.tsx` | Total, momentum, pixel grid, done-list. Reachable from Nu only |
+| `guidelines/design-system/index.html` | The design system: tokens, characters, components and real screens on one page. Open it in a browser |
 
 ## v2 features in this build
 
