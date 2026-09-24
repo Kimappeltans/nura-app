@@ -16,6 +16,9 @@ import { AppleGlyph, GoogleGlyph } from './Auth';
  * lose people at the door; asking once the work exists is the same moment
  * Duolingo asks, after the first lesson.
  *
+ * Light, like the sign-in screen (Kim preferred it to navy here): an
+ * account is a different kind of moment from the questions around it.
+ *
  * No back arrow on the first view: the list is already saved, and going
  * back to an empty brain dump would only invite writing it twice.
  *
@@ -30,7 +33,7 @@ type Mode = 'choose' | 'email';
 const PERKS = ['Backed up, so nothing gets lost', 'The same list on every device'];
 
 export default function ProfileStep({ onDone }: { onDone: () => void }) {
-  const t = useTheme();
+  const t = useTheme('ra');
   const { busy, formError, setFormError, withApple, withGoogle, withPassword } = useAuthActions(onDone);
   const [mode, setMode] = useState<Mode>('choose');
   const [creating, setCreating] = useState(true);
@@ -53,33 +56,34 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
 
   const field = (id: string) => ({
     color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
-    backgroundColor: t.layer, borderRadius: radius.lg,
+    backgroundColor: t.card, borderRadius: radius.lg,
     borderWidth: 1, borderColor: t.strokeStrong,
     borderBottomWidth: 2, borderBottomColor: focused === id ? t.ra : t.strokeStrong,
   } as const);
   const on = (id: string) => ({ onFocus: () => setFocused(id), onBlur: () => setFocused(null) });
 
-  const Social = ({ id, label, glyph, onPress, light }: {
-    id: string; label: string; glyph: React.ReactNode; onPress: () => void; light?: boolean;
+  // Apple's own rule for its button: black on a light background
+  const Social = ({ id, label, glyph, onPress, black }: {
+    id: string; label: string; glyph: React.ReactNode; onPress: () => void; black?: boolean;
   }) => (
     <Pressable onPress={onPress} disabled={!!busy} accessibilityRole="button"
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
         paddingVertical: 16, borderRadius: radius.lg,
-        backgroundColor: light ? '#FFFFFF' : t.layer,
-        borderWidth: 1, borderColor: light ? '#FFFFFF' : t.strokeStrong,
+        backgroundColor: black ? '#111111' : t.card,
+        borderWidth: 1, borderColor: black ? '#111111' : t.strokeStrong,
         opacity: pressed || (busy && busy !== id) ? 0.8 : 1,
       })}>
       {busy === id
-        ? <ActivityIndicator size="small" color={light ? '#111111' : t.ink} />
-        : <>{glyph}<Text style={{ color: light ? '#111111' : t.ink, fontSize: 16.5, fontFamily: T.brand }}>{label}</Text></>}
+        ? <ActivityIndicator size="small" color={black ? '#FFFFFF' : t.ink} />
+        : <>{glyph}<Text style={{ color: black ? '#FFFFFF' : t.ink, fontSize: 16.5, fontFamily: T.brand }}>{label}</Text></>}
     </Pressable>
   );
 
   const toEmail = (asNew: boolean) => { setCreating(asNew); setFormError(null); setMode('email'); };
 
   return (
-    <OnbFrame step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
+    <OnbFrame force="ra" step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
       title={creating ? 'Create your profile' : 'Sign in'}
       sub={creating
         ? 'Keep your list safe and use Nura on any device. It stays on this phone either way.'
@@ -87,17 +91,17 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
       footer={mode === 'choose' ? (
         <>
           {Platform.OS === 'ios' && (
-            <Social id="apple" light label="Continue with Apple" glyph={<AppleGlyph color="#111111" />} onPress={withApple} />
+            <Social id="apple" black label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} onPress={withApple} />
           )}
           <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} onPress={withGoogle} />
           <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
-          <FooterLink label="I already have an account" onPress={() => toEmail(false)} />
+          <FooterLink force="ra" label="I already have an account" onPress={() => toEmail(false)} />
         </>
       ) : (
         <>
           <Primary tone="ra" onPress={submit}
             label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create profile' : 'Sign in')} />
-          <FooterLink label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
+          <FooterLink force="ra" label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
         </>
       )}>
       {mode === 'choose' ? (
@@ -105,7 +109,7 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
           {PERKS.map(p => (
             <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.raWash, alignItems: 'center', justifyContent: 'center' }}>
-                <IconCheck size={17} color={t.raSoft} />
+                <IconCheck size={17} color={t.raDeep} />
               </View>
               <Text style={{ color: t.ink, fontSize: 16, lineHeight: 22, flex: 1 }}>{p}</Text>
             </View>
@@ -140,7 +144,7 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
               secureTextEntry autoCapitalize="none" autoComplete="new-password"
               returnKeyType="go" onSubmitEditing={submit} style={field('confirm')} />
           )}
-          {!!formError && <Text style={{ color: '#FF8A80', fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
+          {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
         </View>
       )}
     </OnbFrame>

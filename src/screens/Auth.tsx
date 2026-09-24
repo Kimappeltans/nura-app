@@ -3,6 +3,7 @@ import {
   View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, raTheme, type as T } from '../theme';
@@ -114,14 +115,15 @@ export default function Auth(
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
         paddingVertical: 15, borderRadius: radius.lg,
-        backgroundColor: dark ? '#FFFFFF' : t.card,
-        borderWidth: 1, borderColor: dark ? '#FFFFFF' : t.strokeStrong,
+        // Apple's own rule for its button: black on a light background
+        backgroundColor: dark ? '#111111' : t.card,
+        borderWidth: 1, borderColor: dark ? '#111111' : t.strokeStrong,
         opacity: pressed || busy ? 0.85 : 1,
       })}>
       {busy === id
-        ? <ActivityIndicator size="small" color={dark ? '#111' : t.ink} />
+        ? <ActivityIndicator size="small" color={dark ? '#FFFFFF' : t.ink} />
         : <>{glyph}<Text style={{
-            color: dark ? '#111111' : t.ink, fontSize: 16.5, fontFamily: T.brand,
+            color: dark ? '#FFFFFF' : t.ink, fontSize: 16.5, fontFamily: T.brand,
           }}>{label}</Text></>}
     </Pressable>
   );
@@ -129,6 +131,8 @@ export default function Auth(
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica force="ra" />
+      {/* cream screen, whatever the mode: the clock and battery go dark */}
+      <StatusBar style="dark" />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
         <Pressable onPress={onBack ?? onClose} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
@@ -157,7 +161,7 @@ export default function Auth(
             <View style={{ gap: 11 }}>
               {/* Apple first, and always present on iOS — Guideline 4.8. */}
               {Platform.OS === 'ios' && (
-                <Social id="apple" dark label="Continue with Apple" glyph={<AppleGlyph color="#111111" />} />
+                <Social id="apple" dark label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} />
               )}
               <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} />
 
