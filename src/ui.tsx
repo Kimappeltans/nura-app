@@ -207,13 +207,13 @@ export function Surface(
 
 const POSES = {
   // resting: calm, arms down
-  'nu-idle': require('../assets/characters/nu-idle-frames/frame-01.png'),
+  'nu-idle': require('../assets/characters/nu-idle-frames/frame-01.webp'),
   // hand at the chin, eyes up — the clearest "taking that from you"
-  'nu-thinking': require('../assets/characters/nu-thinking-frames/frame-02.png'),
+  'nu-thinking': require('../assets/characters/nu-thinking-frames/frame-02.webp'),
   // arm raised mid-wave, open smile
-  'ra-wave': require('../assets/characters/ra-wave-frames/frame-02.png'),
+  'ra-wave': require('../assets/characters/ra-wave-frames/frame-02.webp'),
   // both arms up, eyes shut, rays out
-  'ra-celebrate': require('../assets/characters/ra-celebrate-frames/frame-03.png'),
+  'ra-celebrate': require('../assets/characters/ra-celebrate-frames/frame-03.webp'),
   // the story poses (assets/story, cut from the Midjourney sources in
   // /nu-characters): Nu coming up out of the water, waving, asking,
   // listening; Ra as the rising sun, waving, resting

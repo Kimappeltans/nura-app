@@ -8,12 +8,12 @@ import { type as T, radius } from '../theme';
 import { Primary, poseImage } from '../ui';
 import { logEvent } from '../db';
 
-const stone = require('../../assets/brand/nura-logo-tight.png');
-const wordmark = require('../../assets/brand/wordmark-tight.png');
+const stone = require('../../assets/brand/nura-logo-tight.webp');
+const wordmark = require('../../assets/brand/wordmark-tight.webp');
 // the stone's own marks, lit: its waves (Nu's) and its sun (Ra's) — drawn
-// along the engraving in nura-logo-tight.png, the same size, so they sit in it
-const glowWaves = require('../../assets/story/benben-waves.png');
-const glowSun = require('../../assets/story/benben-sun.png');
+// along the engraving in the logo (nura-logo-tight), the same size, so they sit in it
+const glowWaves = require('../../assets/story/benben-waves.webp');
+const glowSun = require('../../assets/story/benben-sun.webp');
 const STONE_ASPECT = 944 / 833;           // the tight crop's height / width
 
 /** The night and the dawn — a one-off illustration, like OneRises' sunrise,

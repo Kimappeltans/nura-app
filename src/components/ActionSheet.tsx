@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Modal, View, Text, Pressable } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { radius, elevation, type as T } from '../theme';
 import { useTheme } from '../store';
@@ -37,13 +37,16 @@ export function ActionSheet(
   },
 ) {
   const t = useTheme();
+  // never taller than the screen: the actions scroll, the title and the way
+  // out stay put (the menu has nine places — it used to run off the top)
+  const { height } = useWindowDimensions();
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onDismiss}>
       <Pressable onPress={onDismiss} style={{ flex: 1, backgroundColor: 'rgba(5,8,26,0.55)', justifyContent: 'flex-end' }}>
         <Pressable onPress={() => {}} style={[{
           backgroundColor: t.layer, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
           borderWidth: 1, borderColor: t.strokeStrong, borderBottomWidth: 0,
-          paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18,
+          paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, maxHeight: height * 0.88,
         }, elevation.e16]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />
 
@@ -54,7 +57,8 @@ export function ActionSheet(
 
           {children}
 
-          <View style={{ marginTop: 14, gap: 6 }}>
+          <ScrollView style={{ marginTop: 14, flexShrink: 1 }} contentContainerStyle={{ gap: 6 }}
+            showsVerticalScrollIndicator bounces={false}>
             {actions.map(a => (
               <Pressable key={a.key}
                 onPress={() => { Haptics.selectionAsync(); onDismiss(); a.onPress(); }}
@@ -76,7 +80,7 @@ export function ActionSheet(
                 </View>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           <Pressable onPress={onDismiss} hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 14, marginTop: 4 }}>
             <Text style={{ color: t.ink3, fontSize: 14.5, fontFamily: T.brand }}>{dismissLabel}</Text>

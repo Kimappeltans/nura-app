@@ -12,8 +12,8 @@ import { SpeechBubble } from '../components/SpeechBubble';
  * of empty margin on every side, which made every size value a lie. Cropped
  * to the alpha bounding box, the numbers mean what they say.
  */
-const stone = require('../../assets/brand/nura-logo-tight.png');
-const wordmark = require('../../assets/brand/wordmark-tight.png');
+const stone = require('../../assets/brand/nura-logo-tight.webp');
+const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 /**
  * One screen, four things, in order of weight:

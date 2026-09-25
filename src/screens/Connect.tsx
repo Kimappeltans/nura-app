@@ -16,7 +16,7 @@ import {
 } from '../components/BrandIcons';
 
 // tight crop — the original has ~10% invisible margin, see Welcome.tsx
-const stone = require('../../assets/brand/nura-logo-tight.png');
+const stone = require('../../assets/brand/nura-logo-tight.webp');
 
 export type SyncMode = 'read' | 'two';
 type Status = 'idle' | 'busy' | 'connected' | 'soon';
