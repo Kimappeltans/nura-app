@@ -1,3 +1,4 @@
+import { goBack } from '../src/nav';
 import { router } from 'expo-router';
 import Connect from '../src/screens/Connect';
 
@@ -9,5 +10,5 @@ import Connect from '../src/screens/Connect';
  * which meant tapping "Skip for now" put them permanently out of reach.
  */
 export default function Integrations() {
-  return <Connect onDone={() => router.back()} />;
+  return <Connect onDone={() => goBack()} />;
 }

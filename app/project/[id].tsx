@@ -1,3 +1,5 @@
+import { goBack } from '../../src/nav';
+import { withTabs } from '../../src/components/WithTabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -19,7 +21,7 @@ import { MoveHelp } from '../../src/components/MoveHelp';
 import { HearIt } from '../../src/components/Voice';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
-const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const leave = () => (goBack());
 
 const toEdit = (s: Step): EditStep => ({
   key: s.id, id: s.id, title: s.title, first_action: s.first_action, why: s.why, est_minutes: s.est_minutes, edited: !!s.edited,
@@ -34,7 +36,7 @@ const toEdit = (s: Step): EditStep => ({
  * replans with what happened) or stop there. Stopping is a real answer; the
  * next step on the path waits on the home screen.
  */
-export default function ProjectScreen() {
+function ProjectScreen() {
   const { after } = useLocalSearchParams<{ after?: string }>();
   return (
     <PinnedMode.Provider value={after === 'done' ? 'ra' : 'nu'}>
@@ -145,7 +147,7 @@ function Screen() {
     { key: 'drop', glyph: '×', label: 'Let this project go', sub: 'gone, no explanation needed', tone: 'quiet', onPress: letGo },
   ];
 
-  if (!data) return <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}><Mica /></SafeAreaView>;
+  if (!data) return <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}><Mica /></SafeAreaView>;
 
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, height: 48 }}>
@@ -181,7 +183,7 @@ function Screen() {
   /* ---------------- after a move is done ---------------- */
   if (after) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
         <Mica />
         <StatusBar style={t.statusBar} />
         {header}
@@ -257,7 +259,7 @@ function Screen() {
   /* ---------------- the project ---------------- */
   const guesses = assumptionsOf(data.project);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <StatusBar style={t.statusBar} />
       {header}
@@ -348,3 +350,5 @@ function confirm(title: string, body: string, yes: string, go: () => void) {
   if (Platform.OS === 'web') { if (window.confirm(`${title}\n\n${body}`)) go(); return; }
   Alert.alert(title, body, [{ text: 'Cancel', style: 'cancel' }, { text: yes, onPress: go }]);
 }
+
+export default withTabs(ProjectScreen);

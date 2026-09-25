@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -175,7 +177,7 @@ function gridFor(year: number, month: number) {
  * Read-only for events, as everywhere else — Nura writes to your calendar only
  * when two-way sync is explicitly on, and only ever events it created itself.
  */
-export default function CalendarScreen() {
+function CalendarScreen() {
   const t = useTheme();
   const refresh = useStore(s => s.refresh);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -221,11 +223,11 @@ export default function CalendarScreen() {
   ].sort((a, b) => a.at - b.at);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Today</Text>
         </Pressable>
         <Pressable onPress={() => { Haptics.selectionAsync(); const d = new Date(); setCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setPicked(d); }}
@@ -388,3 +390,5 @@ export default function CalendarScreen() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(CalendarScreen);

@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, Platform, Share } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -25,7 +27,7 @@ import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, se
  * Connect screen is something people hook up weeks in rather than on day one,
  * and "Skip for now" was quietly permanent.
  */
-export default function Settings() {
+function Settings() {
   const t = useTheme();
   const { light, total, session, appearance, setAppearance } = useStore();
   const [cal, setCal] = useState(false);
@@ -124,10 +126,10 @@ export default function Settings() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
         </Pressable>
       </View>
@@ -308,3 +310,5 @@ export default function Settings() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(Settings);

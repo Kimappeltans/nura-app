@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback } from 'react';
 import { View, Text, FlatList, Pressable } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -19,16 +21,16 @@ const weekdayLetter = (isoDay: string) =>
  * quiet week into evidence against yourself, and that is the moment the app
  * gets deleted.
  */
-export default function Wins() {
+function Wins() {
   const t = useTheme();
   const { wins, total, light, today, momentum, grid, refresh } = useStore();
   useFocusEffect(useCallback(() => { refresh(); }, []));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flex: 1, padding: 20, gap: 14 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 4 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 4 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Everything</Text>
         </Pressable>
 
@@ -98,3 +100,5 @@ export default function Wins() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(Wins);

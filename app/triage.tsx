@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
@@ -31,7 +33,7 @@ const TALLY_LABEL: Record<Outcome, string> = {
  * task that's been sitting. The backlog isn't a queue to feel behind on,
  * it's a pile of decisions nobody's made yet; this makes each one small.
  */
-export default function Triage() {
+function Triage() {
   const t = useTheme();
   const { inbox, todayPicked, refresh } = useStore();
   const [queue] = useState<Task[]>(() =>
@@ -72,10 +74,10 @@ export default function Triage() {
     .join(' · ');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>✕</Text>
         </Pressable>
       </View>
@@ -89,7 +91,7 @@ export default function Triage() {
           <Text style={{ color: t.ink3, fontSize: 14.5, textAlign: 'center', lineHeight: 20, maxWidth: 260 }}>
             The water's clear enough that there's nothing here worth a pass through it.
           </Text>
-          <Primary label="Back to the one thing" tone="nu" onPress={() => router.back()} />
+          <Primary label="Back to the one thing" tone="nu" onPress={() => goBack()} />
         </View>
       ) : finished ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
@@ -101,7 +103,7 @@ export default function Triage() {
             {summary}.
           </Text>
           <View style={{ height: 6 }} />
-          <Primary label="Back to the one thing" tone="nu" onPress={() => router.back()} />
+          <Primary label="Back to the one thing" tone="nu" onPress={() => goBack()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, flexGrow: 1 }}>
@@ -152,3 +154,5 @@ export default function Triage() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(Triage);

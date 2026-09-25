@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -17,7 +19,7 @@ import { Mica, Primary, Eyebrow } from '../src/ui';
  * form only accepts the shape that actually builds automaticity — an
  * existing moment in your day, and something small enough to survive it.
  */
-export default function NewHabit() {
+function NewHabit() {
   const t = raTheme;   // onboarding-style chrome, not the Nu/Ra mode — see Compose.tsx
   const [cue, setCue] = useState('');
   const [action, setAction] = useState('');
@@ -31,7 +33,7 @@ export default function NewHabit() {
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await createHabit(cue, action, minimum);
-    router.back();
+    goBack();
   };
 
   const field = (value: string, onChange: (v: string) => void, placeholder: string) => (
@@ -50,11 +52,11 @@ export default function NewHabit() {
   return (
     <PinnedMode.Provider value="ra">
       <StatusBar style="dark" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
         <Mica force="ra" />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 4 }}>
-            <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
+            <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
             </Pressable>
           </View>
@@ -103,3 +105,5 @@ export default function NewHabit() {
     </PinnedMode.Provider>
   );
 }
+
+export default withTabs(NewHabit);

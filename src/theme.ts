@@ -34,6 +34,12 @@ export interface Palette {
   glowNu: number; glowRa: number;
   /** the diagonal three-stop background gradient */
   atmosphere: readonly [string, string, string];
+  /** run the atmosphere top-to-bottom instead of diagonally (light from the surface) */
+  atmosphereVertical?: boolean;
+  /** the tile Nu sits on (the Tell Nu button) — lighter than the panels, so blue Nu reads */
+  nuTile?: string;
+  /** a bottom sheet's fill, top to bottom */
+  sheet?: readonly [string, string];
   /** sequential ramp for the pixel grid, light -> saturated */
   scale: readonly string[];
   /**

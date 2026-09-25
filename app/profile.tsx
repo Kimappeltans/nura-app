@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -24,7 +26,7 @@ import { RankCard } from '../src/components/Rank';
  * app exists to avoid. Light only ever goes up, so a short bar is a quiet day
  * and never a failure.
  */
-export default function Profile() {
+function Profile() {
   const t = useTheme();
   const { light, total, momentum, refresh } = useStore();
   const [name, setName] = useState('');
@@ -68,11 +70,11 @@ export default function Profile() {
   }, [recent]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
         </Pressable>
         <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
@@ -255,3 +257,5 @@ export default function Profile() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(Profile);

@@ -328,7 +328,8 @@ async function localPlanner(body: Record<string, any>): Promise<any> {
   const keep = open.map(s => ({ ref: s.ref, title: s.title, first_action: s.first_action, why: null, est_minutes: s.est_minutes }));
   const kind = body.event?.kind;
   if (kind === 'too_big' && cur) {
-    const small = { ref: '', title: `Spend two minutes on: ${cur.title.toLowerCase()}`, first_action: cur.first_action ?? 'Open it.', why: 'Smaller, so it’s easy to begin.', est_minutes: 2 };
+    // the smaller move is the step's own first action, when it has one — short and concrete
+    const small = { ref: '', title: cur.first_action ? cur.first_action.replace(/[.…]+$/, '') : `Start: ${cur.title}`, first_action: cur.first_action ?? 'Open it.', why: 'Smaller, so it’s easy to begin.', est_minutes: 2 };
     return { reply: 'Here’s a smaller way in.', steps: [small, ...keep], current: 0, question: '', options: [], maybe_done: false };
   }
   if (kind === 'blocked') {

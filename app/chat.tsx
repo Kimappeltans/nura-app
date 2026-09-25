@@ -1,3 +1,4 @@
+import { goBack } from '../src/nav';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Image,
@@ -191,7 +192,7 @@ export default function Chat() {
           </View>
 
           {!m.added && (
-            <Pressable onPress={() => { router.back(); router.push({ pathname: '/project/new', params: { goal: d.title } }); }}
+            <Pressable onPress={() => { goBack(); router.push({ pathname: '/project/new', params: { goal: d.title } }); }}
               hitSlop={6} style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 13 }}>Bigger than one task? <Text style={{ color: t.nu, fontFamily: T.brand }}>Plan it with Nu ›</Text></Text>
             </Pressable>
@@ -212,7 +213,7 @@ export default function Chat() {
                 <Pressable onPress={() => {
                   // the whole parsed draft goes across — Edit used to open an
                   // empty form, so everything the parser understood was lost
-                  router.back();
+                  goBack();
                   router.push({ pathname: '/compose', params: {
                     title: d.title,
                     ...(d.est_minutes ? { minutes: String(d.est_minutes) } : {}),
@@ -265,7 +266,7 @@ export default function Chat() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
-                  router.back();
+                  goBack();
                   router.push({ pathname: '/project/new', params: { goal: d.title } });
                 }}
                 style={{
@@ -301,7 +302,7 @@ export default function Chat() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 8 }}>
+          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
           </Pressable>
           <View style={{ flex: 1 }} />

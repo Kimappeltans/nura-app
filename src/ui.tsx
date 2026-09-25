@@ -126,7 +126,7 @@ export function Mica(
 
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
-      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} locations={[0, 0.55, 1]}
+      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: t.atmosphereVertical ? 0 : 1, y: 1 }} locations={[0, 0.55, 1]}
         style={{ position: 'absolute', inset: 0 }} />
       {/* Two ambient glows — indigo high-left, coral low-right — bled into the
           ground the way Fluent's Mica does. A flat fill behind rounded cards
@@ -224,6 +224,8 @@ const POSES = {
   'ra-sun': require('../assets/story/ra-sun.webp'),
   'ra-hello': require('../assets/story/ra-hello.webp'),
   'ra-rest': require('../assets/story/ra-rest.webp'),
+  // the waving Ra from the redesign — compact, no rays, so it sits in a small round button
+  'ra-icon': require('../assets/story/ra-icon.webp'),
 } as const;
 
 /** The image behind a pose, for screens that place and move it themselves. */

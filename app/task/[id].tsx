@@ -1,3 +1,4 @@
+import { goBack } from '../../src/nav';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -131,7 +132,7 @@ export default function TaskDetail() {
       <Mica />
       <ScrollView ref={scroller} contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
 
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
         </Pressable>
 
@@ -351,7 +352,7 @@ export default function TaskDetail() {
             Alert.alert('Let this go?', 'It stops appearing. Nothing is counted against you.', [
               { text: 'Keep it', style: 'cancel' },
               { text: 'Let it go', style: 'destructive',
-                onPress: async () => { await dropTask(task.id); await refresh(); router.back(); } },
+                onPress: async () => { await dropTask(task.id); await refresh(); goBack(); } },
             ]);
           }} />
         </View>

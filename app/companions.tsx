@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -17,7 +19,7 @@ import { SceneGallery } from '../src/components/Rank';
  * whose strength is the stage's own. Nothing here decays and nothing is
  * gated — see growth.ts for why that isn't negotiable.
  */
-export default function Companions() {
+function Companions() {
   const t = useTheme();
   const { light, refresh } = useStore();
   const [done, setDone] = useState<string[]>([]);
@@ -31,11 +33,11 @@ export default function Companions() {
   const col = collectionFrom(done);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
         </Pressable>
       </View>
@@ -148,3 +150,5 @@ export default function Companions() {
     </SafeAreaView>
   );
 }
+
+export default withTabs(Companions);

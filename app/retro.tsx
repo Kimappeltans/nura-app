@@ -1,3 +1,5 @@
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useState } from 'react';
 import { View, Text, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
@@ -16,7 +18,7 @@ import { radius, type as T } from '../src/theme';
  * with the feeling — and it pays, because work you forgot to write down was
  * still work.
  */
-export default function Retro() {
+function Retro() {
   // Opened from the 20:00 reminder it's the afternoon being asked about; from
   // the link in Nu it can be any time of day, so the question follows the
   // clock, and what you log is dated to the middle of that stretch.
@@ -42,11 +44,11 @@ export default function Retro() {
         total: light, reason: 'retro',
       });
     }
-    router.back();
+    goBack();
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
         <Text style={{ color: t.ink, fontSize: 27, fontFamily: T.display, lineHeight: 35, letterSpacing: -0.6 }}>
@@ -76,9 +78,11 @@ export default function Retro() {
         {/* the button sits right under the field it acts on, not across a gap */}
         <View style={{ gap: 10, marginTop: 2 }}>
           <Primary label="Log it all" tone="ra" onPress={save} />
-          <Ghost label="Nothing comes to mind" onPress={() => router.back()} />
+          <Ghost label="Nothing comes to mind" onPress={() => goBack()} />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+export default withTabs(Retro);

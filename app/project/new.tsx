@@ -1,3 +1,4 @@
+import { goBack } from '../../src/nav';
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,7 +15,7 @@ import { PathEditor, editKey, type EditStep } from '../../src/components/PathEdi
 import { MicButton, HearIt } from '../../src/components/Voice';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
-const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const leave = () => (goBack());
 
 type Phase =
   | { at: 'goal' }

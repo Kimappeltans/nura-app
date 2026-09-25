@@ -1,3 +1,4 @@
+import { goBack } from '../src/nav';
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput, PanResponder } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -111,7 +112,7 @@ export default function Timer() {
     setPhase('break');
     run(secs, () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+      goBack();
     });
   };
 
@@ -206,7 +207,7 @@ export default function Timer() {
       return;
     }
     if (offerBreak) { setPhase('breakOffer'); return; }
-    router.back();
+    goBack();
   };
 
   const stash = async () => {
@@ -308,10 +309,10 @@ export default function Timer() {
                 Nice work. Want a {breakMins}-minute break before the next thing?
               </Text>
               <Primary label={`Take ${breakMins} minutes`} tone="nu" onPress={() => runBreak(breakMins * 60)} />
-              <Ghost label="Skip, back to everything" onPress={() => router.back()} />
+              <Ghost label="Skip, back to everything" onPress={() => goBack()} />
             </>
           ) : onBreak ? (
-            <Ghost label="Skip the rest of the break" onPress={() => router.back()} />
+            <Ghost label="Skip the rest of the break" onPress={() => goBack()} />
           ) : asking ? (
             <>
               <Text style={{ color: t.ink2, fontSize: 14.5, textAlign: 'center', marginBottom: 4, lineHeight: 21 }}>

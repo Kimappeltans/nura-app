@@ -72,6 +72,12 @@ export default function Root() {
         // and on the web, where there's no sqlite3 to reach the database:
         // __nuraFlag('dev.planner', 'local') from the browser console
         (globalThis as any).__nuraFlag = setFlag;
+        // TRIAL: __nuraBg('twilight') — see src/themeTrials.ts
+        (globalThis as any).__nuraBg = (trial: string) => useStore.setState({ trial: trial as never });
+        (globalThis as any).__nuraStore = useStore;
+        (globalThis as any).__nuraSheet = (s: string) => useStore.setState({ sheetTrial: s as never });
+        (globalThis as any).__nuraDb = require('../src/db');
+        (globalThis as any).__nuraProjects = require('../src/projects');
         const route = await getFlag('dev.open');
         if (route) {
           await setFlag('dev.open', '');
@@ -130,21 +136,21 @@ export default function Root() {
         <Stack.Screen name="index" />
         <Stack.Screen name="timer" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="task/[id]" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="wins" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="calendar" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="wins" />
+        <Stack.Screen name="calendar" />
         <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="profile" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="companions" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="companions" />
         <Stack.Screen name="chat" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="settings" />
         <Stack.Screen name="integrations" options={{ presentation: 'modal' }} />
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="retro" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="triage" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="retro" />
+        <Stack.Screen name="triage" />
         <Stack.Screen name="tide" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="habit" />
         <Stack.Screen name="project/new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="project/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="project/[id]" />
         <Stack.Screen name="opening" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
       </Stack>
       {/* Above everything, including the native modals — a reward that appears

@@ -1,3 +1,4 @@
+import { goBack } from '../nav';
 import type React from 'react';
 import { useMemo } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
@@ -29,7 +30,7 @@ const clock = (ms: number) =>
  */
 export default function Tide({ room }: { room?: boolean }) {
   const t = useTheme();
-  const { wins, inbox, todayPicked, agenda } = useStore();
+  const { wins, inbox, todayPicked, agenda, dayEndMin } = useStore();
 
   const above = useMemo(() => {
     const startOfDay = new Date().setHours(0, 0, 0, 0);
@@ -54,7 +55,7 @@ export default function Tide({ room }: { room?: boolean }) {
     ...belowEvents.map(event => ({ kind: 'event' as const, event, at: event.startsAt })),
   ].sort((a, b) => a.at - b.at), [belowTasks, belowEvents]);
 
-  const cap = useMemo(() => capacityFor(belowEvents, belowTasks), [belowEvents, belowTasks]);
+  const cap = useMemo(() => capacityFor(belowEvents, belowTasks, Date.now(), dayEndMin), [belowEvents, belowTasks, dayEndMin]);
 
   const receipt = `${above.length} risen · ${below.length} still in the water`;
   const dow = new Date().toLocaleDateString(undefined, { weekday: 'long' }).toUpperCase();
@@ -62,9 +63,9 @@ export default function Tide({ room }: { room?: boolean }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={room ? ['top'] : undefined}>
       <Mica />
-      {room ? <RoomBar title="Today" /> : (
+      {room ? <RoomBar title="Your day" who="ra" /> : (
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
+          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
             <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
           </Pressable>
         </View>
@@ -199,7 +200,7 @@ export default function Tide({ room }: { room?: boolean }) {
             {/* What will fit — booked / tasks / open, to scale. */}
             <View style={{ marginTop: 14, borderRadius: radius.lg, padding: 16, backgroundColor: t.layer, borderWidth: 1, borderColor: t.stroke }}>
               <Text style={{ color: t.ink2, fontSize: 13.5, fontFamily: T.brand, marginBottom: 10 }}>
-                What will fit · until 9:00 PM
+                What will fit · until {clock(new Date().setHours(0, dayEndMin, 0, 0))}
               </Text>
               <View style={{ flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: t.track }}>
                 {cap.bookedMin > 0 && (

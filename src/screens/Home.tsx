@@ -1,24 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../store';
-import { search as searchTasks, type Task } from '../db';
+import type { Task } from '../db';
 import { whyLine } from '../priority';
 import { type as T } from '../theme';
-import { Mica, IconCalendar, poseImage } from '../ui';
-import { SearchBar } from '../components/SearchField';
-import { NuGlow } from '../components/NuGlow';
-import { useTaskActions } from '../useTaskActions';
+import { Mica, poseImage } from '../ui';
 import { NowCard } from '../components/NowCard';
-import { TaskRow } from '../components/TaskRow';
+import { TaskLine, taskMeta } from '../components/TaskLine';
 import { TaskSheet } from '../components/TaskSheet';
-import { IconButton } from '../components/IconButton';
+import { TaskPeek } from '../components/TaskPeek';
 import { RoomBar } from '../components/RoomBar';
 import { SectionHead, ListCard } from '../components/ListCard';
 import { SlippingCheckIn } from '../components/SlippingCheckIn';
 import { HomeAsks } from '../components/HomeAsks';
+import { NuGlow, NU_SIZE } from '../components/NuGlow';
 import type { Tab } from '../components/TabBar';
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
@@ -27,26 +25,25 @@ export const byPriority = (a: Task, b: Task) =>
   || (a.due_at ?? 9e15) - (b.due_at ?? 9e15)
   || a.created_at - b.created_at;
 
-/** How much of "everything else" Home shows before handing over to My tasks. */
-const ELSE_MAX = 5;
+/** How much of what's still here Home shows before handing over to Your tasks. */
+const STILL_MAX = 4;
 
 /**
- * HOME — what should I do now?
+ * HOME — what should I do now? One clear move, then the rest can wait.
  *
- *   - put anything down (Capture — Nu takes it, whatever shape it is);
  *   - YOUR NEXT CLEAR STEP: one move, why it's this one, and Begin;
- *   - the rest of Today, and a few of everything else — all of it is in
- *     My tasks, one tab over.
+ *   - Add anything, with Nu — Capture, whatever shape it is;
+ *   - STILL HERE: the rest of Today first, then a few of everything else;
+ *     all of it is in Your tasks, one tab over.
  *
- * The earlier homes (the river scene, the list) are in src/legacy.
+ * Ra is in the corner here: Home is choosing and beginning.
+ * The earlier homes are in src/legacy (HomeFirst, NuHome, Nu).
  */
 export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; onCapture: () => void }) {
   const t = useTheme();
-  const { inbox, todayPicked, projects, moveIds, now, nowRule, energy, focusOn, wins, profile } = useStore();
-  const { tick, addToToday } = useTaskActions();
-  const [q, setQ] = useState('');
-  const [hits, setHits] = useState<Task[]>([]);
-  const [held, setHeld] = useState<Task | null>(null);
+  const { inbox, todayPicked, projects, now, nowRule, energy, focusOn, wins, profile } = useStore();
+  const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
+  const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
 
   const today = useMemo(() => [...todayPicked].filter(x => !x.parent_id).sort(byPriority), [todayPicked]);
   const projectOf = useMemo(() => new Map(
@@ -63,134 +60,84 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
     : one === now ? whyLine(nowRule, one, energy)
     : oneProject ? 'it’s the next move on your path' : null;
 
-  const todayRest = today.filter(x => x.id !== one?.id);
-  const rest = useMemo(() => {
+  // still here: the rest of Today, then everything else
+  const still = useMemo(() => {
     const at = Date.now();
-    const snoozed = (x: Task) => !!x.snoozed_until && x.snoozed_until > at;
-    return [...inbox].filter(x => x.id !== one?.id)
-      .sort((a, b) => Number(snoozed(a)) - Number(snoozed(b))
-        || Number(moveIds.includes(b.id)) - Number(moveIds.includes(a.id)) || byPriority(a, b));
-  }, [inbox, moveIds, one?.id]);
-  const watched = useMemo(() => [...today, ...rest], [today, rest]);   // for the slipping check-in
+    const later = (x: Task) => !!x.snoozed_until && x.snoozed_until > at;
+    const rest = [...inbox].filter(x => !later(x)).sort(byPriority);
+    return [...today, ...rest].filter(x => x.id !== one?.id);
+  }, [today, inbox, one?.id]);
+  const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneToday = wins.filter(w => w.completed_at && w.completed_at >= new Date().setHours(0, 0, 0, 0)).length;
   const hour = new Date().getHours();
   const greeting = hour < 5 ? 'Still up' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const firstName = (profile.name || '').split(' ')[0];
-
-  useEffect(() => {
-    let dead = false;
-    (async () => { const r = q.trim() ? await searchTasks(q) : []; if (!dead) setHits(r); })();
-    return () => { dead = true; };
-  }, [q, inbox.length]);
+  const weekday = new Date().toLocaleDateString(undefined, { weekday: 'long' }).toUpperCase();
 
   const open = (task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
-      <RoomBar left={
-        <IconButton label="Calendar" size={40} onPress={() => router.push('/calendar')}>
-          <IconCalendar size={19} color={t.ink} />
-        </IconButton>
-      } />
+      <RoomBar who="ra" />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 28 }}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}>
 
-        <View style={{ paddingTop: 2, paddingBottom: 14 }}>
-          <Text style={{ color: t.ink, fontSize: 25, lineHeight: 30, fontFamily: T.display, letterSpacing: -0.8 }}>
-            {greeting}{firstName ? `, ${firstName}` : ''}.
+        <View style={{ paddingBottom: 16 }}>
+          <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>
+            {weekday}{doneToday ? ` · ${doneToday} DONE` : ''}
           </Text>
-          <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 4 }}>
-            {doneToday ? `${doneToday} done today. ` : ''}Your day, with one thing brought forward.
+          <Text style={{ color: t.ink, fontSize: 27, lineHeight: 32, fontFamily: T.display, letterSpacing: -0.9, marginTop: 4 }}>
+            {greeting}{firstName ? `, ${firstName}` : ''}.
           </Text>
         </View>
 
-        <SearchBar value={q} onChange={setQ} placeholder="Search your tasks" />
+        <NowCard task={one} why={why} from={oneProject?.project.title}
+          onBegin={() => one && focusOn(one.id)} onOpen={() => one && setPeek(one)}
+          onAnother={() => onTab('tasks')} onPlan={() => router.push('/project/new')} />
 
-        {q.trim() ? (
-          <>
-            <SectionHead label={`${hits.length} match${hits.length === 1 ? '' : 'es'}`} style={{ marginTop: 8 }} />
-            {!hits.length
-              ? <Text style={{ color: t.ink3, fontSize: 14.5, paddingVertical: 10 }}>Nothing matches “{q}”.</Text>
-              : <ListCard>{hits.map((task, i) => (
-                  <TaskRow key={task.id} task={task} divider={i < hits.length - 1}
-                    onPress={() => open(task)} onHold={() => setHeld(task)} onMore={() => setHeld(task)} />
-                ))}</ListCard>}
-          </>
-        ) : (
-          <>
-            {/* put anything down — Nu works out what it is */}
-            <View style={{ flexDirection: 'row', gap: 9, marginBottom: 20 }}>
-              <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Add anything"
-                style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.9 : 1 })}>
-                <View style={{ height: 50, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: t.strokeStrong }}>
-                  <LinearGradient colors={t.key === 'nu' ? ['#2A3670', '#20254C'] : [t.card, t.layer]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 12 }}>
-                    <LinearGradient colors={t.nuBtn} style={{ width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 18, lineHeight: 21, fontFamily: T.brand }}>+</Text>
-                    </LinearGradient>
-                    <Text style={{ color: t.ink2, fontSize: 15 }}>Add anything…</Text>
-                  </LinearGradient>
-                </View>
-              </Pressable>
-              <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Tell Nu"
-                style={({ pressed }) => ({
-                  width: 56, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', borderWidth: 1, borderColor: t.strokeStrong,
-                  backgroundColor: pressed ? t.subtle : t.key === 'nu' ? '#1C2550' : t.layer,
-                })}>
-                <NuGlow size={46}>
-                  <Image source={poseImage('nu-listen')} style={{ width: 44, height: 44 }} resizeMode="contain" />
-                </NuGlow>
-              </Pressable>
+        {/* put anything down — Nu works out what it is */}
+        <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Add anything"
+          style={({ pressed }) => ({ marginTop: NU_SIZE - 44, opacity: pressed ? 0.92 : 1 })}>
+          <View style={{ height: 60, borderRadius: 15, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'visible' }}>
+            <LinearGradient colors={t.key === 'nu' ? ['rgba(140,151,246,0.24)', 'rgba(140,151,246,0.10)'] : [t.card, t.layer]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={{ flex: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 }}>
+              <LinearGradient colors={t.nuBtn} style={{ width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#fff', fontSize: 20, lineHeight: 23, fontFamily: T.brand }}>+</Text>
+              </LinearGradient>
+              <Text style={{ flex: 1, color: t.ink2, fontSize: 15.5 }}>Add anything…</Text>
+            </LinearGradient>
+            {/* Nu, standing on the bar — the one who takes it */}
+            <View pointerEvents="none" style={{ position: 'absolute', right: 10, bottom: 4 }}>
+              <NuGlow size={NU_SIZE}>
+                <Image source={poseImage('nu-listen')} style={{ width: NU_SIZE, height: NU_SIZE }} resizeMode="contain" />
+              </NuGlow>
             </View>
+          </View>
+        </Pressable>
 
-            <NowCard task={one} why={why} from={oneProject?.project.title}
-              onBegin={() => one && focusOn(one.id)} onOpen={() => one && open(one)}
-              onAnother={() => onTab('tasks')} onPlan={() => router.push('/project/new')} />
-
-            {todayRest.length > 0 && (
-              <>
-                <SectionHead label={`Today · ${todayRest.length}`} action="See all" onAction={() => onTab('tasks')} />
-                <ListCard>
-                  {todayRest.map((task, i) => (
-                    <TaskRow key={task.id} task={task} divider={i < todayRest.length - 1}
-                      caption={projectOf.get(task.id)?.project.title}
-                      onPress={() => focusOn(task.id)} onHold={() => setHeld(task)}
-                      onTick={() => tick(task.id)} onMore={() => setHeld(task)} />
-                  ))}
-                </ListCard>
-              </>
-            )}
-
-            {rest.length > 0 && (
-              <>
-                <SectionHead label={`Everything else · ${rest.length}`} note="Hold to set priority" />
-                <ListCard>
-                  {rest.slice(0, ELSE_MAX).map((task, i, all) => (
-                    <TaskRow key={task.id} task={task} divider={i < all.length - 1}
-                      caption={projectOf.get(task.id)?.project.title}
-                      onPress={() => open(task)} onHold={() => setHeld(task)} onAdd={() => addToToday(task)} />
-                  ))}
-                </ListCard>
-                {rest.length > ELSE_MAX && (
-                  <Pressable onPress={() => onTab('tasks')} hitSlop={6} style={{ paddingTop: 12, alignSelf: 'flex-start' }}>
-                    <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>All {rest.length} in My tasks ›</Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-
-            <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 22 }} />
+        {still.length > 0 && (
+          <>
+            <SectionHead label={`Still here · ${still.length}`} action="See all" onAction={() => onTab('tasks')} />
+            <ListCard>
+              {still.slice(0, STILL_MAX).map((task, i, shown) => (
+                <TaskLine key={task.id} title={task.title} label={task.label} divider={i < shown.length - 1}
+                  meta={[projectOf.get(task.id)?.project.title, ...taskMeta(task)]}
+                  onPress={() => setPeek(task)} onHold={() => setHeld(task)} onMore={() => setPeek(task)} />
+              ))}
+            </ListCard>
           </>
         )}
+
+        <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 22 }} />
       </ScrollView>
 
+      <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />
-      <SlippingCheckIn tasks={watched} paused={!!q.trim()} />
+      <SlippingCheckIn tasks={watched} />
     </SafeAreaView>
   );
 }

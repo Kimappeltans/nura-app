@@ -5,6 +5,7 @@ import * as db from './db';
 import { activeProjects, type ProjectSummary } from './projects';
 import { nextEvent, todayEvents, type UpcomingEvent } from './calendar';
 import { nuTheme, raTheme, type Theme } from './theme';
+import { TRIALS, type Trial, type SheetTrial } from './themeTrials';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
 
@@ -15,6 +16,8 @@ export interface Celebration { award: Award; line: string; at: number; rankUp: R
  *  'dark' put every screen in one palette, for people who find the navy
  *  hard to read, or the cream too bright at night. */
 export type Appearance = 'nura' | 'light' | 'dark';
+/** the three rooms — see components/TabBar.tsx */
+export type Tab = 'home' | 'tasks' | 'day';
 
 interface State {
   mode: db.Mode;
@@ -58,6 +61,15 @@ interface State {
   session: Session | null;
   authLoading: boolean;
   appearance: Appearance;
+  /** TRIAL — which lighter ground the rooms use; see themeTrials.ts */
+  trial: Trial;
+  /** which room is open; the tab bar on any screen changes it */
+  tab: Tab;
+  /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
+  dayEndMin: number;
+  setDayEnd: (min: number) => Promise<void>;
+  /** TRIAL — how light the Tell Nu sheet is over a dark room */
+  sheetTrial: SheetTrial;
   setAppearance: (a: Appearance) => Promise<void>;
 
   setEnergy: (e: db.Energy) => Promise<void>;
@@ -82,7 +94,7 @@ export const useStore = create<State>((set, get) => ({
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
-  session: null, authLoading: true, appearance: 'nura',
+  session: null, authLoading: true, appearance: 'nura', trial: 'night', tab: 'home', dayEndMin: 21 * 60, sheetTrial: 'dark',
   setSession: (session) => set({ session }),
   setAppearance: async (appearance) => {
     await db.setFlag('appearance', appearance);
@@ -141,6 +153,11 @@ export const useStore = create<State>((set, get) => ({
   showToast: (text) => set({ toast: { text, at: Date.now() } }),
   dismissToast: () => set({ toast: null }),
 
+  setDayEnd: async (min) => {
+    await db.setFlag('day.end', String(min));
+    set({ dayEndMin: min });
+  },
+
   refresh: async () => {
     // projects first: reading them reconciles each step with its task (a
     // move ticked off anywhere is a step done), so the lists below agree
@@ -153,8 +170,10 @@ export const useStore = create<State>((set, get) => ({
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
         nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'),
       ]);
+    const end = Number(await db.getFlag('day.end'));
+    const dayEndMin = Number.isFinite(end) && end > 0 ? end : 21 * 60;
     const appearance: Appearance = look === 'light' || look === 'dark' ? look : 'nura';
-    set({ appearance, mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    set({ dayEndMin, appearance, mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action
@@ -180,13 +199,18 @@ export const useStore = create<State>((set, get) => ({
  * labels on Compose's cream, and they vanished.
  */
 export const PinnedMode = createContext<db.Mode | null>(null);
+/** A whole palette for one part of a screen — a light sheet over a dark room. Wins over everything. */
+export const PinnedPalette = createContext<Theme | null>(null);
 
 export function useTheme(force?: db.Mode): Theme {
   const mode = useStore(s => s.mode);
   const pinned = useContext(PinnedMode);
   const appearance = useStore(s => s.appearance);
+  const trial = useStore(s => s.trial);
+  const palette = useContext(PinnedPalette);
+  if (palette) return palette;
   // chosen in Settings: one palette everywhere, over the mode and any pin
   if (appearance === 'light') return raTheme;
   if (appearance === 'dark') return nuTheme;
-  return (force ?? pinned ?? mode) === 'ra' ? raTheme : nuTheme;
+  return (force ?? pinned ?? mode) === 'ra' ? raTheme : TRIALS[trial];
 }

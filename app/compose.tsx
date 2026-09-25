@@ -1,3 +1,4 @@
+import { goBack } from '../src/nav';
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -121,7 +122,7 @@ export default function Compose() {
     });
     showToast('+1 ✦');
     await refresh();
-    router.back();
+    goBack();
   };
 
   const Section = ({ label: l, children }: { label: string; children: React.ReactNode }) => (
@@ -161,7 +162,7 @@ export default function Compose() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 4 }}>
-            <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+            <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 15 }}>Cancel</Text>
             </Pressable>
             <Text style={{ color: t.ink3, fontSize: 12.5 }}>Everything below is optional</Text>
