@@ -33,7 +33,6 @@ export default function Root() {
   const refresh = useStore(s => s.refresh);
   const mode = useStore(s => s.mode);
   const onboarded = useStore(s => s.onboarded);
-  const appearance = useStore(s => s.appearance);
   const [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold });
   const running = useRef<string | null>(null);
   const [elsewhere, setElsewhere] = useState(false);
@@ -129,17 +128,10 @@ export default function Root() {
   if (!fontsLoaded) return <Loading />;
   if (elsewhere) return <Loading note="Nura is open in another tab. Close it and this one carries on." />;
 
-  // The welcome screen is dark navy now (it's painted the intro clip's own
-  // background colour), so the bar goes light there. Connect, the second
-  // onboarding screen, is still cream — but it owns its own bar via the
-  // gradient, and a light bar on cream is unreadable, so onboarding as a whole
-  // stays dark-bar and Welcome sets its own.
-  const light = appearance === 'dark' ? true : appearance === 'light' ? false
-    : onboarded === false ? false : mode !== 'ra';
-
   return (
     <>
-      <StatusBar style={light ? 'light' : 'dark'} />
+      {/* Ra's world is light, every other world is on the navy (src/world.tsx) */}
+      <StatusBar style={mode === 'ra' ? 'dark' : 'light'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="timer" options={{ presentation: 'fullScreenModal' }} />

@@ -75,7 +75,6 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
   }, [inbox, todayPicked, now?.id]);
 
   const total = inbox.length + todayPicked.length;
-  const quiet = total - sorted.attention.length;
 
   const open = (task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } });
   const line = (task: Task, i: number, all: Task[], kind: 'start' | 'more' | 'add') => (
@@ -109,27 +108,6 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
         <View style={{ paddingTop: 2, paddingBottom: 14 }}>
           <Text style={{ color: t.ink, fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.9 }}>Your Tasks</Text>
         </View>
-
-        {/* Nu has sorted before you look */}
-        {total > 0 && (
-          <View style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: t.stroke, marginBottom: 12 }}>
-            <LinearGradient colors={t.key === 'nu' ? ['rgba(255,255,255,0.11)', 'rgba(255,255,255,0.04)'] : [t.card, t.layer]}
-              start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
-              <NuGlow size={NU_SIZE.card}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.card, height: NU_SIZE.card }} resizeMode="contain" /></NuGlow>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: t.ink, fontSize: 14.5, fontFamily: T.display }}>
-                  {sorted.attention.length ? 'I sorted the noise.' : 'Nothing needs you today.'}
-                </Text>
-                <Text style={{ color: t.ink2, fontSize: 13, lineHeight: 18, marginTop: 2 }}>
-                  {sorted.attention.length
-                    ? `${sorted.attention.length === 1 ? 'One thing needs' : `${sorted.attention.length} things need`} attention today.${quiet > 0 ? ` The other ${quiet} can stay out of your way.` : ''}`
-                    : 'Everything here can wait its turn.'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         <SearchBar value={q} onChange={setQ} placeholder="Search tasks and projects" />
 

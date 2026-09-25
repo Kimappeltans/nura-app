@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import { View, Text, Pressable, TextInput, ActivityIndicator, Platform, Alert } from 'react-native';
-import { useTheme, PinnedMode } from '../store';
+import { useTheme } from '../store';
 import { Primary, IconCheck, Character } from '../ui';
 import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
@@ -33,7 +33,7 @@ type Mode = 'choose' | 'email';
 const PERKS = ['Backed up, so nothing gets lost', 'The same list on every device'];
 
 export default function ProfileStep({ onDone }: { onDone: () => void }) {
-  const t = useTheme('ra');
+  const t = useTheme();
   const { busy, formError, setFormError, withApple, withGoogle, withPassword } = useAuthActions(onDone);
   const [mode, setMode] = useState<Mode>('choose');
   const [creating, setCreating] = useState(true);
@@ -83,8 +83,8 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
   const toEmail = (asNew: boolean) => { setCreating(asNew); setFormError(null); setMode('email'); };
 
   return (
-    <PinnedMode.Provider value="ra">
-      <OnbFrame force="ra" step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
+    <>
+      <OnbFrame step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
         title={creating ? 'Create your profile' : 'Sign in'}
         sub={creating
           ? 'Keep your list safe and use Nura on any device. It stays on this phone either way.'
@@ -96,13 +96,13 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
             )}
             <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} onPress={withGoogle} />
             <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
-            <FooterLink force="ra" label="I already have an account" onPress={() => toEmail(false)} />
+            <FooterLink label="I already have an account" onPress={() => toEmail(false)} />
           </>
         ) : (
           <>
             <Primary tone="ra" onPress={submit}
               label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create profile' : 'Sign in')} />
-            <FooterLink force="ra" label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
+            <FooterLink label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
           </>
         )}>
         {mode === 'choose' ? (
@@ -153,6 +153,6 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
           </View>
         )}
       </OnbFrame>
-    </PinnedMode.Provider>
+    </>
   );
 }

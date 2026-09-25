@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,7 +13,7 @@ import { DAY_TARGET } from '../src/reward';
 import { stageFor } from '../src/growth';
 import { LABELS, labelById } from '../src/labels';
 import { radius, elevation, type as T } from '../src/theme';
-import { Mica, Surface, Character, IconChevron, IconCheck } from '../src/ui';
+import { Mica, Surface, Character, IconChevron, IconCheck, Primary, Ghost } from '../src/ui';
 import { LabelGlyph } from '../src/components/LabelIcon';
 import { RankCard } from '../src/components/Rank';
 
@@ -111,12 +112,7 @@ function Profile() {
                   style={{ color: t.ink2, fontSize: 14.5, padding: 13, textAlign: 'center' }}
                 />
               </Surface>
-              <Pressable onPress={save} style={{ borderRadius: radius.pill, overflow: 'hidden' }}>
-                <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ paddingVertical: 13, alignItems: 'center' }}>
-                  <Text style={{ color: t.onRa, fontSize: 15, fontFamily: T.brand }}>Save</Text>
-                </LinearGradient>
-              </Pressable>
+<Primary label="Save" tone="ra" onPress={save} />
             </View>
           ) : (
             <>
@@ -209,13 +205,7 @@ function Profile() {
           </View>
         </Surface>
 
-        <Pressable onPress={() => router.push('/wins')}
-          style={{ marginTop: 12, borderRadius: radius.pill, overflow: 'hidden' }}>
-          <LinearGradient colors={t.nuBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ paddingVertical: 14, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 15, fontFamily: T.brand }}>View history</Text>
-          </LinearGradient>
-        </Pressable>
+<Ghost label="View history" onPress={() => router.push('/wins')} style={{ marginTop: 12 }} />
 
         {/* ---- what you actually do ---- */}
         <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginTop: 26, marginBottom: 10, marginLeft: 4 }}>
@@ -258,4 +248,4 @@ function Profile() {
   );
 }
 
-export default withTabs(Profile);
+export default inWorld('utility', withTabs(Profile));

@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { router } from 'expo-router';
 import Connect from '../src/screens/Connect';
@@ -9,6 +10,8 @@ import Connect from '../src/screens/Connect';
  * one — and until now the ONLY time it was ever shown was during onboarding,
  * which meant tapping "Skip for now" put them permanently out of reach.
  */
-export default function Integrations() {
+function Integrations() {
   return <Connect onDone={() => goBack()} />;
 }
+
+export default inWorld('utility', Integrations);

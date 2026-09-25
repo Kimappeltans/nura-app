@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput, PanResponder } from 'react-native';
@@ -12,6 +13,8 @@ import { reconcileNudges } from '../src/notifications';
 import { stepForTask } from '../src/projects';
 import { Primary, Ghost, Mica, Character } from '../src/ui';
 import { type as T, copy, radius } from '../src/theme';
+import { VoiceCommandButton } from '../src/components/Voice';
+import { useVoiceCommands } from '../src/voice';
 
 const FIVE = 5 * 60;
 const R = 89, C = 2 * Math.PI * R;
@@ -49,13 +52,16 @@ function breakMinutesFor(sessionMins: number) {
  * achievement. What it no longer does is mark the task done — Stop ends the
  * SESSION and leaves a breadcrumb; only Done finishes the task.
  */
-export default function Timer() {
+function Timer() {
   const t = useTheme();
   const { id, mins } = useLocalSearchParams<{ id?: string; mins?: string }>();
   const refresh = useStore(s => s.refresh);
   const celebrate = useStore(s => s.celebrate);
 
-  const initial = (Number(mins) || 5) * 60;
+  // mins=0 is an open session: no countdown, it runs until you say done
+  const open = Number(mins) === 0;
+  const initial = (open ? 0 : Number(mins) || 5) * 60;
+  const [elapsed, setElapsed] = useState(0);
 
   // `span` is the length of the CURRENT run — work or break, they share the
   // same clock. Without it, "keep going · 10 more" set 600 seconds against a
@@ -166,7 +172,9 @@ export default function Timer() {
       updateTask(id, { state: 'doing' });
     }
     (globalThis as any).__nuraRunning?.(id ?? null);
-    runWork(initial);
+    if (open) {
+      tick.current = setInterval(() => setElapsed(Math.round((Date.now() - startedAt.current) / 1000)), 250);
+    } else runWork(initial);
     return () => {
       if (tick.current) clearInterval(tick.current);
       (globalThis as any).__nuraRunning?.(null);
@@ -210,6 +218,16 @@ export default function Timer() {
     goBack();
   };
 
+  const stopHere = async () => {
+    if (id) await dropCrumb(id);
+    if (thought.trim()) await capture(thought.trim());
+    finish(false, false);
+  };
+  const voice = useVoiceCommands([
+    { words: ['done', 'end', 'finished', 'finish'], run: () => finish(true, true) },
+    { words: ['stop'], run: stopHere },
+  ]);
+
   const stash = async () => {
     if (!thought.trim()) return;
     await capture(thought);          // straight into Nu; the clock keeps running
@@ -220,10 +238,13 @@ export default function Timer() {
   // While dragging, the arc reflects the LENGTH you're choosing (angle
   // around the dial, same as a volume knob) rather than time elapsed —
   // there's no "elapsed" yet, the session hasn't resumed counting down.
-  const progress = dragging
+  // an open session fills the ring against the task's own estimate, if it has one
+  const openSpan = (task?.est_minutes || 25) * 60;
+  const progress = open ? Math.min(1, elapsed / openSpan) : dragging
     ? (dragMins.current - MIN_MIN) / (MAX_MIN - MIN_MIN)
     : asking ? 1 : 1 - left / span;
-  const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+  const shown = open ? elapsed : left;
+  const mm = Math.floor(shown / 60), ss = String(shown % 60).padStart(2, '0');
   const onBreak = phase === 'break';
   // The break earned is sized to the ORIGINAL contract, not any "keep going"
   // extension — but the "Phone quiet · N minutes" caption describes the run
@@ -231,7 +252,7 @@ export default function Timer() {
   // They're the same number until "Keep going · 10 more" is tapped; after
   // that, using `initial` here left the caption reading the old length while
   // the ring underneath it visibly counted down from a different one.
-  const breakMins = breakMinutesFor(Math.round(initial / 60));
+  const breakMins = breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
   const spanMinsNum = Math.round(span / 60);
   const ringColors = onBreak ? t.nuBtn : t.raBtn;
 
@@ -246,7 +267,7 @@ export default function Timer() {
           {phase === 'breakOffer'
             ? "you earned it"
             : dragging ? 'Turning the ring changes the length'
-            : onBreak ? `Back in ${breakMins} minutes` : `${spanMinsNum} minutes`}
+            : onBreak ? `Back in ${breakMins} minutes` : open ? '' : `${spanMinsNum} minutes`}
         </Text>
 
         {phase !== 'breakOffer' && (
@@ -256,7 +277,7 @@ export default function Timer() {
                 the "keep going?" ask) it's also the length control: hold it
                 and turn it, same gesture as turning a real dial. */}
             <View
-              {...(!onBreak && !asking ? dial.panHandlers : {})}
+              {...(!onBreak && !asking && !open ? dial.panHandlers : {})}
               style={{ width: 206, height: 206, alignItems: 'center', justifyContent: 'center' }}>
               <Svg width={206} height={206} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
                 <Defs>
@@ -270,7 +291,7 @@ export default function Timer() {
               </Svg>
               <Text style={{ color: t.ink, fontSize: 42, fontFamily: T.displayLight }}>{mm}:{ss}</Text>
               <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 2, marginTop: 6 }}>
-                {dragging ? 'LENGTH' : onBreak ? 'BREAK' : asking ? 'COMPLETE' : 'REMAINING'}
+                {dragging ? 'LENGTH' : onBreak ? 'BREAK' : asking ? 'COMPLETE' : open ? 'SO FAR' : 'REMAINING'}
               </Text>
             </View>
 
@@ -337,12 +358,16 @@ export default function Timer() {
             // Stacked, like the other states: side by side, "Stop here — it
             // still counts" didn't fit a half-width button and was cut off.
             <>
-              <Primary label="Done" tone="ra" onPress={() => finish(true, true)} />
-              <Ghost label={copy.stop} onPress={async () => {
-                if (id) await dropCrumb(id);
-                if (thought.trim()) await capture(thought.trim());
-                finish(false, false);
-              }} />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Primary label="Done" tone="ra" onPress={() => finish(true, true)} style={{ flex: 1 }} />
+                <VoiceCommandButton listening={voice.state === 'listening'} unavailable={voice.state === 'unavailable'}
+                  onPress={voice.toggle} label="Say “done”" />
+              </View>
+              {voice.state === 'listening' && (
+                <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>Say “done” or “stop”</Text>
+              )}
+              {!!voice.note && <Text style={{ color: t.ink3, fontSize: 13, textAlign: 'center' }}>{voice.note}</Text>}
+              <Ghost label={copy.stop} onPress={stopHere} />
             </>
           )}
         </View>
@@ -350,3 +375,5 @@ export default function Timer() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('ra', Timer);

@@ -1,10 +1,11 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useStore, PinnedMode } from '../src/store';
+import { useStore, useTheme } from '../src/store';
 import { StatusBar } from 'expo-status-bar';
 import { capture, type RepeatRule } from '../src/db';
 import { LABELS, guessLabel, labelById, type LabelId } from '../src/labels';
@@ -14,7 +15,7 @@ import {
 } from '../src/activities';
 import { ActivityPick } from '../src/components/ActivityCard';
 import { PRIORITIES, priorityOf } from '../src/priority';
-import { radius, raTheme, type as T } from '../src/theme';
+import { radius, type as T } from '../src/theme';
 import { Mica, Surface, Primary, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph } from '../src/components/LabelIcon';
 import { DatePicker, WeekdayPicker, formatDue } from '../src/components/DatePicker';
@@ -53,12 +54,9 @@ function quickDate(add: number, h: number) {
  * already guessed from your words. Everything else is one visible tap, and
  * skipping all of it costs nothing.
  */
-export default function Compose() {
-  // Fixed to the bright theme, not useTheme(). Compose is a form, not the Nu
-  // or Ra experience itself — it was inheriting whichever mode you captured
-  // from (Nu, dark, by default) and had no reason to. Auth.tsx already made
-  // this call for the same reason; Connect.tsx should probably follow too.
-  const t = raTheme;
+function Compose() {
+  // a form, not the Nu or Ra experience itself: the utility world (src/world.tsx)
+  const t = useTheme();
   const refresh = useStore(s => s.refresh);
   const showToast = useStore(s => s.showToast);
   // Chat's "too big to start" nudge hands off here with the typed-out thing
@@ -155,10 +153,10 @@ export default function Compose() {
   const p = priorityOf(priority);
 
   return (
-    <PinnedMode.Provider value="ra">
+    <>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-        <Mica force="ra" />
+        <Mica />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 4 }}>
@@ -377,6 +375,8 @@ export default function Compose() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </PinnedMode.Provider>
+    </>
   );
 }
+
+export default inWorld('utility', Compose);

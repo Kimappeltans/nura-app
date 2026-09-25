@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useStore, useTheme, PinnedPalette } from '../store';
 import { SHEETS } from '../themeTrials';
 import { capture } from '../db';
 import { route, parseTask, describe, type Draft } from '../assistant';
 import { type as T } from '../theme';
-import { Character } from '../ui';
+import { Character, Primary, Ghost } from '../ui';
 import { MicButton } from './Voice';
 import { NuGlow, NU_SIZE } from './NuGlow';
 import { Sheet } from './Sheet';
@@ -170,23 +169,9 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
       )}
 
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
-        {read?.kind === 'project' && (
-          <Pressable onPress={plan} accessibilityRole="button" style={({ pressed }) => ({
-            flex: 1, minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1, borderColor: t.nu, backgroundColor: pressed ? t.nuWash : 'transparent',
-          })}>
-            <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.brand }}>Plan it with Nu</Text>
-          </Pressable>
-        )}
-        <Pressable onPress={add} disabled={!read} accessibilityRole="button"
-          style={({ pressed }) => ({ flex: 1, opacity: read ? (pressed ? 0.9 : 1) : 0.45 })}>
-          <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: t.onRa, fontSize: 15.5, fontFamily: T.display }}>
-              {read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+        {read?.kind === 'project' && <Ghost label="Plan it with Nu" onPress={plan} style={{ flex: 1, borderColor: t.nu }} />}
+        <Primary label={read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'} tone="ra"
+          onPress={add} disabled={!read} style={{ flex: 1 }} />
       </View>
     </Sheet>
   );

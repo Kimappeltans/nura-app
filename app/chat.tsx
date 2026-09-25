@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -50,7 +51,7 @@ const EXAMPLES = [
  * exactly what it understood, and you press Add. An assistant that silently
  * creates the wrong recurring event is worse than no assistant at all.
  */
-export default function Chat() {
+function Chat() {
   const t = useTheme();
   const { refresh, now, light, today, inbox } = useStore();
   const scroller = useRef<ScrollView>(null);
@@ -397,3 +398,5 @@ export default function Chat() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('nu', Chat);

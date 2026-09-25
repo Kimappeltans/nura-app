@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useTheme } from '../store';
 import { radius, type as T } from '../theme';
+import { BUTTON } from '../ui';
 import { useDictation, say, hush, canSpeak, useSpeaking, readsAloud } from '../voice';
 
 /**
@@ -56,6 +57,34 @@ export function MicButton({ value, onChange, label = 'Speak to Nu', compact }: {
       </Pressable>
       {!!note && <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17 }}>{note}</Text>}
     </View>
+  );
+}
+
+/**
+ * The mic beside a screen's main button: tap it and say the button's word
+ * ("begin", "done"). Square, the same size as the button next to it; warm
+ * while it's listening. Nothing where the phone or browser can't listen.
+ */
+export function VoiceCommandButton({ listening, unavailable, onPress, label }: {
+  listening: boolean; unavailable?: boolean; onPress: () => void; label: string;
+}) {
+  const t = useTheme();
+  if (unavailable) return null;
+  const c = listening ? (t.key === 'ra' ? t.raDeep : t.ra) : t.ink2;
+  return (
+    <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
+      accessibilityRole="button" accessibilityState={{ selected: listening }}
+      accessibilityLabel={listening ? 'Stop listening' : label}
+      style={({ pressed }) => ({
+        width: BUTTON.md.height, height: BUTTON.md.height, borderRadius: BUTTON.md.radius,
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+        borderColor: listening ? c : t.strokeStrong,
+        backgroundColor: listening ? t.raWash : pressed ? t.subtle : 'transparent',
+      })}>
+      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round">
+        <Rect x={9} y={3} width={6} height={12} rx={3} /><Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </Svg>
+    </Pressable>
   );
 }
 

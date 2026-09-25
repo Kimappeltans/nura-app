@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useMemo, useState } from 'react';
@@ -391,4 +392,4 @@ function CalendarScreen() {
   );
 }
 
-export default withTabs(CalendarScreen);
+export default inWorld('utility', withTabs(CalendarScreen));

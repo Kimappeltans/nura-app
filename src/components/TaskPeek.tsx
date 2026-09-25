@@ -1,5 +1,4 @@
 import { View, Text, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useStore, useTheme } from '../store';
 import type { Task } from '../db';
@@ -7,6 +6,7 @@ import { priorityOf } from '../priority';
 import { type as T } from '../theme';
 import { formatDue } from './DatePicker';
 import { Sheet } from './Sheet';
+import { Primary, Ghost } from '../ui';
 
 /**
  * A task, at a glance, in a sheet: what it is, when, how long, which project
@@ -33,8 +33,7 @@ export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose
 
   return (
     <Sheet visible onClose={onClose}>
-      <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>TASK</Text>
-      <Text style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4, marginTop: 5 }}>{task.title}</Text>
+      <Text style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4 }}>{task.title}</Text>
       {!!sub && <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 5 }}>{sub}</Text>}
 
       <View style={{ marginTop: 10 }}>
@@ -47,20 +46,9 @@ export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose
       </View>
 
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 16 }}>
-        <Pressable onPress={() => { onClose(); router.push({ pathname: '/task/[id]', params: { id: task.id } }); }}
-          accessibilityRole="button" style={({ pressed }) => ({
-            flex: 1, minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: pressed ? t.subtle : 'transparent',
-          })}>
-          <Text style={{ color: t.ink, fontSize: 15, fontFamily: T.brand }}>Edit</Text>
-        </Pressable>
-        <Pressable onPress={() => { onClose(); focusOn(task.id); }} accessibilityRole="button"
-          style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.9 : 1 })}>
-          <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: t.onRa, fontSize: 15, fontFamily: T.display }}>Start focus</Text>
-          </LinearGradient>
-        </Pressable>
+        <Ghost label="Edit" style={{ flex: 1 }}
+          onPress={() => { onClose(); router.push({ pathname: '/task/[id]', params: { id: task.id } }); }} />
+        <Primary label="Start focus" tone="ra" style={{ flex: 1 }} onPress={() => { onClose(); focusOn(task.id); }} />
       </View>
       {onMore && (
         <Pressable onPress={() => { onClose(); onMore(task); }} hitSlop={8} style={{ alignSelf: 'center', paddingTop: 14 }}>

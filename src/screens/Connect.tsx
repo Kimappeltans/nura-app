@@ -1,9 +1,9 @@
+import { useTheme } from '../store';
 import { useEffect, useState } from 'react';
 import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { radius, raTheme, type as T } from '../theme';
-import { PinnedMode } from '../store';
+import { radius, type as T } from '../theme';
 import { StatusBar } from 'expo-status-bar';
 import { getFlag, setFlag } from '../db';
 import { requestPermission, setupSchedules } from '../notifications';
@@ -53,7 +53,7 @@ export default function Connect(
   // Fixed bright, like Auth.tsx and Compose.tsx — this is onboarding chrome,
   // not the Nu/Ra experience, so it shouldn't inherit whatever mode happens
   // to be active (which, before you've ever touched the mode switch, is Nu).
-  const t = raTheme;
+  const t = useTheme();
   const [cal, setCal] = useState<Status>('idle');
   const [notif, setNotif] = useState<Status>('idle');
   const [mode, setMode] = useState<SyncMode>('read');
@@ -164,10 +164,10 @@ export default function Connect(
   };
 
   return (
-    <PinnedMode.Provider value="ra">
+    <>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-        <Mica force="ra" />
+        <Mica />
 
         <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 12 }}>
           {!!onBack && (
@@ -293,6 +293,6 @@ export default function Connect(
           </View>
         </View>
       </SafeAreaView>
-    </PinnedMode.Provider>
+    </>
   );
 }

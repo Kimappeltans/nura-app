@@ -27,11 +27,9 @@ const ITEMS: { key: Exclude<View_, 'menu'>; glyph: string; label: string }[] = [
   { key: 'settings', glyph: '⚙', label: 'Settings' },
 ];
 
-const APPEARANCE = { nura: 'Nu & Ra', light: 'Light', dark: 'Dark' } as const;
-
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useTheme();
-  const { session, wins, appearance, dayEndMin, profile } = useStore();
+  const { session, wins, dayEndMin, profile } = useStore();
   const [view, setView] = useState<View_>('menu');
   const [focusMin, setFocusMin] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<boolean | null>(null);
@@ -170,7 +168,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
           {view === 'settings' && (
             <Panel>
               <Row label="Day ends" value={endLabel} onPress={() => { onClose(); useStore.setState({ tab: 'day' }); }} />
-              <Row label="Appearance" value={APPEARANCE[appearance]} onPress={() => go('/settings')} />
               <Row label="Reminders, language & voice" onPress={() => go('/settings')} />
               <Row label="All settings" onPress={() => go('/settings')} />
             </Panel>

@@ -9,7 +9,7 @@ import type { Task } from '../db';
 import { eventsBetween, type UpcomingEvent } from '../calendar';
 import { capacityFor } from '../capacity';
 import { type as T } from '../theme';
-import { Mica, poseImage } from '../ui';
+import { Mica, poseImage, Primary } from '../ui';
 import { RoomBar } from '../components/RoomBar';
 import { SectionHead, ListCard } from '../components/ListCard';
 import { TaskLine, taskMeta } from '../components/TaskLine';
@@ -90,7 +90,8 @@ export default function Day() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
-      <Mica />
+      {/* Your Day is where Nu and Ra meet: the dawn climbs as the day's things rise */}
+      <Mica sunProgress={isToday ? Math.min(1, risen.length / 5) : 0} />
       <RoomBar title="Your Day" who="ra" />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
@@ -132,10 +133,7 @@ export default function Day() {
             <NuGlow size={NU_SIZE.glance}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.glance, height: NU_SIZE.glance }} resizeMode="contain" /></NuGlow>
           </View>
           <View style={{ padding: 15, paddingRight: 84 }}>
-            <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.9, fontFamily: T.brand }}>
-              {isToday ? 'TODAY AT A GLANCE' : `${weekday.toUpperCase()} AT A GLANCE`}
-            </Text>
-            <Text style={{ color: t.ink, fontSize: 19, lineHeight: 24, fontFamily: T.display, letterSpacing: -0.4, marginTop: 6 }}>
+            <Text style={{ color: t.ink, fontSize: 19, lineHeight: 24, fontFamily: T.display, letterSpacing: -0.4 }}>
               {offset < 0 ? (risen.length ? 'Look what rose.' : 'A quiet day. That counts too.')
                 : ended ? 'Your day is done. Anything now is extra.'
                 : cap.fits ? 'Enough room for what matters.' : 'More than fits — nothing is late.'}
@@ -159,13 +157,8 @@ export default function Day() {
                 <Text style={{ color: t.ink3, fontSize: 12 }}>{clearUntil}</Text>
               </View>
               <Text style={{ color: t.ink, fontSize: 16, lineHeight: 21, fontFamily: T.display, marginTop: 8 }}>{nowTask.title}</Text>
-              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); focusOn(nowTask.id); }}
-                accessibilityRole="button" style={({ pressed }) => ({ marginTop: 12, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 })}>
-                <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ minHeight: 40, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.display }}>Begin · 5 minutes</Text>
-                </LinearGradient>
-              </Pressable>
+              <Primary label="Begin" tone="ra" size="sm" onPress={() => focusOn(nowTask.id)}
+                style={{ marginTop: 12, alignSelf: 'flex-start' }} />
             </View>
           </View>
         )}
@@ -290,8 +283,7 @@ function DayEndSheet({ visible, current, onClose, onKeep }: { visible: boolean; 
   const label = DAY_ENDS.find(d => d.min === pick)?.label ?? '';
   return (
     <Sheet visible={visible} onClose={onClose}>
-      <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>YOUR DAY</Text>
-      <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.4, marginTop: 5 }}>When should today end?</Text>
+      <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.4 }}>When should today end?</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>
         {DAY_ENDS.map(d => {
           const on = d.min === pick;
@@ -304,12 +296,7 @@ function DayEndSheet({ visible, current, onClose, onKeep }: { visible: boolean; 
           );
         })}
       </View>
-      <Pressable onPress={() => onKeep(pick)} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.9 : 1 })}>
-        <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: t.onRa, fontSize: 15.5, fontFamily: T.display }}>Keep {label}</Text>
-        </LinearGradient>
-      </Pressable>
+      <Primary label={`Keep ${label}`} tone="ra" onPress={() => onKeep(pick)} style={{ marginTop: 14 }} />
     </Sheet>
   );
 }

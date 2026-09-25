@@ -1,3 +1,4 @@
+import { inWorld } from '../../src/world';
 import { goBack } from '../../src/nav';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
@@ -65,7 +66,7 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
   );
 }
 
-export default function TaskDetail() {
+function TaskDetail() {
   const t = useTheme();
   const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const refresh = useStore(s => s.refresh);
@@ -383,3 +384,5 @@ export default function TaskDetail() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('utility', TaskDetail);

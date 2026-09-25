@@ -232,6 +232,18 @@ const POSES = {
 export const poseImage = (name: keyof typeof POSES) => POSES[name];
 
 export type CharacterName = keyof typeof POSES;
+
+/**
+ * One of several poses, steady for the same thing (a task's id, a day) and
+ * different across things — so Nu and Ra aren't the same drawing every time
+ * you look, without changing pose between renders.
+ */
+export function vary<T>(options: readonly T[], seed?: string | number | null): T {
+  const str = String(seed ?? new Date().toDateString());
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return options[Math.abs(h) % options.length];
+}
 export type Motion = 'greet' | 'bob' | 'celebrate' | 'none';
 
 export function Character(
@@ -558,7 +570,7 @@ export function SunArc({
           {/* Track arc */}
           <Path
             d={`M ${cx - arcR} ${cy} A ${arcR} ${arcR} 0 0 1 ${cx + arcR} ${cy}`}
-            stroke={t.track} strokeWidth={4} fill="none" strokeLinecap="round"
+            stroke={t.strokeStrong} strokeWidth={4} fill="none" strokeLinecap="round"
           />
 
           {/* Progress arc */}
@@ -895,33 +907,49 @@ export function Card({ children, style, raised }: { children: React.ReactNode; s
   );
 }
 
+/**
+ * The one button geometry, in every world. Nu's rooms, Ra's focus, the
+ * utility screens and the sheets all use these two sizes; only the colour
+ * changes with the world (tone), never the shape, padding or type.
+ */
+export const BUTTON = {
+  md: { height: 50, radius: 14, font: 15.5 },
+  sm: { height: 40, radius: 12, font: 14 },
+} as const;
+type ButtonSize = keyof typeof BUTTON;
+
 export function Primary(
-  { label, onPress, tone = 'nu', icon, sub, disabled }:
+  { label, onPress, tone = 'nu', icon, sub, disabled, size = 'md', style }:
   { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string;
     /** stays in place, dimmed, until there's something to continue with */
-    disabled?: boolean },
+    disabled?: boolean;
+    size?: ButtonSize;
+    /** for the button's place in a row: { flex: 1 }, { alignSelf: 'flex-start' } */
+    style?: ViewStyle },
 ) {
   const t = useTheme();
   const { colors, onColor } = useTone(tone);
+  const b = BUTTON[size];
   // disabled is flat and neutral: the gradient at low opacity read as a
   // muddy brown on navy
   const fill = disabled ? [t.subtle, t.subtle] as const : colors;
   return (
     <Pressable
-      disabled={disabled} accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
       style={({ pressed }) => ({
-        opacity: pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1, borderRadius: b.radius,
         transform: [{ scale: pressed ? 0.985 : 1 }],
         ...(disabled ? {} : tone === 'ra' ? elevation.warm : elevation.e4),
+        ...style,
       })}>
       <LinearGradient
         colors={fill} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }}
-        style={{ paddingVertical: 17, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
         {/* one line, ending in … — a long task title in "Focus · …" ran
             out past the button's edges */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: 18 }}>
-          <Text numberOfLines={1} style={{ color: disabled ? t.ink3 : onColor, fontSize: 16.5, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: size === 'sm' ? 15 : 18 }}>
+          <Text numberOfLines={1} style={{ color: disabled ? t.ink3 : onColor, fontSize: b.font, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
           {icon}
         </View>
         {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}
@@ -931,20 +959,24 @@ export function Primary(
 }
 
 /**
- * The quiet button. It used to carry `flex: 1` for sitting side by side, but
- * stacked in a column that squeezed it to its padding on iOS and the label
- * fell out of the box — so a row passes `style={{ flex: 1 }}` itself.
+ * The quiet button — the same geometry as Primary, outlined. A row passes
+ * `style={{ flex: 1 }}` itself (flex inside stacked it to its padding on iOS);
+ * a square one (↻) passes a width.
  */
-export function Ghost({ label, onPress, style }: { label: string; onPress: () => void; style?: ViewStyle }) {
+export function Ghost({ label, onPress, style, size = 'md', accessibilityLabel }: {
+  label: string; onPress: () => void; style?: ViewStyle; size?: ButtonSize; accessibilityLabel?: string;
+}) {
   const t = useTheme();
+  const b = BUTTON[size];
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({
-      paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center',
-      borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
-      backgroundColor: pressed ? t.subtle : 'transparent',
-      ...style,
-    })}>
-      <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 19, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => ({
+        minHeight: b.height, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+        borderRadius: b.radius, borderWidth: 1, borderColor: t.strokeStrong,
+        backgroundColor: pressed ? t.subtle : 'transparent',
+        ...style,
+      })}>
+      <Text numberOfLines={2} style={{ color: t.ink, fontSize: b.font - 0.5, lineHeight: b.font + 4, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }

@@ -95,6 +95,77 @@ export function useDictation(onText: (heard: string) => void) {
   return { state, note, start, stop, toggle: () => (state === 'listening' ? stop() : start()) };
 }
 
+/**
+ * Say a word to press a button — "begin" on Focus, "done" or "stop" on the
+ * timer — for when your hands are on the keyboard or the phone is across the
+ * desk. Listens only after the mic is tapped, keeps listening (restarting when
+ * the phone's recogniser times out) until one of the words is heard, then
+ * stops and runs that command once. Other words are ignored.
+ */
+export function useVoiceCommands(commands: { words: string[]; run: () => void }[]) {
+  const [state, setState] = useState<ListenState>(() => (available() ? 'idle' : 'unavailable'));
+  const [note, setNote] = useState('');
+  const listening = useRef(false);
+  const cmds = useRef(commands);
+  cmds.current = commands;
+
+  const begin = async () => {
+    if (!sr) return;
+    const m = sr.ExpoSpeechRecognitionModule;
+    const lang = languageTag(await getLanguage());
+    m.start({ lang, interimResults: true, continuous: true });
+  };
+
+  useEffect(() => {
+    if (!sr) return;
+    const m = sr.ExpoSpeechRecognitionModule;
+    const subs = [
+      m.addListener('result', e => {
+        if (!listening.current) return;
+        const heard = (e.results[0]?.transcript ?? '').toLowerCase();
+        const hit = cmds.current.find(c => c.words.some(w => new RegExp(`\\b${w}\\b`).test(heard)));
+        if (!hit) return;
+        listening.current = false;
+        m.stop();
+        setState('idle'); setNote('');
+        hit.run();
+      }),
+      // the recogniser gives up after a silence; while we're meant to be
+      // listening, start it again
+      m.addListener('end', () => { if (listening.current) begin().catch(() => { listening.current = false; setState('idle'); }); }),
+      m.addListener('error', e => {
+        if (!listening.current || e.error === 'no-speech' || e.error === 'aborted') return;
+        listening.current = false;
+        setState('idle');
+        setNote(e.error === 'not-allowed' ? 'The microphone is off for Nura. Tap instead, or turn it on in Settings.' : 'Listening stopped. Tap instead.');
+      }),
+    ];
+    return () => { subs.forEach(s => s.remove()); if (listening.current) { listening.current = false; m.abort(); } };
+  }, []);
+
+  const start = async () => {
+    if (!sr) return;
+    try {
+      const perm = await sr.ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) { setNote('The microphone is off for Nura. Tap instead, or turn it on in Settings.'); return; }
+      listening.current = true;
+      setState('listening'); setNote('');
+      await begin();
+    } catch {
+      listening.current = false;
+      setState('idle'); setNote('Listening couldn’t start. Tap instead.');
+    }
+  };
+  const stop = () => {
+    if (!sr || !listening.current) return;
+    listening.current = false;
+    sr.ExpoSpeechRecognitionModule.stop();
+    setState('idle');
+  };
+
+  return { state, note, start, stop, toggle: () => (listening.current ? stop() : start()) };
+}
+
 function available() {
   if (!sr) return false;
   try { return sr.ExpoSpeechRecognitionModule.isRecognitionAvailable(); } catch { return false; }

@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useState } from 'react';
@@ -151,4 +152,4 @@ function Companions() {
   );
 }
 
-export default withTabs(Companions);
+export default inWorld('mixed', withTabs(Companions));

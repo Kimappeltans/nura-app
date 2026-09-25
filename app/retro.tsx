@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useState } from 'react';
@@ -85,4 +86,4 @@ function Retro() {
   );
 }
 
-export default withTabs(Retro);
+export default inWorld('mixed', withTabs(Retro));

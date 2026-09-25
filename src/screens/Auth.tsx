@@ -1,13 +1,13 @@
+import { useTheme } from '../store';
 import { useState } from 'react';
 import {
   View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { PinnedMode } from '../store';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { radius, raTheme, type as T } from '../theme';
+import { radius, type as T } from '../theme';
 import { Primary, Mica, Character, Eyebrow } from '../ui';
 import { useAuthActions } from '../useAuthActions';
 
@@ -76,7 +76,7 @@ export default function Auth(
   // happens to be active (which, before onboarding ever runs, is Nu — navy
   // text-and-background pairing would otherwise collide with Mica reading
   // the global mode independently of this screen's own fixed palette).
-  const t = raTheme;
+  const t = useTheme();
   const [mode, setMode] = useState<Mode>('choose');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -130,9 +130,9 @@ export default function Auth(
   );
 
   return (
-    <PinnedMode.Provider value="ra">
+    <>
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-        <Mica force="ra" />
+        <Mica />
         {/* cream screen, whatever the mode: the clock and battery go dark */}
         <StatusBar style="dark" />
 
@@ -284,6 +284,6 @@ export default function Auth(
           </ScrollView>
         </View>
       </SafeAreaView>
-    </PinnedMode.Provider>
+    </>
   );
 }

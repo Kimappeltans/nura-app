@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useEffect, useState } from 'react';
@@ -155,4 +156,4 @@ function Triage() {
   );
 }
 
-export default withTabs(Triage);
+export default inWorld('nu', withTabs(Triage));

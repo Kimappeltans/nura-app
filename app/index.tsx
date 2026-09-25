@@ -12,6 +12,7 @@ import Onboarding from '../src/screens/Onboarding';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
 import { CaptureSheet } from '../src/components/CaptureSheet';
+import { World } from '../src/world';
 
 /**
  * The app past onboarding is three rooms in the same dark water, with a tab
@@ -38,7 +39,7 @@ export default function Index() {
       <View style={{ flex: 1 }}>
         {tab === 'home' && <Home onTab={setTab} onCapture={capture} />}
         {tab === 'tasks' && <Tasks onCapture={capture} />}
-        {tab === 'day' && <Day />}
+        {tab === 'day' && <World kind="mixed"><Day /></World>}
       </View>
       <TabBar />
       <CaptureSheet visible={capturing} onClose={() => setCapturing(false)} />

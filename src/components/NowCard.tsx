@@ -1,15 +1,14 @@
 import { View, Text, Pressable, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
-import { poseImage, Character } from '../ui';
+import { poseImage, Character, Primary, Ghost, BUTTON } from '../ui';
 import { priorityOf } from '../priority';
 import type { Task } from '../db';
 
 /**
- * YOUR NEXT CLEAR STEP — the one card on Home that is lit. The move, what
+ * The next clear step — the one card on Home that is lit. The move, what
  * it costs, and one way in: Begin, which opens Ra's focus on it (five
  * minutes to start with; Ra lets you change that). ↻ is "not
  * this one": the rest of your tasks, to pick another.
@@ -49,11 +48,11 @@ export function NowCard({ task, from, onBegin, onOpen, onAnother, onPlan }: {
         {task ? (
           <>
             <View style={{ paddingRight: 96 }}>
-              <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.9, fontFamily: T.brand }}>
-                {from ? from.toUpperCase() : 'YOUR NEXT CLEAR STEP'}
-              </Text>
+              {!!from && (
+                <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.9, fontFamily: T.brand, marginBottom: 8 }}>{from.toUpperCase()}</Text>
+              )}
               <Pressable onPress={onOpen} hitSlop={4}>
-                <Text style={{ color: t.ink, fontSize: 21, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 8 }}>
+                <Text style={{ color: t.ink, fontSize: 21, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.6 }}>
                   {task.title}
                 </Text>
               </Pressable>
@@ -63,28 +62,13 @@ export function NowCard({ task, from, onBegin, onOpen, onAnother, onPlan }: {
               {!!task.est_minutes && <Pill label={`≈ ${task.est_minutes} min`} />}
             </View>
             <View style={{ flexDirection: 'row', gap: 9, marginTop: 15 }}>
-              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onBegin(); }}
-                accessibilityRole="button" style={({ pressed }) => ({ flex: 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-                <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }} style={{
-                  minHeight: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center',
-                  shadowColor: '#FF6B35', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
-                }}>
-                  <Text style={{ color: t.onRa, fontSize: 15, fontFamily: T.display }}>Begin · 5 minutes</Text>
-                </LinearGradient>
-              </Pressable>
-              <Pressable onPress={onAnother} accessibilityRole="button" accessibilityLabel="Choose another"
-                style={({ pressed }) => ({
-                  width: 48, minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-                  borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: pressed ? t.subtle : 'transparent',
-                })}>
-                <Text style={{ color: t.ink, fontSize: 19 }}>↻</Text>
-              </Pressable>
+              <Primary label="Begin" tone="ra" size="sm" onPress={onBegin} style={{ minWidth: 120 }} />
+              <Ghost label="↻" size="sm" onPress={onAnother} accessibilityLabel="Choose another" style={{ width: BUTTON.sm.height, paddingHorizontal: 0 }} />
             </View>
           </>
         ) : (
           <View style={{ paddingRight: 96 }}>
-            <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.9, fontFamily: T.brand }}>YOUR NEXT CLEAR STEP</Text>
-            <Text style={{ color: t.ink, fontSize: 21, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 8 }}>
+            <Text style={{ color: t.ink, fontSize: 21, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.6 }}>
               Nothing to begin yet.
             </Text>
             <Pressable onPress={onPlan} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>

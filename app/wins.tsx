@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useCallback } from 'react';
@@ -101,4 +102,4 @@ function Wins() {
   );
 }
 
-export default withTabs(Wins);
+export default inWorld('mixed', withTabs(Wins));

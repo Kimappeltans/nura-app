@@ -144,6 +144,29 @@ export const raTheme: Palette = {
   statusBar: 'dark',
 };
 
+/**
+ * UTILITY — settings, the calendar, a task's details, sign-in. Nu's navy with
+ * nothing in the water: no glows, no warmth, so a form reads as a form. It
+ * ends in the same navy as the rooms, so the tab bar's fade is seamless.
+ */
+export const utilityTheme: Palette = {
+  ...nuTheme,
+  glowNu: 0.10, glowRa: 0,
+  atmosphere: ['#0D1231', '#0B1029', '#0B1029'],
+  heroWash: ['rgba(140,151,246,0.14)', 'rgba(140,151,246,0.06)', 'rgba(91,108,240,0.04)'],
+};
+
+/**
+ * MIXED — where Nu and Ra meet: Your Day, Wins, reflection, the companions.
+ * The same navy, with dawn in it — a warm glow that climbs as the day's
+ * things get done (Mica's sunProgress). Still Nu's grammar, Ra's light.
+ */
+export const mixedTheme: Palette = {
+  ...nuTheme,
+  glowNu: 0.24, glowRa: 0.30,
+  atmosphere: ['#121840', '#0D122F', '#0B1029'],
+};
+
 export type Theme = Palette;
 
 /** Back-compat aliases — a few screens still import these names. */
@@ -166,7 +189,7 @@ export const elevation = {
   e8: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 8 },
   e16: { shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.20, shadowRadius: 28, elevation: 12 },
   /** the coral glow under anything that starts something */
-  warm: { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 20, elevation: 8 },
+  warm: { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 6 },
 } as const;
 
 /** Line icons everywhere are drawn at this weight. */

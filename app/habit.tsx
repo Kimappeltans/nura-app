@@ -1,3 +1,5 @@
+import { useTheme } from '../src/store';
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useState } from 'react';
@@ -6,8 +8,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { createHabit } from '../src/db';
-import { radius, raTheme, type as T } from '../src/theme';
-import { PinnedMode } from '../src/store';
+import { radius, type as T } from '../src/theme';
 import { StatusBar } from 'expo-status-bar';
 import { Mica, Primary, Eyebrow } from '../src/ui';
 
@@ -20,7 +21,7 @@ import { Mica, Primary, Eyebrow } from '../src/ui';
  * existing moment in your day, and something small enough to survive it.
  */
 function NewHabit() {
-  const t = raTheme;   // onboarding-style chrome, not the Nu/Ra mode — see Compose.tsx
+  const t = useTheme();
   const [cue, setCue] = useState('');
   const [action, setAction] = useState('');
   const [minimum, setMinimum] = useState('');
@@ -50,10 +51,10 @@ function NewHabit() {
   );
 
   return (
-    <PinnedMode.Provider value="ra">
+    <>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
-        <Mica force="ra" />
+        <Mica />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 4 }}>
             <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
@@ -102,8 +103,8 @@ function NewHabit() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </PinnedMode.Provider>
+    </>
   );
 }
 
-export default withTabs(NewHabit);
+export default inWorld('nu', withTabs(NewHabit));

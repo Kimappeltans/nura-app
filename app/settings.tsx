@@ -1,3 +1,4 @@
+import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useState } from 'react';
@@ -29,7 +30,7 @@ import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, se
  */
 function Settings() {
   const t = useTheme();
-  const { light, total, session, appearance, setAppearance } = useStore();
+  const { light, total, session } = useStore();
   const [cal, setCal] = useState(false);
   const [notif, setNotif] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -198,20 +199,6 @@ function Settings() {
           />
         </Group>
 
-        <Group title="Appearance">
-          {([
-            ['nura', 'Nu & Ra', 'Home dark, focus light, as Nura was designed'],
-            ['light', 'Light', 'Every screen light'],
-            ['dark', 'Dark', 'Every screen dark'],
-          ] as const).map(([key, title, sub], i) => (
-            <View key={key}>
-              {i > 0 && <Divider />}
-              <Row title={title} sub={sub}
-                right={appearance === key ? <IconCheck size={18} color={t.ra} /> : <View style={{ width: 18 }} />}
-                onPress={() => setAppearance(key)} />
-            </View>
-          ))}
-        </Group>
 
         <Group title="Language &amp; voice">
           <Row
@@ -311,4 +298,4 @@ function Settings() {
   );
 }
 
-export default withTabs(Settings);
+export default inWorld('utility', withTabs(Settings));
