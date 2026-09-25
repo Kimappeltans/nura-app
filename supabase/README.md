@@ -1,14 +1,38 @@
 # Supabase
 
-Two things live here:
+Three things live here:
 
 - **`schema.sql`**: sign-in and sync (tasks, habits). Run once in the SQL Editor.
 - **`functions/nura-plan`**: Nu's planner. When someone asks Nu to plan a
   project, the app sends the goal (and later the project's compact state) to
   this function, which calls Claude and returns a checked, structured answer.
-  The app never holds a model key.
+- **`functions/nura-coach`**: the model half of the learning loop
+  (`src/coach.ts`, `src/learn/`): reading a sentence the phone wasn't sure
+  about, suggestions for today, and the weekly working notes.
 
-## Deploying the planner
+The app never holds a model key. Both functions hold it as a Supabase secret.
+
+## Which model does what
+
+Every job goes to the cheapest thing that can do it, and the phone goes
+first. Most of what Nura does never reaches a model.
+
+| Job | Runs on | Model (secret to change it) | When it's called |
+|---|---|---|---|
+| Speech to text | the phone (`src/voice.ts`) | none | always, free |
+| Quick capture: parse a task | the phone (`src/assistant.ts`) | none | always, free |
+| Read a sentence (task / tasks / project / feeling / question, and how you seem) | the phone first; `nura-coach` op `read` only when the phone isn't sure (`localIsSure` in `src/coach.ts`: long run-on sentences, several sentences, a feeling mixed with tasks) | `claude-haiku-4-5-20251001` (`NURA_READ_MODEL`) | offline, over the limit or on any error, the phone's read is used |
+| Local suggestions | the phone (`src/learn/`) | none | always, free |
+| Model suggestions | `nura-coach` op `suggest` | `claude-haiku-4-5-20251001` (`NURA_COACH_MODEL`) | when the app asks for today's suggestions; any failure is `[]` |
+| Weekly working notes | `nura-coach` ops `reflect_submit` then `reflect_collect`, as a Message Batch | `claude-sonnet-5` (`NURA_REFLECT_MODEL`) | at most once every 7 days, with at least 5 active days; collected on a later app open |
+| Plan a project (first answer, first path) | `nura-plan` actions `start`, `plan` | `claude-sonnet-5` (`NURA_MODEL`) | when you ask Nu to plan |
+| Replan (too big, blocked, done, another look) | `nura-plan` action `replan` | `claude-haiku-4-5-20251001` (`NURA_REPLAN_MODEL`), then once more on `NURA_MODEL` if Haiku's answer fails the check or is refused | when you tap one of those |
+
+Opus is still available for planning by setting `NURA_MODEL=claude-opus-5`
+(and then Anthropic's server-side refusal fallback is switched on for it).
+The default moved from Opus 5 to Sonnet 5 for cost.
+
+## Deploying
 
 You need the [Supabase CLI](https://supabase.com/docs/guides/cli) and an
 Anthropic API key.
@@ -19,27 +43,109 @@ supabase login
 supabase link --project-ref <your-project-ref>      # the part before .supabase.co
 supabase secrets set ANTHROPIC_API_KEY=<your key>
 supabase functions deploy nura-plan
+supabase functions deploy nura-coach
 ```
 
 Then paste `ai-usage.sql` into the SQL Editor and run it. It adds the daily
-limits: by default 80 calls a day per device (or signed-in account) and 300
-per IP address. Without it the function still works, with no limits.
+limits for both functions. Without it they still work, with no limits (and
+a log line saying so).
 
-Optional secrets:
+Both functions keep JWT verification on (the default). The app calls them
+with the anon key when signed out, or the session when signed in.
+
+### Daily limits
+
+`nura_ai_hit()` can only count whole calls, so a cheap call can't count as
+a fraction of one. Instead there are two counters:
+
+- **Planning counter**: every `nura-plan` call, plus `nura-coach` `suggest`
+  and `reflect_submit`. A replan that is retried on the second model still
+  counts once.
+- **Read counter**: `nura-coach` `read` and `reflect_collect` (which costs
+  no tokens), so capture never eats into planning.
+
+### Secrets
+
+All optional except `ANTHROPIC_API_KEY`.
 
 | Secret | Default | What it does |
 |---|---|---|
-| `NURA_MODEL` | `claude-opus-5` | The Claude model |
-| `NURA_EFFORT` | `medium` | `low` answers faster; `high` thinks longer |
-| `NURA_DAILY_LIMIT` | `80` | Calls per device or account per day |
-| `NURA_IP_DAILY_LIMIT` | `300` | Calls per IP address per day |
+| `NURA_MODEL` | `claude-sonnet-5` | Planner model: `start`, `plan`, and the replan retry |
+| `NURA_EFFORT` | `medium` | Planner thinking effort (`low` / `medium` / `high`); not used on Haiku |
+| `NURA_REPLAN_MODEL` | `claude-haiku-4-5-20251001` | First try for replans. Set it to the same as `NURA_MODEL` to turn the routing off |
+| `NURA_READ_MODEL` | `claude-haiku-4-5-20251001` | Coach `read` |
+| `NURA_COACH_MODEL` | `claude-haiku-4-5-20251001` | Coach `suggest` |
+| `NURA_COACH_EFFORT` | `low` | Only used if `NURA_COACH_MODEL` is set to a model that thinks (not Haiku) |
+| `NURA_REFLECT_MODEL` | `claude-sonnet-5` | Weekly working notes |
+| `NURA_REFLECT_EFFORT` | `medium` | Thinking effort for the weekly notes |
+| `NURA_REFLECT_BATCH` | `on` | `off` sends the weekly notes as a normal call (full price, answered at once) |
+| `NURA_DAILY_LIMIT` | `80` | Planning counter: calls per device or account per day |
+| `NURA_IP_DAILY_LIMIT` | `300` | Planning counter: calls per IP address per day |
+| `NURA_READ_DAILY_LIMIT` | `200` | Read counter: calls per device or account per day |
+| `NURA_READ_IP_DAILY_LIMIT` | `600` | Read counter: calls per IP address per day |
 
-The function keeps JWT verification on (the default). The app calls it with
-the anon key when signed out, or the session when signed in.
+Haiku 4.5 doesn't take adaptive thinking or `effort`, so both functions
+leave them out for any `claude-haiku-*` model and use short answers
+instead. Every other model gets adaptive thinking at the effort above.
+
+## What each call sends
+
+Nothing is stored on the server: no goals, notes or titles, only a count per
+key per day (`ai-usage.sql`). What leaves the phone:
+
+- **`nura-plan`**: the goal, your answers to Nu's question, and for replans
+  the project's compact state (steps, notes, the last few events).
+- **`nura-coach` `read`**: the one sentence the phone wasn't sure about.
+  Speech is turned into text on the phone; audio never leaves it.
+- **`nura-coach` `suggest`**: a numbers-only summary of how you work
+  (computed on the phone), today's open tasks (id, title, minutes,
+  priority; at most 30), your working notes, and the local hour.
+- **`nura-coach` `reflect_submit`**: your previous working notes, the
+  7-day numbers-only summary, and how many suggestions of each kind were
+  accepted, dismissed or ignored. `reflect_collect` sends only the batch id.
+
+Never the raw event log, never other task fields.
+
+The weekly batch is tied to the device that queued it: its `custom_id` is
+a hash of the device id, and `reflect_collect` only returns an answer whose
+`custom_id` matches the caller's device. Anthropic keeps batch results for
+29 days.
+
+## Cost notes
+
+Rough per-call estimates from the prompt sizes, at list prices (Haiku 4.5:
+$1 / $5 per million input / output tokens; Sonnet 5: $2 / $10; batches are
+half price). They are not measured; check real numbers in the Anthropic
+Console under Usage.
+
+| Call | Roughly | Notes |
+|---|---|---|
+| `read` | ~$0.001 | ~800 tokens in, ~60 out. Only when the phone isn't sure, which should be a small share of captures |
+| `suggest` | ~$0.003–0.004 | ~1.5–2k in, ~300 out |
+| weekly notes | ~$0.01 a week | Sonnet 5 at batch price, with thinking at `medium`; one per person per week at most |
+| replan | ~$0.005 on Haiku | about twice that plus a Sonnet call when it has to retry |
+| `start` / `plan` | a few cents | Sonnet 5 with thinking at `medium` |
+
+**Prompt caching.** Every fixed system prompt is marked for caching, but a
+prompt only caches once it's over the model's minimum: 4096 tokens on Haiku
+4.5, 1024 on Sonnet 5. The planner's prompt is over that on Sonnet 5, so
+`start` and `plan` cache it. The coach's prompts, and the planner's on
+Haiku for replans, are under it, so they don't cache today; the marker costs
+nothing when it doesn't apply. The weekly batch is one request per person,
+so caching doesn't help it.
+
+**Refusals.** On Opus or Fable (`NURA_MODEL=claude-opus-5`), the planner
+opts into Anthropic's server-side refusal fallback. On Sonnet and Haiku it
+doesn't: that fallback's documented targets are Opus-tier models. A refusal
+is a 422 there, and for a replan it triggers the retry on `NURA_MODEL`.
 
 ## Trying the app without deploying
 
-In a development build, set the flag `dev.planner` to `local` and the app
-uses a stand-in planner (`src/planner.ts` → `localPlanner`) that returns fixed
-wording. It is only for clicking through the screens and is compiled out of
-release builds.
+In a development build, set these flags to `local` and the app uses fixed
+stand-ins instead of the functions. They're only for clicking through the
+screens and are compiled out of release builds.
+
+- `dev.planner`: `src/planner.ts` → `localPlanner`
+- `dev.coach`: `src/coach.ts` → `localCoach` (the phone's own read,
+  placeholder suggestions from today's tasks, and placeholder working notes
+  that go through the batch submit and collect steps)

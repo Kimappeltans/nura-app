@@ -19,7 +19,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3.23.8';
 import { SCHEMAS, SYSTEM, userMessage, type Action } from './prompt.ts';
 
-const MODEL = Deno.env.get('NURA_MODEL') ?? 'claude-opus-5';
+const MODEL = Deno.env.get('NURA_MODEL') ?? 'claude-sonnet-5';   // Opus: set NURA_MODEL=claude-opus-5
+// Replans (too big / blocked / done / another look) change a path that
+// already exists, so they go to the small model first; a wrong shape or a
+// refusal gets one more try on MODEL.
+const REPLAN_MODEL = Deno.env.get('NURA_REPLAN_MODEL') ?? 'claude-haiku-4-5-20251001';
+/** Haiku 4.5 takes neither adaptive thinking nor `effort`. */
+const thinks = (model: string) => !/^claude-haiku-/.test(model);
 const EFFORT = (Deno.env.get('NURA_EFFORT') ?? 'medium') as 'low' | 'medium' | 'high';
 const PER_PERSON_PER_DAY = Number(Deno.env.get('NURA_DAILY_LIMIT') ?? 80);
 const PER_IP_PER_DAY = Number(Deno.env.get('NURA_IP_DAILY_LIMIT') ?? 300);
@@ -113,16 +119,18 @@ async function over(key: string, limit: number): Promise<boolean> {
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
-async function ask(action: Action, data: Record<string, unknown>, lang: string) {
+async function ask(action: Action, data: Record<string, unknown>, lang: string, model = MODEL) {
+  const think = thinks(model);
   const msg = await anthropic.beta.messages.create({
-    model: MODEL,
-    max_tokens: 8000,
-    // If a safety classifier declines, the API retries on its recommended
-    // fallback model instead of returning a refusal.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    thinking: { type: 'adaptive' },
-    output_config: { effort: EFFORT, format: { type: 'json_schema', schema: SCHEMAS[action] } },
+    model,
+    max_tokens: think ? 8000 : 3000,
+    // On Opus/Fable: if a safety classifier declines, the API retries on its
+    // recommended fallback model instead of returning a refusal. Only sent to
+    // those models — its documented targets are Opus-tier; elsewhere a
+    // refusal is simply a 422 'declined', as before.
+    ...(/^claude-(opus|fable)-/.test(model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
+    ...(think ? { thinking: { type: 'adaptive' as const } } : {}),
+    output_config: { ...(think ? { effort: EFFORT } : {}), format: { type: 'json_schema', schema: SCHEMAS[action] } },
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage(action, data, lang) }],
   });
@@ -130,9 +138,24 @@ async function ask(action: Action, data: Record<string, unknown>, lang: string) 
   if (msg.stop_reason === 'max_tokens') throw new Failure(502, 'too_long');
   const out = msg.content.find(b => b.type === 'text');
   if (!out || out.type !== 'text') throw new Failure(502, 'empty');
-  const parsed = Answers[action].safeParse(JSON.parse(out.text));
+  let value: unknown;
+  try { value = JSON.parse(out.text); } catch { throw new Failure(502, 'shape'); }
+  const parsed = Answers[action].safeParse(value);
   if (!parsed.success) throw new Failure(502, 'shape');
   return parsed.data;
+}
+
+/** start and plan go to MODEL. replan tries REPLAN_MODEL first, and only a
+ *  wrong or missing answer or a refusal goes once more to MODEL. */
+async function answer(action: Action, data: Record<string, unknown>, lang: string) {
+  if (action !== 'replan' || REPLAN_MODEL === MODEL) return ask(action, data, lang);
+  try {
+    return await ask(action, data, lang, REPLAN_MODEL);
+  } catch (e) {
+    if (!(e instanceof Failure) || !['shape', 'declined', 'empty', 'too_long'].includes(e.code)) throw e;
+    console.warn('[nura-plan] replan retried on', MODEL, 'after', e.code);
+    return ask(action, data, lang);
+  }
 }
 
 class Failure extends Error {
@@ -158,7 +181,7 @@ Deno.serve(async (req) => {
 
   const { action, language: lang, ...data } = body;
   try {
-    return json(await ask(action, data, lang));
+    return json(await answer(action, data, lang));
   } catch (e) {
     if (e instanceof Failure) return json({ error: e.code }, e.status);
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'busy' }, 503);

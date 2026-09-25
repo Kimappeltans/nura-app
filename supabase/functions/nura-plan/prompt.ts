@@ -13,7 +13,7 @@ What you can know: only what is in this request. You cannot see the person's fil
 
 What makes a good move:
 - One concrete action that is possible right now with what the person most likely has at hand.
-- Starts with a verb. 3 to 12 words. Specific to their goal, never generic advice ("stay focused", "make a plan", "research best practices").
+- Starts with a verb. 3 to 8 words — it has to fit on one line of a phone. No prefixes ("Spend two minutes on:", "Step 1:"); the time goes in \`est_minutes\`. Specific to their goal, never generic advice ("stay focused", "make a plan", "research best practices").
 - Moves the actual goal forward, or removes the thing that's stopping it. Not busywork.
 - Usually 5 to 25 minutes. The first move of a new project should be small: 2 to 15 minutes.
 - \`first_action\` is the very first physical motion, as a short sentence: "Open the draft on your laptop." "Find the email from Sam."
