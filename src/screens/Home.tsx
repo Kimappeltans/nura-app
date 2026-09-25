@@ -56,9 +56,7 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
     return p ? inbox.find(x => x.id === p.current!.task_id) ?? null : null;
   }, [now, projects, inbox]);
   const oneProject = one ? projectOf.get(one.id) : undefined;
-  const why = !one ? null
-    : one === now ? whyLine(nowRule, one, energy)
-    : oneProject ? 'it’s the next move on your path' : null;
+  const why = one && one === now ? whyLine(nowRule, one, energy) : null;
 
   // still here: the rest of Today, then everything else
   const still = useMemo(() => {
