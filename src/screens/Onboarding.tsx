@@ -4,7 +4,9 @@ import { router } from 'expo-router';
 import { useStore } from '../store';
 import { logEvent, setBlockers, suggestions, getTask, getEnergy, pickForToday, getFlag, setFlag, type Blocker, type Task, type PickRule } from '../db';
 import { whyLine } from '../priority';
-import Welcome from './Welcome';
+// The Benben opening, then the original Welcome. To go back to the Welcome
+// on its own, import './Welcome' here instead — both are kept.
+import Welcome from './WelcomeBenben';
 import Blockers from './Blockers';
 import BrainDump from './BrainDump';
 import RemindAsk from './RemindAsk';
@@ -16,7 +18,7 @@ import Auth from './Auth';
  * From opening the app to starting one real task in about a minute
  * (SCOPE.md → Onboarding):
  *
- *   1. WELCOME        — Nu and Ra, the slogan.
+ *   1. WELCOME        — the story: Nu (the water), the Benben, Ra (the sun).
  *   2. BLOCKERS       — "What usually gets in the way?" Each answer changes
  *                        something, and says what.
  *   3. BRAIN DUMP     — "What's on your mind?" Nu, learned by using it.

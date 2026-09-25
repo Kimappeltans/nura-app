@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useStore } from '../src/store';
-import Nu from '../src/screens/Nu';
+// The home as a place: the scene and the one thing to begin. The earlier
+// list-first home is kept — import '../src/screens/Nu' here to go back.
+import Nu from '../src/screens/NuHome';
 import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
 import Loading from '../src/screens/Loading';

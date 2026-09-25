@@ -177,6 +177,52 @@ async function openDb() {
       did_minimum INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Projects — a goal too big to be one task, and the path Nu keeps for it
+    -- (src/projects.ts). Deliberately NOT micro-steps under parent_id: that
+    -- stays one level deep. A project's steps live here; only the CURRENT
+    -- move is ever a task, linked by project_step.task_id, so Nu, Ra and the
+    -- timer treat it like any other task. Local only for now — not synced.
+    CREATE TABLE IF NOT EXISTS project (
+      id           TEXT PRIMARY KEY,
+      goal         TEXT NOT NULL,
+      title        TEXT NOT NULL,
+      done_means   TEXT,
+      assumptions  TEXT,
+      notes        TEXT,
+      state        TEXT NOT NULL DEFAULT 'active',
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS project_step (
+      id           TEXT PRIMARY KEY,
+      project_id   TEXT NOT NULL REFERENCES project(id),
+      position     INTEGER NOT NULL,
+      title        TEXT NOT NULL,
+      first_action TEXT,
+      why          TEXT,
+      est_minutes  INTEGER,
+      state        TEXT NOT NULL DEFAULT 'todo',
+      edited       INTEGER NOT NULL DEFAULT 0,
+      task_id      TEXT REFERENCES task(id),
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    -- what happened to a project, append-only: the replanner reads the last
+    -- few of these instead of the whole conversation
+    CREATE TABLE IF NOT EXISTS project_event (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      step_id    TEXT,
+      kind       TEXT NOT NULL,
+      note       TEXT,
+      at         INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_step_project ON project_step(project_id);
+    CREATE INDEX IF NOT EXISTS idx_step_task    ON project_step(task_id);
+    CREATE INDEX IF NOT EXISTS idx_pevent_proj  ON project_event(project_id);
+
     CREATE INDEX IF NOT EXISTS idx_task_state   ON task(state);
     CREATE INDEX IF NOT EXISTS idx_task_due     ON task(due_at);
     CREATE INDEX IF NOT EXISTS idx_event_at     ON event(at);
@@ -712,6 +758,14 @@ export async function chooseTask(id: string) {
   await markActed('choose');
 }
 
+/** A project's move was replaced by a new one (smaller, or around a
+ *  blocker). If you had chosen the old one, you've chosen its replacement —
+ *  Ra shouldn't fall back to the top of Today because the task row changed. */
+export async function handOverPin(fromId: string, toId: string) {
+  const pin = await readPin();
+  if (pin && pin.id === fromId && pin.rule === 'chosen') await writePin({ id: toId, rule: 'chosen' });
+}
+
 /** "Something else instead": not this one, not today — the next on your
  *  Today list, or nothing (and Ra offers suggestions). */
 export async function passOn(id: string): Promise<Pick | null> {
@@ -957,7 +1011,8 @@ export async function hasOnboarded(): Promise<boolean> {
  * Put someone back at the start. Onboarding is a one-time gate — which is
  * right, nobody wants the tour twice — but with no way to replay it there was
  * literally no route back to the intro once you'd tapped through, and no way
- * to see what you'd skipped. That's what Settings > Show the intro again does.
+ * to see what you'd skipped. That's what "Start from the beginning" does (the
+ * menu on Nu, and Settings — src/intro.ts).
  */
 export async function resetOnboarding() {
   await setFlag('onboarded', '0');
@@ -970,8 +1025,8 @@ export async function completeOnboarding() {
   await markActed('onboarding');     // the ladder starts from "you just did something"
 }
 
-/** Replay Welcome → Auth without clearing app storage. Reachable from
- *  Settings → "Show the intro again". */
+/** Replay the opening and onboarding without clearing app storage.
+ *  Reachable from "Start from the beginning" (src/intro.ts). */
 
 /* ---------------- who you are ---------------- */
 

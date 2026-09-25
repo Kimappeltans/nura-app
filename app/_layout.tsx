@@ -25,6 +25,7 @@ export default function Root() {
   const refresh = useStore(s => s.refresh);
   const mode = useStore(s => s.mode);
   const onboarded = useStore(s => s.onboarded);
+  const appearance = useStore(s => s.appearance);
   const [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold });
   const running = useRef<string | null>(null);
   const [elsewhere, setElsewhere] = useState(false);
@@ -68,6 +69,9 @@ export default function Root() {
       // then cleared ("/" just clears it: the home screen, once it's ready).
       // scripts/screens.sh uses it. Compiled out of release builds.
       if (__DEV__) {
+        // and on the web, where there's no sqlite3 to reach the database:
+        // __nuraFlag('dev.planner', 'local') from the browser console
+        (globalThis as any).__nuraFlag = setFlag;
         const route = await getFlag('dev.open');
         if (route) {
           await setFlag('dev.open', '');
@@ -116,7 +120,8 @@ export default function Root() {
   // onboarding screen, is still cream — but it owns its own bar via the
   // gradient, and a light bar on cream is unreadable, so onboarding as a whole
   // stays dark-bar and Welcome sets its own.
-  const light = onboarded === false ? false : mode !== 'ra';
+  const light = appearance === 'dark' ? true : appearance === 'light' ? false
+    : onboarded === false ? false : mode !== 'ra';
 
   return (
     <>
@@ -138,6 +143,9 @@ export default function Root() {
         <Stack.Screen name="triage" options={{ presentation: 'modal' }} />
         <Stack.Screen name="tide" options={{ presentation: 'modal' }} />
         <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="project/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="project/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="opening" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
       </Stack>
       {/* Above everything, including the native modals — a reward that appears
           behind the screen you earned it on is not a reward. */}

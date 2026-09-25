@@ -2,12 +2,19 @@ import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import * as db from './db';
+import { activeProjects, type ProjectSummary } from './projects';
 import { nextEvent, todayEvents, type UpcomingEvent } from './calendar';
 import { nuTheme, raTheme, type Theme } from './theme';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
 
 export interface Celebration { award: Award; line: string; at: number; rankUp: Rank | null }
+
+/** Settings → Appearance. 'nura' is the design: Nu dark, Ra light, and the
+ *  switch between them changes the temperature of the screen. 'light' and
+ *  'dark' put every screen in one palette, for people who find the navy
+ *  hard to read, or the cream too bright at night. */
+export type Appearance = 'nura' | 'light' | 'dark';
 
 interface State {
   mode: db.Mode;
@@ -22,6 +29,11 @@ interface State {
    *  this, picking a task "for today" made it vanish from Home entirely: it
    *  left `inbox` but nothing else fed it back in. */
   todayPicked: db.Task[];
+  /** projects under way, each with its current move (src/projects.ts) */
+  projects: ProjectSummary[];
+  /** tasks that are a project's current move — Nu lists them under the
+   *  project, not a second time in "everything else" */
+  moveIds: string[];
   wins: db.Task[];
   total: number;
   light: number;
@@ -45,6 +57,8 @@ interface State {
    *  the very first getSession() resolves on boot — see app/_layout.tsx. */
   session: Session | null;
   authLoading: boolean;
+  appearance: Appearance;
+  setAppearance: (a: Appearance) => Promise<void>;
 
   setEnergy: (e: db.Energy) => Promise<void>;
   setSession: (session: Session | null) => void;
@@ -65,11 +79,15 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   mode: 'nu', energy: 'steady', now: null, nowRule: null, crumb: null,
-  inbox: [], todayPicked: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
+  inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
-  session: null, authLoading: true,
+  session: null, authLoading: true, appearance: 'nura',
   setSession: (session) => set({ session }),
+  setAppearance: async (appearance) => {
+    await db.setFlag('appearance', appearance);
+    set({ appearance });
+  },
 
   finishOnboarding: async () => {
     await db.completeOnboarding();
@@ -124,14 +142,19 @@ export const useStore = create<State>((set, get) => ({
   dismissToast: () => set({ toast: null }),
 
   refresh: async () => {
-    const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile] =
+    // projects first: reading them reconciles each step with its task (a
+    // move ticked off anywhere is a step done), so the lists below agree
+    const projects = await activeProjects();
+    const moveIds = projects.map(p => p.current?.task_id).filter((x): x is string => !!x);
+    const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look] =
       await Promise.all([
         db.getMode(), db.currentPick(), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
         db.totalLight(), db.todayLight(),
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
-        nextEvent(), todayEvents(), db.getProfile(),
+        nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'),
       ]);
-    set({ mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    const appearance: Appearance = look === 'light' || look === 'dark' ? look : 'nura';
+    set({ appearance, mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action
@@ -161,5 +184,9 @@ export const PinnedMode = createContext<db.Mode | null>(null);
 export function useTheme(force?: db.Mode): Theme {
   const mode = useStore(s => s.mode);
   const pinned = useContext(PinnedMode);
+  const appearance = useStore(s => s.appearance);
+  // chosen in Settings: one palette everywhere, over the mode and any pin
+  if (appearance === 'light') return raTheme;
+  if (appearance === 'dark') return nuTheme;
   return (force ?? pinned ?? mode) === 'ra' ? raTheme : nuTheme;
 }

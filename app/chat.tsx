@@ -190,6 +190,12 @@ export default function Chat() {
             )}
           </View>
 
+          {!m.added && (
+            <Pressable onPress={() => { router.back(); router.push({ pathname: '/project/new', params: { goal: d.title } }); }}
+              hitSlop={6} style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+              <Text style={{ color: t.ink3, fontSize: 13 }}>Bigger than one task? <Text style={{ color: t.nu, fontFamily: T.brand }}>Plan it with Nu ›</Text></Text>
+            </Pressable>
+          )}
           <View style={{ flexDirection: 'row', gap: 8, padding: 12, paddingTop: 0 }}>
             {m.added ? (
               <Text style={{ color: c, fontSize: 14, fontFamily: T.brand, paddingVertical: 8 }}>
@@ -249,25 +255,40 @@ export default function Chat() {
             TOO BIG TO START
           </Text>
           <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>
-            That could mean anything, so it'll sit. Want the first ten minutes of it instead?
+            That could mean anything, so it'll sit. Nu can help find the first move — or take the first ten minutes of it.
           </Text>
           {m.added ? (
             <Text style={{ color: t.ra, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>
           ) : (
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
-                router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
-              }}
-              style={{
-                alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
-                backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
-              }}>
-              <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>
-                Open it and write one line · 10 min
-              </Text>
-            </Pressable>
+            <>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
+                  router.back();
+                  router.push({ pathname: '/project/new', params: { goal: d.title } });
+                }}
+                style={{
+                  alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
+                  backgroundColor: t.ra,
+                }}>
+                <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.brand }}>Find the first move with Nu</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
+                  router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
+                }}
+                style={{
+                  alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
+                  backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
+                }}>
+                <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>
+                  Open it and write one line · 10 min
+                </Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>

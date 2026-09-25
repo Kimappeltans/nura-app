@@ -80,7 +80,7 @@ export function OnbFrame({ step, onBack, onSkip, skipLabel = 'Skip', title, sub,
         </View>
 
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20 }}>
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20 }}>
           <Text style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
             {title}
           </Text>

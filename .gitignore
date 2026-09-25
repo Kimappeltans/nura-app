@@ -16,3 +16,6 @@ expo-env.d.ts
 
 # npm run screens output (scripts/screens.sh)
 /screens/
+
+# raw Midjourney sources; the cut-outs used by the app live in assets/story
+/nu-characters/

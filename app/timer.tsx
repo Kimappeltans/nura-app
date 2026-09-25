@@ -8,6 +8,7 @@ import { useTheme, useStore } from '../src/store';
 import { complete, endSession, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
 import { writeFocusBlock } from '../src/calendar';
 import { reconcileNudges } from '../src/notifications';
+import { stepForTask } from '../src/projects';
 import { Primary, Ghost, Mica, Character } from '../src/ui';
 import { type as T, copy, radius } from '../src/theme';
 
@@ -198,6 +199,12 @@ export default function Timer() {
     }
     await refresh();
     await reconcileNudges();
+    // a project's move, done: Nu can find the next one (or you stop there)
+    const proj = done && id ? await stepForTask(id) : null;
+    if (proj && proj.project.state === 'active') {
+      router.replace({ pathname: '/project/[id]', params: { id: proj.project.id, after: 'done' } });
+      return;
+    }
     if (offerBreak) { setPhase('breakOffer'); return; }
     router.back();
   };

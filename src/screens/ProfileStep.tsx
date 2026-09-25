@@ -106,7 +106,7 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
           </>
         )}>
         {mode === 'choose' ? (
-          <View style={{ gap: 12, marginTop: 26 }}>
+          <View style={{ flex: 1, gap: 12, marginTop: 26 }}>
             {PERKS.map(p => (
               <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.raWash, alignItems: 'center', justifyContent: 'center' }}>
@@ -119,10 +119,12 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
               By continuing you agree to the Terms and Privacy Policy. No marketing email.
             </Text>
             {/* one size for both: the two images fill their frames alike, so
-                equal boxes read as equal characters */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 26 }}>
-              <Character name="nu-idle" size={136} motion="bob" />
-              <Character name="ra-wave" size={136} motion="bob" />
+                equal boxes read as equal characters. At the bottom, standing
+                on the buttons, and still after a hello — a looping float
+                pulled the eye away from the choice this screen is for. */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 'auto', paddingTop: 26 }}>
+              <Character name="nu-idle" size={176} motion="greet" />
+              <Character name="ra-wave" size={176} motion="greet" />
             </View>
           </View>
         ) : (

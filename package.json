@@ -7,7 +7,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "screens": "bash scripts/screens.sh"
+    "screens": "bash scripts/screens.sh",
+    "test": "node tests/planner.test.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",
@@ -27,6 +28,8 @@
     "expo-linking": "~57.0.10",
     "expo-notifications": "~57.0.20",
     "expo-router": "~57.0.22",
+    "expo-speech": "~57.0.3",
+    "expo-speech-recognition": "^57.1.0",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",

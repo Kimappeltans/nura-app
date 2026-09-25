@@ -214,7 +214,20 @@ const POSES = {
   'ra-wave': require('../assets/characters/ra-wave-frames/frame-02.png'),
   // both arms up, eyes shut, rays out
   'ra-celebrate': require('../assets/characters/ra-celebrate-frames/frame-03.png'),
+  // the story poses (assets/story, cut from the Midjourney sources in
+  // /nu-characters): Nu coming up out of the water, waving, asking,
+  // listening; Ra as the rising sun, waving, resting
+  'nu-surface': require('../assets/story/nu-surface.webp'),
+  'nu-hello': require('../assets/story/nu-hello.webp'),
+  'nu-ask': require('../assets/story/nu-ask.webp'),
+  'nu-listen': require('../assets/story/nu-listen.webp'),
+  'ra-sun': require('../assets/story/ra-sun.webp'),
+  'ra-hello': require('../assets/story/ra-hello.webp'),
+  'ra-rest': require('../assets/story/ra-rest.webp'),
 } as const;
+
+/** The image behind a pose, for screens that place and move it themselves. */
+export const poseImage = (name: keyof typeof POSES) => POSES[name];
 
 export type CharacterName = keyof typeof POSES;
 export type Motion = 'greet' | 'bob' | 'celebrate' | 'none';

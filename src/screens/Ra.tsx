@@ -17,6 +17,9 @@ import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
 import { whyLine } from '../priority';
 import { DurationDial, ESTIMATE_STOPS, SESSION_STOPS } from '../components/DurationDial';
 import { PriorityChip } from '../components/PriorityChip';
+import { MoveHelp } from '../components/MoveHelp';
+import { HearIt } from '../components/Voice';
+import { stepForTask, type Project, type Step } from '../projects';
 import type { Energy } from '../db';
 
 // Each task Ra shows is logged once per app session, not on every re-render.
@@ -121,12 +124,24 @@ export default function Ra() {
 
   const back = useCallback(async () => { await toNu(); }, [toNu]);
 
+  // Is this task a project's move? Then Ra names the project, gives Nu's
+  // reason for the move, and "too big" / "blocked" ask Nu for another.
+  const [proj, setProj] = useState<{ project: Project; step: Step } | null>(null);
+  useEffect(() => {
+    let dead = false;
+    if (!now) { setProj(null); return; }
+    stepForTask(now.id).then(p => { if (!dead) setProj(p && p.project.state === 'active' ? p : null); });
+    return () => { dead = true; };
+  }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   const done = async () => {
     if (!now) return;
     const award = await complete(now.id);
     await clearCrumbs(now.id);
     celebrate(award);
     await refresh(); await reconcileNudges();
+    // a project's move: what now — the next move, or enough for today
+    if (proj) return router.push({ pathname: '/project/[id]', params: { id: proj.project.id, after: 'done' } });
     await toNu();     // finishing returns you to the water
   };
 
@@ -192,7 +207,10 @@ export default function Ra() {
 
   const sheetActions: SheetAction[] = now ? [
     { key: 'later', glyph: '↓', label: 'Later today', sub: 'sinks back, resurfaces in a few hours', onPress: later },
-    { key: 'smaller', glyph: '◊', label: 'Make it smaller', sub: 'break it into a first, smaller step', onPress: makeItSmaller },
+    proj
+      ? { key: 'path', glyph: '≡', label: 'See the whole path', sub: proj.project.title,
+          onPress: () => router.push({ pathname: '/project/[id]', params: { id: proj.project.id } }) }
+      : { key: 'smaller', glyph: '◊', label: 'Make it smaller', sub: 'break it into a first, smaller step', onPress: makeItSmaller },
     { key: 'waiting', glyph: '⋯', label: 'Waiting on someone', sub: 'stays in the water, stops being asked', onPress: waitingOnSomeone },
     { key: 'else', glyph: '↔', label: 'Something else instead', sub: 'raise the next one up', onPress: somethingElse },
     { key: 'drop', glyph: '×', label: 'Not relevant anymore', sub: 'gone, no explanation needed', onPress: notRelevant },
@@ -373,7 +391,7 @@ export default function Ra() {
               </View>
             </View>
 
-            <Eyebrow label={act ? act.name : copy.nextStep} />
+            <Eyebrow label={proj ? proj.project.title : act ? act.name : copy.nextStep} />
             <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
               <Text style={{ color: t.ink, fontSize: 36, lineHeight: 43, fontFamily: T.display, letterSpacing: -1 }}>
                 {now.title}
@@ -389,9 +407,12 @@ export default function Ra() {
             {/* Same reason the hero card on Nu gave for this one — repeated
                 here because Ra is where the "why should I trust this pick"
                 doubt actually surfaces, not where it was first shown. */}
-            {(() => { const why = whyLine(nowRule, now, energy); return !!why && (
+            {proj?.step.why ? (
+              <Text style={{ color: t.ink3, fontSize: 13.5, lineHeight: 19 }}>{proj.step.why}</Text>
+            ) : (() => { const why = whyLine(nowRule, now, energy); return !!why && (
               <Text style={{ color: t.ink3, fontSize: 13.5 }}>Why this one: {why}</Text>
             ); })()}
+            <HearIt text={[now.title, now.first_action].filter(Boolean).join('. ')} label="Hear Ra say it" />
 
             {/* ------------------------------------------------------------ *
               *  The one question.
@@ -496,6 +517,15 @@ export default function Ra() {
                   onPress={() => router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } })} />
               </View>
             </Surface>
+
+            {/* a project's move can be too big, or stuck — Nu finds another,
+                and Ra shows it here in place of this one */}
+            {proj && (
+              <MoveHelp projectId={proj.project.id} onMoved={async taskId => {
+                if (taskId) await focusOn(taskId);
+                await refresh();
+              }} />
+            )}
 
             {/* "Something else" used to be its own permanent button; it's now
                 one of the five things the sheet can do with the CURRENT task,

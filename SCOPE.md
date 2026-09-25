@@ -152,6 +152,46 @@ finish it, how many add at least one task, how long from opening to the
 first session, and — the one that matters — how many start a task in their
 first session. Day-1 and day-7 return come from the event log.
 
+## Projects — Nu plans, Ra shows one move (decided 24 September)
+
+Kim's direction after the prototype `nura-ai-flow.html` and its brief: what
+makes Nura different is the step before "start one thing" — the goal that
+has no first move at all ("finish my website"). Nura becomes an AI guide for
+that, without turning into a planner you have to manage.
+
+**The loop:** say or type a goal → Nu asks at most one question (skippable)
+→ a short, editable path with Nu's guesses labelled as guesses → Ra shows
+only the current move → *too big* (Nu shrinks it), *blocked* (Nu goes
+around it), *done* (Nu offers the next move, or you stop there). Your edits
+are kept word for word when Nu replans. A finished move never finishes the
+project; only you do.
+
+**Decisions:**
+7. **AI on a server is fine.** The planner runs as a Supabase Edge Function
+   (`supabase/functions/nura-plan`) calling Claude; the model key never
+   ships in the app. Quick capture stays on the phone. The Settings footer
+   says what's sent. Replaces "on-device AI" under Later for this job.
+8. **Keep the duration dial.** No minute pills, no typed minutes; the dial
+   (5–90) and the sticky length already do what the brief asked.
+9. **Merge the Benben into Welcome, keep the originals.** `WelcomeBenben`
+   plays the Benben, then the original `Welcome`; `Welcome.tsx` is untouched,
+   and Onboarding imports one or the other. Replay: Settings → "Watch the
+   opening again".
+10. **AI is part of Nura now.** SCOPE's "on-device only" stance is lifted
+    for project planning.
+
+**Built:** `project`, `project_step`, `project_event` tables (local, not
+synced; only the current move is a task, linked by `task_id`, so Nu, Ra,
+the timer, Stop and Done all work unchanged) · `src/projects.ts`,
+`src/planner.ts` · Plan it with Nu (`app/project/new.tsx`) · the project
+page and "you moved it forward" (`app/project/[id].tsx`) · Projects on Nu ·
+project moves on Ra with *too big* / *blocked* · voice in and out
+(`src/voice.ts`: Apple speech recognition, the phone's voices), a language
+for Nu and Ra, read-aloud in Settings · the Benben.
+
+**Not yet:** the planner needs deploying (`supabase/README.md`); projects
+don't sync across devices; the interface itself isn't translated.
+
 ## Later — needs a native build (Xcode)
 
 Each is gated on the 14-day review and 5–10 people using Nura for two weeks.
@@ -160,10 +200,10 @@ Each is gated on the 14-day review and 5–10 people using Nura for two weeks.
    timer, Siri via App Intents ("what's my one thing?"). Nura has exactly one
    item to show, so it fits these surfaces better than list apps. First, since
    it also keeps Siri from sending people to Reminders.
-2. **On-device AI** (Apple Foundation Models) — a first physical action and
-   steps from a vague task, time estimates, one voice ramble into several
-   draft tasks. Private and free per use; `assistant.ts` stays as the fast
-   path and fallback. Needs an iPhone 15 Pro or later.
+2. **On-device AI** (Apple Foundation Models) — superseded for project
+   planning by the server planner (decision 7). Still worth a look for
+   quick jobs that should work offline: a first physical action for a
+   single task, time estimates, one voice ramble into several drafts.
 3. **Easier switching** — share-sheet capture; import from Todoist and Apple
    Reminders.
 4. **Energy from sleep** (Apple Health) — suggest, never set, low energy after

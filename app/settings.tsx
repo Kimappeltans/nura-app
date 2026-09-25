@@ -5,12 +5,16 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
-import { resetOnboarding, getFlag, setFlag, totalLight, totalWins, exportLog } from '../src/db';
+import { getFlag, setFlag, totalLight, totalWins, exportLog } from '../src/db';
 import { hasCalendarPermission } from '../src/calendar';
 import { supabase } from '../src/supabase';
 import { rankFor } from '../src/reward';
 import { radius, type as T } from '../src/theme';
 import { Mica, Surface, IconChevron, IconCalendar, IconBell, IconCheck, Character } from '../src/ui';
+import { ActionSheet } from '../src/components/ActionSheet';
+import { askToReplayIntro } from '../src/intro';
+import { LANGUAGES, getLanguage, setLanguage, languageName, type LangCode } from '../src/planner';
+import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, setChosenVoice, say, type VoiceOption } from '../src/voice';
 
 /**
  * Settings.
@@ -23,10 +27,15 @@ import { Mica, Surface, IconChevron, IconCalendar, IconBell, IconCheck, Characte
  */
 export default function Settings() {
   const t = useTheme();
-  const { light, total, session } = useStore();
+  const { light, total, session, appearance, setAppearance } = useStore();
   const [cal, setCal] = useState(false);
   const [notif, setNotif] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [lang, setLang] = useState<LangCode>('en');
+  const [aloud, setAloud] = useState(false);
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [voice, setVoice] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<'lang' | 'voice' | null>(null);
 
   // useFocusEffect, not a mount-only effect — this screen stays mounted
   // underneath Integrations/Connect while the user grants permissions there,
@@ -39,32 +48,18 @@ export default function Settings() {
       // the answer was no, which made this row say On for someone who'd
       // turned reminders down
       setNotif(Platform.OS !== 'web' && (await Notifications.getPermissionsAsync()).status === 'granted');
+      setLang(await getLanguage());
+      setAloud(await readsAloud());
+      setVoices(await voicesForLanguage());
+      setVoice(await chosenVoice());
     })();
   }, []));
 
-  const replay = () => {
-    const go = async () => {
-      await resetOnboarding();
-      await useStore.getState().refresh();
-      // Settings is a sheet, usually over Profile, also a sheet. replace('/')
-      // only swapped the top sheet for a second home screen, so on the phone
-      // the intro could land under the Profile sheet. Closing every sheet
-      // shows the home screen underneath, which now renders the intro.
-      if (router.canDismiss()) router.dismissAll();
-      else router.replace('/');
-    };
-    const title = 'Show the intro again?';
-    const body = 'You will land back on the welcome screen. Nothing you have written down is touched.';
-    // react-native-web's Alert.alert does nothing, so on the web this button
-    // was dead; the browser's own confirm dialog stands in for it there.
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n\n${body}`)) go();
-      return;
-    }
-    Alert.alert(title, body, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Show it', onPress: go },
-    ]);
+  const pickLanguage = async (code: LangCode) => {
+    await setLanguage(code);
+    await setChosenVoice(null);          // a voice belongs to one language
+    setLang(code); setVoice(null);
+    setVoices(await voicesForLanguage());
   };
 
   // The store's `session` clears itself — supabase.auth.onAuthStateChange
@@ -193,6 +188,57 @@ export default function Settings() {
             sub="How far they've grown, and every scene you've found."
             onPress={() => router.push('/companions')}
           />
+          <Divider />
+          <Row
+            title="Watch the opening again"
+            sub="Where Nu and Ra come from. Nothing else changes."
+            onPress={() => router.push('/opening')}
+          />
+        </Group>
+
+        <Group title="Appearance">
+          {([
+            ['nura', 'Nu & Ra', 'Home dark, focus light, as Nura was designed'],
+            ['light', 'Light', 'Every screen light'],
+            ['dark', 'Dark', 'Every screen dark'],
+          ] as const).map(([key, title, sub], i) => (
+            <View key={key}>
+              {i > 0 && <Divider />}
+              <Row title={title} sub={sub}
+                right={appearance === key ? <IconCheck size={18} color={t.ra} /> : <View style={{ width: 18 }} />}
+                onPress={() => setAppearance(key)} />
+            </View>
+          ))}
+        </Group>
+
+        <Group title="Language &amp; voice">
+          <Row
+            title="Language for Nu and Ra"
+            sub={`Nu plans, listens and answers in ${languageName(lang)}. The rest of the app stays in English for now.`}
+            right={<Text style={{ color: t.ink2, fontSize: 14 }}>{languageName(lang)}</Text>}
+            onPress={() => setSheet('lang')}
+          />
+          {canSpeak() && (
+            <>
+              <Divider />
+              <Row
+                title="Voice"
+                sub={voices.length ? 'Which of this phone’s voices reads Nu and Ra aloud.'
+                  : `This phone has no ${languageName(lang)} voice, so replies stay as text.`}
+                right={<Text style={{ color: t.ink2, fontSize: 14 }} numberOfLines={1}>
+                  {voices.find(v => v.id === voice)?.name ?? 'Default'}
+                </Text>}
+                onPress={voices.length ? () => setSheet('voice') : undefined}
+              />
+              <Divider />
+              <Row
+                title="Read replies aloud"
+                sub={aloud ? 'Nu and Ra speak each new reply. Tap Stop to quiet one.' : 'Only when you tap “Hear it”.'}
+                right={aloud ? <On /> : <Text style={{ color: t.ink3, fontSize: 13.5 }}>Off</Text>}
+                onPress={async () => { await setReadsAloud(!aloud); setAloud(!aloud); }}
+              />
+            </>
+          )}
         </Group>
 
         <Group title="Backlog">
@@ -232,17 +278,32 @@ export default function Settings() {
 
         <Group title="Help">
           <Row
-            title="Show the intro again"
-            sub="Replays the welcome screen. Your tasks are untouched."
-            onPress={replay}
+            title="Start from the beginning"
+            sub="The story and the first questions again. Your tasks are untouched."
+            onPress={askToReplayIntro}
           />
         </Group>
 
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginTop: 20, paddingHorizontal: 4 }}>
           {session
             ? 'Everything you write down is stored on this phone, and your tasks and habits are copied to your account so they reach your other devices. Your activity history stays here.'
-            : 'Everything you write down is stored on this phone. Nothing is uploaded, and there is no account until you make one.'}
+            : 'Everything you write down is stored on this phone, and there is no account until you make one.'}
+          {' '}When you ask Nu to plan something bigger, that goal, your answers and the project’s steps are sent to Nura’s planner to work out the next move. They aren’t kept there.
         </Text>
+
+        <ActionSheet visible={sheet === 'lang'} title="Language for Nu and Ra" dismissLabel="Close" onDismiss={() => setSheet(null)}
+          actions={LANGUAGES.map(l => ({
+            key: l.code, glyph: l.code === lang ? '✓' : '·', label: l.name, onPress: () => pickLanguage(l.code),
+          }))} />
+        <ActionSheet visible={sheet === 'voice'} title="Voice" subtitle={languageName(lang)} dismissLabel="Close" onDismiss={() => setSheet(null)}
+          actions={[
+            { key: 'default', glyph: voice ? '·' : '✓', label: 'The phone’s default',
+              onPress: async () => { await setChosenVoice(null); setVoice(null); say('I’m here. Let’s find one place to begin.'); } },
+            ...voices.slice(0, 7).map(v => ({
+              key: v.id, glyph: v.id === voice ? '✓' : '·', label: v.name, sub: v.enhanced ? 'enhanced' : undefined,
+              onPress: async () => { await setChosenVoice(v.id); setVoice(v.id); say('I’m here. Let’s find one place to begin.'); },
+            })),
+          ]} />
       </ScrollView>
     </SafeAreaView>
   );
