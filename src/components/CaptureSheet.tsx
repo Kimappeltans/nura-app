@@ -49,6 +49,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [open, setOpen] = useState<'when' | 'long' | null>(null);
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
   const [mins, setMins] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
 
   useEffect(() => { if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); } }, [visible]);
@@ -139,9 +140,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
       {/* in a View: on the web a bare input would sit under the sheet's gradient */}
       <View style={{
         marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1,
-        borderColor: t.strokeStrong, backgroundColor: t.layer, paddingLeft: 14, paddingRight: 6,
+        borderColor: focused ? t.nu : t.strokeStrong, backgroundColor: t.layer, paddingLeft: 14, paddingRight: 6,
       }}>
         <TextInput ref={input} value={text} onChangeText={setText} multiline
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           placeholder="What needs doing?" placeholderTextColor={t.ink3}
           style={{ flex: 1, minHeight: 50, maxHeight: 150, color: t.ink, fontSize: 16, paddingTop: 14, paddingBottom: 14 }} />
         <MicButton value={text} onChange={setText} label="Say it to Nu" compact />

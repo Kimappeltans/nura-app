@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, LogBox } from 'react-native';
+import { AppState, LogBox, Platform } from 'react-native';
 import {
   useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
 } from '@expo-google-fonts/poppins';
@@ -19,6 +19,14 @@ import Loading from '../src/screens/Loading';
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
 // can't happen in a signed build; hidden in development only.
+// On the web, the browser draws its own square focus ring inside our rounded
+// fields — the fields show focus themselves (their border lights up).
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = 'input, textarea { outline: none !important; box-shadow: none !important; }';
+  document.head.appendChild(style);
+}
+
 if (__DEV__) LogBox.ignoreLogs(['[expo-notifications] Error reading persisted server registration']);
 
 export default function Root() {
