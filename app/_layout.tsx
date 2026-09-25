@@ -15,6 +15,7 @@ import { supabase } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
+import { CaptureSheet } from '../src/components/CaptureSheet';
 
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
@@ -155,8 +156,15 @@ export default function Root() {
       </Stack>
       {/* Above everything, including the native modals — a reward that appears
           behind the screen you earned it on is not a reward. */}
+      <TellNu />
       <Celebrate />
       <Toast />
     </>
   );
+}
+
+/** Tell Nu, over whichever screen you're on — opened by the tab bar's round button. */
+function TellNu() {
+  const telling = useStore(s => s.telling);
+  return <CaptureSheet visible={telling} onClose={() => useStore.setState({ telling: false })} />;
 }

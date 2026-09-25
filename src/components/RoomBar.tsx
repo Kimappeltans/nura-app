@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { startEngine } from '../learn/engine';
 import { View, Text, Pressable, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +20,8 @@ const wordmark = require('../../assets/brand/wordmark-tight.webp');
 export function RoomBar({ title = 'Nura', who = 'nu' }: { title?: string; who?: 'nu' | 'ra' }) {
   const t = useTheme();
   const [more, setMore] = useState(false);
+  // the learning's weekly notes: collected or queued once a day, from whichever room opens first
+  useEffect(() => { startEngine(); }, []);
   // below the status bar with room to breathe; where there's no status bar
   // (the web, some iPads) it still keeps off the top edge
   const insets = useSafeAreaInsets();

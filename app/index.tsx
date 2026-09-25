@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useStore, useTheme } from '../src/store';
@@ -11,7 +11,6 @@ import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
-import { CaptureSheet } from '../src/components/CaptureSheet';
 import { World } from '../src/world';
 
 /**
@@ -26,23 +25,20 @@ export default function Index() {
   const { mode, onboarded, refresh } = useStore();
   const tab = useStore(s => s.tab);
   const setTab = (k: Tab) => useStore.setState({ tab: k });
-  const [capturing, setCapturing] = useState(false);
   useFocusEffect(useCallback(() => { refresh(); }, []));
 
   if (onboarded === null) return <Loading />;
   if (!onboarded) return <Onboarding />;
   if (mode === 'ra') return <Ra />;
 
-  const capture = () => setCapturing(true);
   return (
     <View style={{ flex: 1, backgroundColor: t.base }}>
       <View style={{ flex: 1 }}>
-        {tab === 'home' && <Home onTab={setTab} onCapture={capture} />}
-        {tab === 'tasks' && <Tasks onCapture={capture} />}
+        {tab === 'home' && <Home onTab={setTab} />}
+        {tab === 'tasks' && <Tasks />}
         {tab === 'day' && <World kind="mixed"><Day /></World>}
       </View>
       <TabBar />
-      <CaptureSheet visible={capturing} onClose={() => setCapturing(false)} />
     </View>
   );
 }

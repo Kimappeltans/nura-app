@@ -33,7 +33,7 @@ const ATTENTION_MAX = 3;
  * sits quietly at the bottom. The backlog pass is "Sort", on Today.
  * (The earlier list version is src/legacy/Tasks.tsx.)
  */
-export default function Tasks({ onCapture }: { onCapture: () => void }) {
+export default function Tasks() {
   const t = useTheme();
   const { inbox, todayPicked, projects, now, focusOn } = useStore();
   const { addToToday } = useTaskActions();
@@ -211,17 +211,6 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
           </>
         )}
       </ScrollView>
-
-      {/* add — Capture, like everywhere else */}
-      <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Add a task"
-        style={({ pressed }) => ({ position: 'absolute', right: 18, bottom: 16, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
-        <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{
-          width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-          shadowColor: '#FF6B35', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 8 },
-        }}>
-          <Text style={{ color: t.onRa, fontSize: 28, lineHeight: 31, fontFamily: T.brand }}>+</Text>
-        </LinearGradient>
-      </Pressable>
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />

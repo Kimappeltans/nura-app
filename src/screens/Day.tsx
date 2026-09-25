@@ -17,6 +17,7 @@ import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { Sheet } from '../components/Sheet';
 import { NuGlow, NU_SIZE } from '../components/NuGlow';
+import { Suggestions } from '../components/Suggestions';
 
 const DAY = 86400_000;
 const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -145,6 +146,9 @@ export default function Day() {
             </View>
           </View>
         </View>
+
+        {/* what Nu and Ra noticed — the learning, with Yes / Not now */}
+        {isToday && <View style={{ marginBottom: 14 }}><Suggestions /></View>}
 
         {/* now: the one thing that fits before the next anchor */}
         {nowTask && (

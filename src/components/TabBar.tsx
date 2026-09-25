@@ -54,29 +54,44 @@ export function TabBar() {
     else if (path !== '/') router.replace('/');
   };
   const insets = useSafeAreaInsets();
+  const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
   return (
-    <View style={{
-      flexDirection: 'row', paddingHorizontal: 15, paddingTop: 6, paddingBottom: Math.max(insets.bottom - 6, 10),
-      backgroundColor: t.base,
-    }} accessibilityRole="tablist">
+    <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: Math.max(insets.bottom - 4, 12), backgroundColor: t.base }}>
       {/* no hard edge: the room fades into the bar */}
       <LinearGradient pointerEvents="none" colors={[`${t.base}00`, t.base]}
         style={{ position: 'absolute', left: 0, right: 0, top: -26, height: 26 }} />
-      {TABS.map(x => {
-        const on = x.key === tab;
-        return (
-          <Pressable key={x.key} onPress={() => { Haptics.selectionAsync(); onTab(x.key); }}
-            accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={x.label}
-            style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 8, paddingBottom: 4 }}>
-            {on && (
-              <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={{ position: 'absolute', top: 0, width: 22, height: 2.5, borderRadius: 2 }} />
-            )}
-            {x.icon(on ? (t.key === 'nu' ? t.raSoft : t.raDeep) : t.ink3)}
-            <Text style={{ color: on ? t.ink : t.ink3, fontSize: 11, fontFamily: T.brand }}>{x.label}</Text>
-          </Pressable>
-        );
-      })}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {/* the three rooms, in one floating pill */}
+        <View accessibilityRole="tablist" style={{
+          flex: 1, flexDirection: 'row', height: 62, borderRadius: 31, padding: 5,
+          borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer,
+        }}>
+          {TABS.map(x => {
+            const on = x.key === tab;
+            return (
+              <Pressable key={x.key} onPress={() => { Haptics.selectionAsync(); onTab(x.key); }}
+                accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={x.label}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 26, backgroundColor: on ? t.raWash : 'transparent' }}>
+                {x.icon(on ? warm : t.ink3)}
+                <Text style={{ color: on ? t.ink : t.ink3, fontSize: 10.5, fontFamily: T.brand }}>{x.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {/* Tell Nu — the one way in, from anywhere */}
+        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); useStore.setState({ telling: true }); }}
+          accessibilityRole="button" accessibilityLabel="Tell Nu anything"
+          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.95 : 1 }] })}>
+          <LinearGradient colors={t.nuBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{
+            width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center',
+            shadowColor: t.nuBtn[0], shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
+          }}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={t.onNu} strokeWidth={2.2} strokeLinecap="round">
+              <Path d="M12 5v14M5 12h14" />
+            </Svg>
+          </LinearGradient>
+        </Pressable>
+      </View>
     </View>
   );
 }

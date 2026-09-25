@@ -59,6 +59,8 @@ interface State {
   trial: Trial;
   /** which room is open; the tab bar on any screen changes it */
   tab: Tab;
+  /** Tell Nu is open — the tab bar's round button, on every screen that has it */
+  telling: boolean;
   /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
   dayEndMin: number;
   setDayEnd: (min: number) => Promise<void>;
@@ -87,7 +89,7 @@ export const useStore = create<State>((set, get) => ({
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
-  session: null, authLoading: true, trial: 'night', tab: 'home', dayEndMin: 21 * 60, sheetTrial: 'dark',
+  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, dayEndMin: 21 * 60, sheetTrial: 'dark',
   setSession: (session) => set({ session }),
 
   finishOnboarding: async () => {

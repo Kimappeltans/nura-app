@@ -4,30 +4,25 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput, PanResponder } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
 import { complete, endSession, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
 import { writeFocusBlock } from '../src/calendar';
 import { reconcileNudges } from '../src/notifications';
 import { stepForTask } from '../src/projects';
-import { Primary, Ghost, Mica, Character } from '../src/ui';
+import { Primary, Ghost, Mica, Character, vary } from '../src/ui';
 import { type as T, copy, radius } from '../src/theme';
 import { VoiceCommandButton } from '../src/components/Voice';
 import { useVoiceCommands } from '../src/voice';
 
 const FIVE = 5 * 60;
-const R = 89, C = 2 * Math.PI * R;
-const DIAL_CENTER = 103;
 const MIN_MIN = 5, MAX_MIN = 90, STEP_MIN = 5;
 
-/** Touch position on the ring -> a length in minutes. 0° is straight up
- *  (the ring's visual start, since the SVG below is rotated -90°) and
- *  degrees increase clockwise, same direction the ring itself fills. */
-function angleToMinutes(x: number, y: number) {
-  const dx = x - DIAL_CENTER, dy = y - DIAL_CENTER;
-  const deg = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
-  const raw = MIN_MIN + (deg / 360) * (MAX_MIN - MIN_MIN);
+/** The horizon is the length control on a timed session: how far along it you touch. */
+function xToMinutes(x: number, width: number) {
+  const f = Math.max(0, Math.min(1, x / Math.max(1, width)));
+  const raw = MIN_MIN + f * (MAX_MIN - MIN_MIN);
   return Math.max(MIN_MIN, Math.min(MAX_MIN, Math.round(raw / STEP_MIN) * STEP_MIN));
 }
 
@@ -74,6 +69,10 @@ function Timer() {
   const [thought, setThought] = useState('');
   // 'work' is the task itself; 'breakOffer' asks; 'break' is the pause running.
   const [phase, setPhase] = useState<'work' | 'breakOffer' | 'break'>('work');
+  const [spent, setSpent] = useState(0);      // minutes, for the Done screen
+  const next = useStore(s => s.now);          // what Nu has next, once this one is done
+  const focusOn = useStore(s => s.focusOn);
+  const toNu = useStore(s => s.toNu);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // The task actually being timed — NOT store.now. `now` is the engine's
@@ -135,6 +134,7 @@ function Timer() {
   const askingRef = useRef(asking);
   useEffect(() => { askingRef.current = asking; }, [asking]);
   const dragMins = useRef(Math.round(initial / 60));
+  const trackW = useRef(300);
 
   const dial = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => phaseRef.current === 'work' && !askingRef.current,
@@ -143,12 +143,12 @@ function Timer() {
       setDragging(true);
       if (tick.current) clearInterval(tick.current);
       Haptics.selectionAsync();
-      const m = angleToMinutes(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      const m = xToMinutes(evt.nativeEvent.locationX, trackW.current);
       dragMins.current = m;
       setSpan(m * 60); setLeft(m * 60);
     },
     onPanResponderMove: (evt) => {
-      const m = angleToMinutes(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      const m = xToMinutes(evt.nativeEvent.locationX, trackW.current);
       if (m !== dragMins.current) { Haptics.selectionAsync(); dragMins.current = m; }
       setSpan(m * 60); setLeft(m * 60);
     },
@@ -194,6 +194,7 @@ function Timer() {
     (globalThis as any).__nuraRunning?.(null);
     if (id) {
       const minutes = Math.round((Date.now() - startedAt.current) / 6000) / 10;
+      setSpent(Math.max(1, Math.round(minutes)));
       await logEvent('session_end', id, {
         minutes, planned: Math.round(span / 60), est: task?.est_minutes ?? null, done,
       });
@@ -255,6 +256,7 @@ function Timer() {
   const breakMins = breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
   const spanMinsNum = Math.round(span / 60);
   const ringColors = onBreak ? t.nuBtn : t.raBtn;
+  const workPose = vary(['ra-rest', 'ra-sun', 'ra-hello'] as const, id);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
@@ -265,41 +267,78 @@ function Timer() {
         </Text>
         <Text style={{ color: t.ink3, fontSize: 12.5, marginBottom: 20 }}>
           {phase === 'breakOffer'
-            ? "you earned it"
-            : dragging ? 'Turning the ring changes the length'
+            ? `${spent} minute${spent === 1 ? '' : 's'}`
+            : dragging ? 'Slide to change the length'
             : onBreak ? `Back in ${breakMins} minutes` : open ? '' : `${spanMinsNum} minutes`}
         </Text>
 
         {phase !== 'breakOffer' && (
           <>
-            {/* an analog ring, not digits — a shrinking arc is felt, "4:12" is
-                read and forgotten. During the work clock (not the break, not
-                the "keep going?" ask) it's also the length control: hold it
-                and turn it, same gesture as turning a real dial. */}
-            <View
-              {...(!onBreak && !asking && !open ? dial.panHandlers : {})}
-              style={{ width: 206, height: 206, alignItems: 'center', justifyContent: 'center' }}>
-              <Svg width={206} height={206} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+            {/* Ra, working alongside you — celebrating when the time is up */}
+            <View style={{ width: 220, height: 196, alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={240} height={240} style={{ position: 'absolute', left: -10, top: -22 }}>
                 <Defs>
-                  <LinearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                    <Stop offset="0" stopColor={ringColors[0]} /><Stop offset="1" stopColor={ringColors[1]} />
-                  </LinearGradient>
+                  <RadialGradient id="raglow" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0" stopColor={onBreak ? t.nuSoft : t.raSoft} stopOpacity={0.45} />
+                    <Stop offset="1" stopColor={onBreak ? t.nuSoft : t.raSoft} stopOpacity={0} />
+                  </RadialGradient>
                 </Defs>
-                <Circle cx={103} cy={103} r={R} stroke={t.track} strokeWidth={9} fill="none" />
-                <Circle cx={103} cy={103} r={R} stroke="url(#g)" strokeWidth={9} fill="none"
-                  strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - progress)} />
+                <Circle cx={120} cy={120} r={120} fill="url(#raglow)" />
               </Svg>
-              <Text style={{ color: t.ink, fontSize: 42, fontFamily: T.displayLight }}>{mm}:{ss}</Text>
-              <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 2, marginTop: 6 }}>
-                {dragging ? 'LENGTH' : onBreak ? 'BREAK' : asking ? 'COMPLETE' : open ? 'SO FAR' : 'REMAINING'}
-              </Text>
+              <Character key={asking ? 'up' : onBreak ? 'rest' : 'work'}
+                name={asking ? 'ra-celebrate' : onBreak ? 'ra-rest' : workPose}
+                size={asking ? 160 : 180} motion={asking ? 'celebrate' : 'bob'} />
             </View>
 
-            {asking && <Character name="ra-celebrate" size={104} motion="celebrate" />}
+            <Text style={{ color: t.ink, fontSize: 60, fontFamily: T.displayLight, letterSpacing: -1.5, marginTop: 4 }}>{mm}:{ss}</Text>
+            <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 2 }}>
+              {dragging ? 'LENGTH' : onBreak ? 'BREAK' : asking ? 'COMPLETE' : open ? 'SO FAR' : 'REMAINING'}
+            </Text>
+
+            {/* the horizon: the sun moves along it as the session runs; on a
+                timed session, hold it and slide to change the length */}
+            <View {...(!onBreak && !asking && !open ? dial.panHandlers : {})}
+              onLayout={e => { trackW.current = e.nativeEvent.layout.width; }}
+              style={{ width: '100%', height: 36, justifyContent: 'center', marginTop: 18 }}>
+              <View style={{ height: 4, borderRadius: 2, backgroundColor: t.track, overflow: 'hidden' }}>
+                <View style={{ width: `${progress * 100}%`, height: '100%', borderRadius: 2, backgroundColor: ringColors[0] }} />
+              </View>
+              <View style={{
+                position: 'absolute', left: `${progress * 100}%`, marginLeft: -10, width: 20, height: 20, borderRadius: 10,
+                backgroundColor: ringColors[1], borderWidth: 3, borderColor: t.base,
+                shadowColor: ringColors[0], shadowOpacity: 0.6, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+              }} />
+            </View>
+            <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ color: t.ink3, fontSize: 12 }}>
+                {new Date(startedAt.current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </Text>
+              <Text style={{ color: t.ink3, fontSize: 12 }}>
+                {open ? (task?.est_minutes ? `≈ ${task.est_minutes} min` : '') : `${spanMinsNum} min`}
+              </Text>
+            </View>
           </>
         )}
 
-        {phase === 'breakOffer' && <Character name="ra-celebrate" size={128} motion="celebrate" />}
+        {phase === 'breakOffer' && (
+          <View style={{ width: 300, height: 230, marginTop: 6 }}>
+            <Svg width={320} height={280} style={{ position: 'absolute', left: -10, top: -30 }}>
+              <Defs>
+                <RadialGradient id="doneglow" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0" stopColor={t.raSoft} stopOpacity={0.5} />
+                  <Stop offset="1" stopColor={t.raSoft} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle cx={160} cy={140} r={140} fill="url(#doneglow)" />
+            </Svg>
+            <View style={{ position: 'absolute', right: 0, top: 0 }}>
+              <Character name="ra-celebrate" size={180} motion="celebrate" />
+            </View>
+            <View style={{ position: 'absolute', left: 0, bottom: 0 }}>
+              <Character name={vary(['nu-hello', 'nu-listen'] as const, id)} size={150} motion="greet" />
+            </View>
+          </View>
+        )}
 
         {/* a thought arrives mid-task. one tap parks it in Nu without leaving Ra —
             the alternative is how a five-minute task becomes a forty-minute detour.
@@ -326,11 +365,12 @@ function Timer() {
         <View style={{ width: '100%', gap: 10, marginTop: 22 }}>
           {phase === 'breakOffer' ? (
             <>
-              <Text style={{ color: t.ink2, fontSize: 14.5, textAlign: 'center', marginBottom: 4, lineHeight: 21 }}>
-                Nice work. Want a {breakMins}-minute break before the next thing?
-              </Text>
-              <Primary label={`Take ${breakMins} minutes`} tone="nu" onPress={() => runBreak(breakMins * 60)} />
-              <Ghost label="Skip, back to everything" onPress={() => goBack()} />
+              {!!next && next.id !== id && (
+                <Primary label={`Next: ${next.title}`} tone="ra"
+                  onPress={async () => { await focusOn(next.id); goBack(); }} />
+              )}
+              <Ghost label={`Take a ${breakMins}-minute break`} onPress={() => runBreak(breakMins * 60)} />
+              <Ghost label="Back to Nu" onPress={async () => { await toNu(); goBack(); }} />
             </>
           ) : onBreak ? (
             <Ghost label="Skip the rest of the break" onPress={() => goBack()} />

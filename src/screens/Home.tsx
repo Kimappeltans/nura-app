@@ -1,21 +1,18 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../store';
 import type { Task } from '../db';
 import { type as T } from '../theme';
-import { Mica, poseImage } from '../ui';
-import { NowCard } from '../components/NowCard';
-import { TaskLine, taskMeta } from '../components/TaskLine';
+import { Mica } from '../ui';
+import { NuHolds, Stones } from '../components/NuHolds';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { RoomBar } from '../components/RoomBar';
-import { SectionHead, ListCard } from '../components/ListCard';
+import { SectionHead } from '../components/ListCard';
 import { SlippingCheckIn } from '../components/SlippingCheckIn';
 import { HomeAsks } from '../components/HomeAsks';
-import { NuGlow, NU_SIZE } from '../components/NuGlow';
 import type { Tab } from '../components/TabBar';
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
@@ -25,7 +22,7 @@ export const byPriority = (a: Task, b: Task) =>
   || a.created_at - b.created_at;
 
 /** How much of what's still here Home shows before handing over to Your tasks. */
-const STILL_MAX = 4;
+const STILL_MAX = 6;
 
 /**
  * HOME — what should I do now? One clear move, then the rest can wait.
@@ -38,7 +35,7 @@ const STILL_MAX = 4;
  * Ra is in the corner here: Home is choosing and beginning.
  * The earlier homes are in src/legacy (HomeFirst, NuHome, Nu).
  */
-export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; onCapture: () => void }) {
+export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useTheme();
   const { inbox, todayPicked, projects, now, focusOn, wins, profile } = useStore();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
@@ -54,15 +51,20 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
     const p = projects.find(x => x.current?.task_id);
     return p ? inbox.find(x => x.id === p.current!.task_id) ?? null : null;
   }, [now, projects, inbox]);
-  const oneProject = one ? projectOf.get(one.id) : undefined;
+  // Choose another: what you picked instead, until it's begun or gone
+  const [choosing, setChoosing] = useState(false);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const picked = pickedId ? [...today, ...inbox].find(x => x.id === pickedId) ?? null : null;
+  const held_ = picked ?? one;
+  const oneProject = held_ ? projectOf.get(held_.id) : undefined;
 
   // still here: the rest of Today, then everything else
   const still = useMemo(() => {
     const at = Date.now();
     const later = (x: Task) => !!x.snoozed_until && x.snoozed_until > at;
     const rest = [...inbox].filter(x => !later(x)).sort(byPriority);
-    return [...today, ...rest].filter(x => x.id !== one?.id);
-  }, [today, inbox, one?.id]);
+    return [...today, ...rest].filter(x => x.id !== held_?.id);
+  }, [today, inbox, held_?.id]);
   const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneToday = wins.filter(w => w.completed_at && w.completed_at >= new Date().setHours(0, 0, 0, 0)).length;
@@ -90,39 +92,19 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
           </Text>
         </View>
 
-        <NowCard task={one} from={oneProject?.project.title}
-          onBegin={() => one && focusOn(one.id)} onOpen={() => one && setPeek(one)}
-          onAnother={() => onTab('tasks')} onPlan={() => router.push('/project/new')} />
+        {/* Nu holds it: the one thing, Begin, or Choose another */}
+        <NuHolds task={held_} from={oneProject?.project.title} yours={!!picked} choosing={choosing} others={still.slice(0, 4)}
+          onBegin={() => { if (held_) { setChoosing(false); setPickedId(null); focusOn(held_.id); } }}
+          onOpen={() => held_ && setPeek(held_)}
+          onChoose={() => setChoosing(c => !c)}
+          onPick={x => { setPickedId(x.id); setChoosing(false); }}
+          onPlan={() => router.push('/project/new')} />
 
-        {/* put anything down — Nu works out what it is */}
-        <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Add anything"
-          style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.92 : 1 })}>
-          <View style={{ height: 56, borderRadius: 15, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden' }}>
-            <LinearGradient colors={t.key === 'nu' ? ['rgba(140,151,246,0.24)', 'rgba(140,151,246,0.10)'] : [t.card, t.layer]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={{ flex: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 }}>
-              <LinearGradient colors={t.nuBtn} style={{ width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#fff', fontSize: 20, lineHeight: 23, fontFamily: T.brand }}>+</Text>
-              </LinearGradient>
-              <Text style={{ flex: 1, color: t.ink2, fontSize: 15.5 }}>Add anything…</Text>
-              {/* Nu, at the end of the bar — the one who takes it */}
-              <NuGlow size={NU_SIZE.bar}>
-                <Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.bar, height: NU_SIZE.bar }} resizeMode="contain" />
-              </NuGlow>
-            </LinearGradient>
-          </View>
-        </Pressable>
-
-        {still.length > 0 && (
+        {/* the rest of what Nu is holding */}
+        {still.length > 0 && !choosing && (
           <>
-            <SectionHead label={`Still here · ${still.length}`} action="See all" onAction={() => onTab('tasks')} />
-            <ListCard>
-              {still.slice(0, STILL_MAX).map((task, i, shown) => (
-                <TaskLine key={task.id} title={task.title} label={task.label ?? null} divider={i < shown.length - 1}
-                  meta={[projectOf.get(task.id)?.project.title, ...taskMeta(task)]}
-                  onPress={() => setPeek(task)} onHold={() => setHeld(task)} onMore={() => setPeek(task)} />
-              ))}
-            </ListCard>
+            <SectionHead label={`Nu is holding · ${still.length}`} action="See all" onAction={() => onTab('tasks')} />
+            <Stones tasks={still.slice(0, STILL_MAX)} onPress={setPeek} onHold={setHeld} />
           </>
         )}
 

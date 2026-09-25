@@ -21,6 +21,7 @@ import { VoiceCommandButton } from '../components/Voice';
 import { useVoiceCommands } from '../voice';
 import { stepForTask, type Project, type Step } from '../projects';
 import type { Energy } from '../db';
+import Svg, { Defs, RadialGradient, Stop, Circle, Path } from 'react-native-svg';
 
 const at = (days: number, h: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
 /** Set a reminder: a few times, in a tap. This evening is an hour on if it's already evening. */
@@ -64,6 +65,7 @@ export default function Ra() {
 
   const act = activityById(now?.activity);
   const raPose = vary(['ra-hello', 'ra-wave', 'ra-sun'] as const, now?.id);
+  const nuPose = vary(['nu-ask', 'nu-listen', 'nu-idle'] as const, now?.id);
   const scene = act && !isCustom(now?.activity) ? SCENES[act.id as ActivityId] : null;
   const [options, setOptions] = useState(false);    // More options, open
   const [timing, setTiming] = useState(false);      // the timer's dial, open
@@ -310,29 +312,49 @@ export default function Ra() {
           </View>
         ) : (
           <View style={{ gap: 12 }}>
-            {/* the one thing, with Ra (or the task's own scene) beside it */}
-            <Surface>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 18, minHeight: 168 }}>
-                <View style={{ flex: 1, gap: 8 }}>
-                  {!!proj && <Eyebrow label={proj.project.title} />}
-                  <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
-                    <Text style={{ color: t.ink, fontSize: 24, lineHeight: 30, fontFamily: T.display, letterSpacing: -0.6 }}>
-                      {now.title}
-                    </Text>
-                  </Pressable>
-                  {!!now.first_action && (
-                    <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{now.first_action}</Text>
-                  )}
-                  {(!!now.est_minutes || !!constraint) && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2 }}>
-                      {!!now.est_minutes && <Chip label={`≈ ${now.est_minutes} min`} />}
-                      {constraint && <Chip label={`before ${constraint.title} · ${minutesUntil(constraint)}m`} />}
-                    </View>
-                  )}
-                </View>
+            {/* the handoff: Nu passes the one thing to Ra */}
+            <View style={{ height: 184 }} pointerEvents="none">
+              <Svg width={240} height={240} style={{ position: 'absolute', right: -60, top: -40 }}>
+                <Defs>
+                  <RadialGradient id="raglow" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0" stopColor={t.raSoft} stopOpacity={0.45} />
+                    <Stop offset="1" stopColor={t.raSoft} stopOpacity={0} />
+                  </RadialGradient>
+                </Defs>
+                <Circle cx={120} cy={120} r={120} fill="url(#raglow)" />
+              </Svg>
+              <View style={{ position: 'absolute', right: -4, top: 0 }}>
                 {scene
-                  ? <Image source={scene} style={{ width: 100, height: 100 }} resizeMode="contain" />
-                  : <Character name={raPose} size={100} motion={wave ? 'greet' : 'bob'} onDone={() => setWave(false)} />}
+                  ? <Image source={scene} style={{ width: 184, height: 184 }} resizeMode="contain" />
+                  : <Character name={raPose} size={180} motion={wave ? 'greet' : 'bob'} onDone={() => setWave(false)} />}
+              </View>
+              <Svg width={130} height={70} style={{ position: 'absolute', left: 70, top: 76 }}>
+                <Path d="M6 62 C 40 14, 86 10, 124 30" stroke={t.raDeep} strokeOpacity={0.45} strokeWidth={2}
+                  strokeDasharray="3 7" strokeLinecap="round" fill="none" />
+              </Svg>
+              <View style={{ position: 'absolute', left: -4, bottom: 0 }}>
+                <Character name={nuPose} size={92} motion="none" />
+              </View>
+            </View>
+
+            {/* the one thing */}
+            <Surface>
+              <View style={{ padding: 18, gap: 8 }}>
+                {!!proj && <Eyebrow label={proj.project.title} />}
+                <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
+                  <Text style={{ color: t.ink, fontSize: 25, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
+                    {now.title}
+                  </Text>
+                </Pressable>
+                {!!now.first_action && (
+                  <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{now.first_action}</Text>
+                )}
+                {(!!now.est_minutes || !!constraint) && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2 }}>
+                    {!!now.est_minutes && <Chip label={`≈ ${now.est_minutes} min`} />}
+                    {constraint && <Chip label={`before ${constraint.title} · ${minutesUntil(constraint)}m`} />}
+                  </View>
+                )}
               </View>
             </Surface>
 

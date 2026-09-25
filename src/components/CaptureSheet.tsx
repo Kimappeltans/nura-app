@@ -11,6 +11,8 @@ import { Character, Primary, Ghost } from '../ui';
 import { MicButton } from './Voice';
 import { NuGlow, NU_SIZE } from './NuGlow';
 import { Sheet } from './Sheet';
+import { readInput } from '../coach';
+import type { StateRead } from '../learn/types';
 
 /**
  * TELL NU ANYTHING — the one way in. "Add a task" and "Say it" used to be
@@ -49,19 +51,37 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
   const [mins, setMins] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
+  // what the coach made of it, for the text it was read for (only messy text reaches the model)
+  const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
   const input = useRef<TextInput>(null);
 
-  useEffect(() => { if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); } }, [visible]);
+  useEffect(() => { if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); } }, [visible]);
+
+  // when you pause: read it properly. readInput decides on the phone first and
+  // asks the model only when the phone isn't sure
+  useEffect(() => {
+    const v = text.trim();
+    if (v.split(/\s+/).length < 4 || v.includes('\n')) return;
+    let dead = false;
+    const timer = setTimeout(() => {
+      readInput(v).then(r => { if (!dead) setSmart({ text: v, read: r }); }).catch(() => {});
+    }, 900);
+    return () => { dead = true; clearTimeout(timer); };
+  }, [text]);
 
   // what Nu makes of it, as you type
   const lines = useMemo(() => text.split('\n').map(s => s.trim()).filter(Boolean), [text]);
+  const coached = smart && smart.text === text.trim() ? smart.read : null;
   const read = useMemo(() => {
     if (!lines.length) return null;
     if (lines.length > 1) return { kind: 'many' as const, drafts: lines.map(parseTask) };
+    // one run-on sentence that was really several things
+    if (coached?.kind === 'tasks' && (coached.items?.length ?? 0) > 1) return { kind: 'many' as const, drafts: coached.items!.map(parseTask) };
+    if (coached?.kind === 'project') return { kind: 'project' as const, draft: parseTask(lines[0]) };
     const intent = route(lines[0]);
     if (intent.kind === 'vague') return { kind: 'project' as const, draft: intent.draft };
     return { kind: 'task' as const, draft: intent.kind === 'create' ? intent.draft : parseTask(lines[0]) };
-  }, [lines]);
+  }, [lines, coached]);
 
   // what you set with a tap wins over what was read from the words
   const withChoices = (d: Draft): Draft => ({
@@ -164,6 +184,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         </View>
       )}
 
+      {/* Nu answers, when there's something kind to say (a feeling, a lot at once) */}
+      {!!coached?.reply && coached.source === 'model' && (
+        <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 10, fontFamily: T.brand }}>{coached.reply}</Text>
+      )}
       {!!readback && (
         <Text style={{ color: read?.kind === 'project' ? t.nu : t.ink3, fontSize: 13, marginTop: 10 }}>{readback}</Text>
       )}
