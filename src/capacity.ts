@@ -4,7 +4,7 @@ import type { Task } from './db';
 /**
  * Does what's left of today actually fit in what's left of today?
  *
- * When the day ends is yours to set (Your day → Adjust; minutes after
+ * When the day ends is yours to set (Settings → Day ends; minutes after
  * midnight, so 1:00 AM is 1500) — it isn't a deadline, only the edge this
  * arithmetic measures to. Everything else is arithmetic: how much of the remaining
  * time is already claimed by the calendar, how much the remaining tasks

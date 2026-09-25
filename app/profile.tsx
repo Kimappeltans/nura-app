@@ -91,7 +91,7 @@ function Profile() {
           <View style={[{
             width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',
             backgroundColor: t.layer, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
-          }, elevation.e8]}>
+          }]}>
             <Character name="ra-celebrate" size={92 * stageFor(light).scale} motion="bob" />
           </View>
 
@@ -175,8 +175,7 @@ function Profile() {
                     )}
                     <View style={{ flex: 1, justifyContent: 'flex-end' }}>
                       <View style={{ width: 26, height: h, borderRadius: 13, overflow: 'hidden' }}>
-                        <LinearGradient colors={barColors(d.n)} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }}
-                          style={{ flex: 1 }} />
+                        <View style={{ flex: 1, backgroundColor: barColors(d.n)[barColors(d.n).length - 1] }} />
                       </View>
                     </View>
                     <Text style={{ color: isToday ? t.ink : t.ink3, fontSize: 11.5, fontFamily: isToday ? T.brand : undefined }}>

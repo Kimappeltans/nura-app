@@ -14,10 +14,12 @@ import { Sheet } from './Sheet';
  * MORE — behind the round button top right. A tall sheet with Nu at the top:
  * Profile, Companions, Wins, Connected apps and Settings open inside it (← to
  * come back), each with the few things you'd want at a glance and a way to
- * the full screen. The calendar lives in Your day, the backlog pass and
+ * the full screen. The calendar is its own tab, the backlog pass and
  * habits in Your tasks. (The earlier every-place menu: src/legacy/AppMenu.tsx.)
  */
 type View_ = 'menu' | 'profile' | 'companions' | 'wins' | 'connected' | 'settings';
+
+const APPEARANCE = { sun: 'By the sun', light: 'Light', dark: 'Dark' } as const;
 
 const ITEMS: { key: Exclude<View_, 'menu'>; glyph: string; label: string }[] = [
   { key: 'profile', glyph: '◎', label: 'Profile' },
@@ -29,7 +31,7 @@ const ITEMS: { key: Exclude<View_, 'menu'>; glyph: string; label: string }[] = [
 
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useTheme();
-  const { session, wins, dayEndMin, profile } = useStore();
+  const { session, wins, dayEndMin, profile, appearance } = useStore();
   const [view, setView] = useState<View_>('menu');
   const [focusMin, setFocusMin] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<boolean | null>(null);
@@ -167,7 +169,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
           )}
           {view === 'settings' && (
             <Panel>
-              <Row label="Day ends" value={endLabel} onPress={() => { onClose(); useStore.setState({ tab: 'day' }); }} />
+              <Row label="Day ends" value={endLabel} onPress={() => go('/settings')} />
+              <Row label="Appearance" value={APPEARANCE[appearance]} onPress={() => go('/settings')} />
               <Row label="Reminders, language & voice" onPress={() => go('/settings')} />
               <Row label="All settings" onPress={() => go('/settings')} />
             </Panel>

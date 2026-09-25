@@ -3,14 +3,14 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, LogBox, Platform } from 'react-native';
 import {
-  useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold,
-} from '@expo-google-fonts/poppins';
+  useFonts, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold,
+} from '@expo-google-fonts/inter-tight';
 import { getDb, migrate, dropCrumb, onOpenElsewhere, getBlockers, getFlag, setFlag } from '../src/db';
 import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
-import { useStore } from '../src/store';
+import { useStore, useRoomsLight } from '../src/store';
 import { supabase } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
@@ -33,12 +33,19 @@ if (__DEV__) LogBox.ignoreLogs(['[expo-notifications] Error reading persisted se
 export default function Root() {
   const refresh = useStore(s => s.refresh);
   const mode = useStore(s => s.mode);
+  const roomsLight = useRoomsLight();
   const onboarded = useStore(s => s.onboarded);
-  const [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold });
+  const [fontsLoaded] = useFonts({ InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold });
   const running = useRef<string | null>(null);
   const [elsewhere, setElsewhere] = useState(false);
 
   useEffect(() => onOpenElsewhere(setElsewhere), []);
+
+  // By the sun: the rooms go navy when the day you set ends, without a reload
+  useEffect(() => {
+    const id = setInterval(() => useStore.getState().tickDaylight(), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // the timer tells us which task is in flight, so backgrounding can leave a crumb
   useEffect(() => {
@@ -131,8 +138,8 @@ export default function Root() {
 
   return (
     <>
-      {/* Ra's world is light, every other world is on the navy (src/world.tsx) */}
-      <StatusBar style={mode === 'ra' ? 'dark' : 'light'} />
+      {/* Ra's world is cream; the rooms follow Settings → Appearance (src/world.tsx) */}
+      <StatusBar style={mode === 'ra' || roomsLight ? 'dark' : 'light'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="timer" options={{ presentation: 'fullScreenModal' }} />

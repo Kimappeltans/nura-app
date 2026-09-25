@@ -4,12 +4,40 @@ import type { Session } from '@supabase/supabase-js';
 import * as db from './db';
 import { activeProjects, type ProjectSummary } from './projects';
 import { nextEvent, todayEvents, type UpcomingEvent } from './calendar';
-import { nuTheme, raTheme, type Theme } from './theme';
+import { raTheme, mixedTheme, utilityTheme, type Theme } from './theme';
 import { TRIALS, type Trial, type SheetTrial } from './themeTrials';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
 
 export interface Celebration { award: Award; line: string; at: number; rankUp: Rank | null }
+
+/** Settings → Appearance (guidelines/Guidelines.md, rule 3). Nu's rooms are
+ *  light or navy; Ra's screens are cream in all three.
+ *    sun    light while your day runs, navy once it has ended (the default)
+ *    light  rooms always light
+ *    dark   rooms always navy */
+export type Appearance = 'sun' | 'light' | 'dark';
+
+/** When the day starts, for By the sun. Its end is the Day ends setting. */
+const DAY_START_MIN = 5 * 60;
+/** Is it daytime — after 5am and before the day you set ends (which can run past midnight)? */
+export function isDaylight(dayEndMin: number, at = new Date()): boolean {
+  const m = at.getHours() * 60 + at.getMinutes();
+  return dayEndMin > 24 * 60 ? m >= DAY_START_MIN || m < dayEndMin - 24 * 60 : m >= DAY_START_MIN && m < dayEndMin;
+}
+/** A focus session that's running — kept here, not in the timer screen, so
+ *  leaving it (⌄) doesn't stop it: it shows as the pill above the tab bar. */
+export interface Running {
+  id: string;
+  title: string;
+  startedAt: number;
+  /** when a timed session ends; null for an open one (it runs until you say done) */
+  endAt: number | null;
+  /** the length of the current run, seconds */
+  span: number;
+  /** set while paused */
+  pausedAt: number | null;
+}
 
 /** the three rooms — see components/TabBar.tsx */
 export type Tab = 'home' | 'tasks' | 'day';
@@ -66,6 +94,15 @@ interface State {
   setDayEnd: (min: number) => Promise<void>;
   /** TRIAL — how light the Tell Nu sheet is over a dark room */
   sheetTrial: SheetTrial;
+  appearance: Appearance;
+  setAppearance: (a: Appearance) => Promise<void>;
+  running: Running | null;
+  setRunning: (r: Running | null) => void;
+  pauseRunning: () => void;
+  resumeRunning: () => void;
+  /** By the sun: is the day still running? Kept current by a minute tick in app/_layout.tsx */
+  daylight: boolean;
+  tickDaylight: () => void;
 
   setEnergy: (e: db.Energy) => Promise<void>;
   setSession: (session: Session | null) => void;
@@ -89,7 +126,28 @@ export const useStore = create<State>((set, get) => ({
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
-  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, dayEndMin: 21 * 60, sheetTrial: 'dark',
+  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, dayEndMin: 21 * 60, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
+  setAppearance: async (appearance) => {
+    await db.setFlag('appearance', appearance);
+    set({ appearance });
+  },
+  running: null,
+  setRunning: (running) => set({ running }),
+  pauseRunning: () => {
+    const r = get().running;
+    if (r && !r.pausedAt) set({ running: { ...r, pausedAt: Date.now() } });
+  },
+  // a pause moves the whole session later, so time paused counts for nothing
+  resumeRunning: () => {
+    const r = get().running;
+    if (!r?.pausedAt) return;
+    const d = Date.now() - r.pausedAt;
+    set({ running: { ...r, startedAt: r.startedAt + d, endAt: r.endAt ? r.endAt + d : null, pausedAt: null } });
+  },
+  tickDaylight: () => {
+    const daylight = isDaylight(get().dayEndMin);
+    if (daylight !== get().daylight) set({ daylight });
+  },
   setSession: (session) => set({ session }),
 
   finishOnboarding: async () => {
@@ -146,7 +204,7 @@ export const useStore = create<State>((set, get) => ({
 
   setDayEnd: async (min) => {
     await db.setFlag('day.end', String(min));
-    set({ dayEndMin: min });
+    set({ dayEndMin: min, daylight: isDaylight(min) });
   },
 
   refresh: async () => {
@@ -154,16 +212,18 @@ export const useStore = create<State>((set, get) => ({
     // move ticked off anywhere is a step done), so the lists below agree
     const projects = await activeProjects();
     const moveIds = projects.map(p => p.current?.task_id).filter((x): x is string => !!x);
-    const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile] =
+    const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look] =
       await Promise.all([
         db.getMode(), db.currentPick(), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
         db.totalLight(), db.todayLight(),
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
-        nextEvent(), todayEvents(), db.getProfile(),
+        nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'),
       ]);
     const end = Number(await db.getFlag('day.end'));
     const dayEndMin = Number.isFinite(end) && end > 0 ? end : 21 * 60;
-    set({ dayEndMin, mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    // 'nura' was Dark's name before By the sun
+    const appearance: Appearance = look === 'light' || look === 'sun' ? look : look === 'dark' || look === 'nura' ? 'dark' : 'sun';
+    set({ dayEndMin, appearance, daylight: isDaylight(dayEndMin), mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action
@@ -197,6 +257,21 @@ export function useTheme(force?: db.Mode): Theme {
   const pinned = useContext(PinnedMode);
   const trial = useStore(s => s.trial);
   const palette = useContext(PinnedPalette);
-  if (palette) return palette;
-  return (force ?? pinned ?? mode) === 'ra' ? raTheme : TRIALS[trial];
+  const lit = useRoomsLight();
+  const world = palette === mixedTheme || palette === utilityTheme;
+  // a palette pinned for its own reasons (a sheet trial) always wins
+  if (palette && !world) return palette;
+  // Ra's screens are cream in every appearance
+  if (!palette && (force ?? pinned ?? mode) === 'ra') return raTheme;
+  // a room by daylight (By the sun) or always (Light)
+  if (lit) return raTheme;
+  // a room after dark: Nu's navy (Mixed and Utility are navies too)
+  return palette ?? TRIALS[trial];
+}
+
+/** Are Nu's rooms light right now? (Appearance: Light, or By the sun while the day runs.) */
+export function useRoomsLight(): boolean {
+  const appearance = useStore(s => s.appearance);
+  const daylight = useStore(s => s.daylight);
+  return appearance === 'light' || (appearance === 'sun' && daylight);
 }

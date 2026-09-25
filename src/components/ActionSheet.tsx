@@ -47,7 +47,7 @@ export function ActionSheet(
           backgroundColor: t.layer, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
           borderWidth: 1, borderColor: t.strokeStrong, borderBottomWidth: 0,
           paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, maxHeight: height * 0.88,
-        }, elevation.e16]}>
+        }]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />
 
           <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>

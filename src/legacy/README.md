@@ -19,5 +19,5 @@ The design these were replaced by is `design/nura-redesign-prototype.html`.
 Still routes, no longer linked from the new navigation: `app/chat.tsx` ("Say it to Ra" —
 Capture does its job now) and `app/tide.tsx` (Your day as a modal — it's a tab now).
 
-The Your day tab is `src/screens/Day.tsx`; `src/screens/Tide.tsx` (its first version, with `room`) still backs the `/tide` route.
+`Day.tsx` is the Your Day tab, replaced by the Calendar tab (`src/screens/Calendar.tsx`) on 25 September 2026 — Home already shows how today is going. Import it in `app/index.tsx` in place of `Calendar` to restore it. `src/screens/Tide.tsx` (its first version, with `room`) still backs the `/tide` route.
 The original Nu (`nu-listen`, dark engraved features) is `assets/legacy/story/nu-listen.webp`.

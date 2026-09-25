@@ -1,5 +1,4 @@
 import { View, Text, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T, radius } from '../theme';
@@ -47,8 +46,7 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
           marginLeft: NU - 44, borderRadius: 22, borderBottomLeftRadius: 6, overflow: 'hidden',
           borderWidth: 1, borderColor: t.strokeStrong,
         }}>
-          <LinearGradient colors={t.key === 'nu' ? ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.05)'] : [t.card, t.layer]}
-            start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
+          <View style={{ position: 'absolute', inset: 0, backgroundColor: t.card }} />
           <View style={{ padding: 16, gap: 8 }}>
             {task ? (
               <>
@@ -100,35 +98,116 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
   );
 }
 
+/** Stones aren't rectangles: a few slightly uneven shapes, taken in turn. */
+const SHAPES = [
+  { borderTopLeftRadius: 22, borderTopRightRadius: 26, borderBottomRightRadius: 20, borderBottomLeftRadius: 24 },
+  { borderTopLeftRadius: 26, borderTopRightRadius: 20, borderBottomRightRadius: 24, borderBottomLeftRadius: 22 },
+  { borderTopLeftRadius: 20, borderTopRightRadius: 24, borderBottomRightRadius: 26, borderBottomLeftRadius: 20 },
+];
+const when = (x: Task) => [
+  x.due_at ? new Date(x.due_at).toLocaleDateString(undefined, { weekday: 'short' }) : null,
+  x.est_minutes ? `${x.est_minutes} min` : null,
+].filter(Boolean).join(' · ');
+
 /**
- * The rest of what Nu is holding, as stones — each one a thing, not a row in
- * a table. Tap to look at it, hold for what you can do with it.
+ * What Nu is holding, as stones — each one a thing, not a row in a table.
+ * Tap to look at it, hold for what you can do with it. `sunk` is Later:
+ * further down, quieter. `risen` is done: lit, with a tick.
  */
-export function Stones({ tasks, onPress, onHold }: { tasks: Task[]; onPress: (t: Task) => void; onHold: (t: Task) => void }) {
+export function Stones({ tasks, onPress, onHold, sunk, risen, meta }: {
+  tasks: Task[];
+  onPress?: (t: Task) => void;
+  onHold?: (t: Task) => void;
+  sunk?: boolean;
+  risen?: boolean;
+  /** what the line under the title says; by default its day and length */
+  meta?: (t: Task) => string | null;
+}) {
   const t = useTheme();
-  const SHAPES = [
-    { borderTopLeftRadius: 22, borderTopRightRadius: 26, borderBottomRightRadius: 20, borderBottomLeftRadius: 24 },
-    { borderTopLeftRadius: 26, borderTopRightRadius: 20, borderBottomRightRadius: 24, borderBottomLeftRadius: 22 },
-    { borderTopLeftRadius: 20, borderTopRightRadius: 24, borderBottomRightRadius: 26, borderBottomLeftRadius: 20 },
-  ];
+  const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {tasks.map((x, i) => (
-        <Pressable key={x.id} onPress={() => onPress(x)}
-          onLongPress={() => { Haptics.selectionAsync(); onHold(x); }}
-          accessibilityRole="button" accessibilityLabel={x.title}
-          style={({ pressed }) => ({
-            ...SHAPES[i % SHAPES.length], maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 10,
-            borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
-          })}>
-          <Text numberOfLines={1} style={{ color: t.ink, fontSize: 14.5, maxWidth: 230 }}>{x.title}</Text>
-          {(!!x.est_minutes || !!x.due_at) && (
-            <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 11.5, marginTop: 2 }}>
-              {[x.due_at ? new Date(x.due_at).toLocaleDateString(undefined, { weekday: 'short' }) : null, x.est_minutes ? `${x.est_minutes} min` : null].filter(Boolean).join(' · ')}
-            </Text>
-          )}
-        </Pressable>
-      ))}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, opacity: sunk ? 0.62 : 1 }}>
+      {tasks.map((x, i) => {
+        const sub = meta ? meta(x) : when(x);
+        return (
+          <Pressable key={x.id} onPress={onPress ? () => onPress(x) : undefined} disabled={!onPress && !onHold}
+            onLongPress={onHold ? () => { Haptics.selectionAsync(); onHold(x); } : undefined}
+            accessibilityRole="button" accessibilityLabel={x.title}
+            style={({ pressed }) => ({
+              ...SHAPES[i % SHAPES.length], maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 9,
+              paddingHorizontal: 14, paddingVertical: sunk ? 8 : 10, borderWidth: 1,
+              borderColor: risen ? 'rgba(255,139,88,0.30)' : t.stroke,
+              backgroundColor: pressed ? t.subtle : risen ? t.raWash : sunk ? t.layer : t.card,
+            })}>
+            {risen && <Text style={{ color: warm, fontSize: 13, fontFamily: T.brand }}>✓</Text>}
+            <View style={{ flexShrink: 1 }}>
+              <Text numberOfLines={1} style={{ color: t.ink, fontSize: sunk ? 13.5 : 14.5, maxWidth: 230 }}>{x.title}</Text>
+              {!!sub && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 11.5, marginTop: 2 }}>{sub}</Text>}
+            </View>
+          </Pressable>
+        );
+      })}
     </View>
+  );
+}
+
+/** A stone that needs you today: the whole width, and a way straight in. */
+export function BigStone({ task, meta, index = 0, onPress, onHold, onStart }: {
+  task: Task; meta?: string; index?: number;
+  onPress: () => void; onHold: () => void; onStart: () => void;
+}) {
+  const t = useTheme();
+  const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
+  return (
+    // not a button itself: the start button sits inside it, and a button
+    // can't hold a button (on the web that's <button> in <button>)
+    <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onHold(); }}
+      accessibilityLabel={task.title}
+      style={({ pressed }) => ({
+        ...SHAPES[index % SHAPES.length], borderTopLeftRadius: SHAPES[index % SHAPES.length].borderTopLeftRadius + 4,
+        overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,139,88,0.30)', opacity: pressed ? 0.9 : 1,
+      })}>
+      <View style={{ position: 'absolute', inset: 0, backgroundColor: t.card }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingLeft: 16, paddingRight: 12 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={2} style={{ color: t.ink, fontSize: 16.5, lineHeight: 21, fontFamily: T.brand }}>{task.title}</Text>
+          {!!meta && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12.5, marginTop: 3 }}>{meta}</Text>}
+        </View>
+        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onStart(); }} hitSlop={8}
+          accessibilityRole="button" accessibilityLabel={`Start ${task.title}`}
+          style={({ pressed }) => ({
+            width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+            borderWidth: 1, borderColor: 'rgba(255,139,88,0.40)', backgroundColor: pressed ? t.raWash : 'rgba(255,107,53,0.10)',
+          })}>
+          <Text style={{ color: warm, fontSize: 13, marginLeft: 2 }}>▶</Text>
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
+/** A project as a stone: its name, what's left, and its path as a row of dots — lit as the moves are done. */
+export function PathStone({ title, done, total, index = 0, onPress }: {
+  title: string; done: number; total: number; index?: number; onPress: () => void;
+}) {
+  const t = useTheme();
+  const left = total - done;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
+      style={({ pressed }) => ({
+        ...SHAPES[index % SHAPES.length], width: 188, padding: 14, gap: 4,
+        borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
+      })}>
+      <Text numberOfLines={1} style={{ color: t.ink, fontSize: 14.5, fontFamily: T.brand }}>{title}</Text>
+      <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12 }}>{`${left} move${left === 1 ? '' : 's'} left`}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+        {Array.from({ length: Math.min(total, 14) }, (_, i) => (
+          <View key={i} style={{
+            width: 9, height: 9, borderRadius: 5,
+            backgroundColor: i < done ? t.ra : 'transparent', borderWidth: 1.5, borderColor: i < done ? t.ra : t.strokeStrong,
+          }} />
+        ))}
+      </View>
+    </Pressable>
   );
 }

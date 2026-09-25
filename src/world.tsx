@@ -1,6 +1,6 @@
 import type React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { PinnedMode, PinnedPalette } from './store';
+import { PinnedMode, PinnedPalette, useRoomsLight } from './store';
 import { mixedTheme, utilityTheme } from './theme';
 
 /**
@@ -25,9 +25,11 @@ import { mixedTheme, utilityTheme } from './theme';
 export type WorldKind = 'nu' | 'ra' | 'mixed' | 'utility';
 
 export function World({ kind, children }: { kind: WorldKind; children: React.ReactNode }) {
+  // Ra's world is always cream; the rest follow Settings → Appearance
+  const light = kind === 'ra' || useRoomsLight();
   const body = (
     <>
-      <StatusBar style={kind === 'ra' ? 'dark' : 'light'} />
+      <StatusBar style={light ? 'dark' : 'light'} />
       {children}
     </>
   );

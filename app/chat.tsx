@@ -8,7 +8,6 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useStore } from '../src/store';
 import { capture, todayList, inbox as inboxQuery } from '../src/db';
 import { route, describe, type Draft } from '../src/assistant';
@@ -155,9 +154,9 @@ function Chat() {
     return (
       <View style={[{
         borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
-        borderWidth: 1, borderColor: `${c}44`,
-      }, elevation.e4]}>
-        <LinearGradient colors={[`${c}2E`, `${c}10`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        borderWidth: 1, borderColor: `${c}44`, backgroundColor: `${c}1C`,
+      }]}>
+        <View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1, padding: 14, paddingRight: 4 }}>
               <Text style={{ color: t.ink, fontSize: 17, fontFamily: T.display, lineHeight: 23 }}>
@@ -234,7 +233,7 @@ function Chat() {
               </>
             )}
           </View>
-        </LinearGradient>
+        </View>
       </View>
     );
   };
@@ -251,7 +250,7 @@ function Chat() {
       <View style={[{
         borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
         borderWidth: 1, borderColor: `${t.ra}44`,
-      }, elevation.e4]}>
+      }]}>
         <View style={{ backgroundColor: t.raWash, padding: 14, gap: 10 }}>
           <Text style={{ color: t.raDeep, fontSize: 11, letterSpacing: 1.8, fontFamily: T.brand }}>
             TOO BIG TO START

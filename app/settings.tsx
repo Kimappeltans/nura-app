@@ -19,6 +19,11 @@ import { askToReplayIntro } from '../src/intro';
 import { LANGUAGES, getLanguage, setLanguage, languageName, type LangCode } from '../src/planner';
 import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, setChosenVoice, say, type VoiceOption } from '../src/voice';
 
+/** The times a day can end: 9 PM to 1 AM (minutes after midnight, past 24h for after it). */
+const DAY_ENDS = [21 * 60, 22 * 60, 23 * 60, 24 * 60, 25 * 60];
+const dayEndLabel = (m: number) => m === 24 * 60 ? 'Midnight'
+  : new Date(new Date().setHours(0, m, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
 /**
  * Settings.
  *
@@ -30,7 +35,7 @@ import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, se
  */
 function Settings() {
   const t = useTheme();
-  const { light, total, session } = useStore();
+  const { light, total, session, appearance, setAppearance, dayEndMin, setDayEnd } = useStore();
   const [cal, setCal] = useState(false);
   const [notif, setNotif] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -38,7 +43,7 @@ function Settings() {
   const [aloud, setAloud] = useState(false);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [voice, setVoice] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'lang' | 'voice' | null>(null);
+  const [sheet, setSheet] = useState<'lang' | 'voice' | 'dayEnd' | null>(null);
 
   // useFocusEffect, not a mount-only effect — this screen stays mounted
   // underneath Integrations/Connect while the user grants permissions there,
@@ -200,6 +205,27 @@ function Settings() {
         </Group>
 
 
+        <Group title="Your day">
+          <Row title="Day ends"
+            right={<Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{dayEndLabel(dayEndMin)}</Text>}
+            onPress={() => setSheet('dayEnd')} />
+        </Group>
+
+        <Group title="Appearance">
+          {([
+            ['sun', 'By the sun', 'Light while your day runs, dark once it ends'],
+            ['light', 'Light', undefined],
+            ['dark', 'Dark', undefined],
+          ] as const).map(([key, title, sub], i) => (
+            <View key={key}>
+              {i > 0 && <Divider />}
+              <Row title={title} sub={sub}
+                right={appearance === key ? <IconCheck size={18} color={t.ra} /> : <View style={{ width: 18 }} />}
+                onPress={() => setAppearance(key)} />
+            </View>
+          ))}
+        </Group>
+
         <Group title="Language &amp; voice">
           <Row
             title="Language for Nu and Ra"
@@ -280,6 +306,10 @@ function Settings() {
           {' '}When you ask Nu to plan something bigger, that goal, your answers and the project’s steps are sent to Nura’s planner to work out the next move. They aren’t kept there.
         </Text>
 
+        <ActionSheet visible={sheet === 'dayEnd'} title="When should your day end?" dismissLabel="Close" onDismiss={() => setSheet(null)}
+          actions={DAY_ENDS.map(m => ({
+            key: String(m), glyph: m === dayEndMin ? '✓' : '·', label: dayEndLabel(m), onPress: () => setDayEnd(m),
+          }))} />
         <ActionSheet visible={sheet === 'lang'} title="Language for Nu and Ra" dismissLabel="Close" onDismiss={() => setSheet(null)}
           actions={LANGUAGES.map(l => ({
             key: l.code, glyph: l.code === lang ? '✓' : '·', label: l.name, onPress: () => pickLanguage(l.code),

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Image, Animated, Easing, AccessibilityInfo, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Path, Defs, RadialGradient, LinearGradient as SvgGradient, Stop, Rect, Polygon, Ellipse } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import { DotSun } from './Handoff';
 import { type as T, radius } from '../theme';
 import { Primary, poseImage } from '../ui';
 import { logEvent } from '../db';
@@ -18,15 +18,7 @@ const STONE_ASPECT = 944 / 833;           // the tight crop's height / width
 
 /** The night and the dawn — a one-off illustration, like OneRises' sunrise,
  *  so the colours live here rather than in theme.ts. */
-const NIGHT = ['#070B22', '#0B1029', '#141C46'] as const;
-/** The sunrise sky over the water: a pale, soft dawn — dusty lilac down to
- *  peach at the horizon — light enough that the figures and the story
- *  stand out against it rather than compete with it. */
-const DAWN = ['#6F6FA0', '#A99BC0', '#DDBFC6', '#F6D8C8', '#FCE7D8'] as const;
-const DAWN_STOPS = [0, 0.3, 0.6, 0.85, 1] as const;
-/** The sun itself, as on "One thing rises": pale gold into sunrise orange. */
-const SUN = ['#FFF0D6', '#FFB067', '#FF7A3D'] as const;
-
+const NIGHT = ['#070B22', '#0B1029', '#141C46'] as const;   // [1] is the ground
 /**
  * The story. The first words anyone reads in Nura, so they tell what it's
  * for before any name means anything — and each name arrives with the thing
@@ -75,14 +67,7 @@ function Water({ width, height, still }: { width: number; height: number; still:
     }}>
       {[0, 1].map(i => (
         <Svg key={i} width={width} height={floor}>
-          <Defs>
-            <SvgGradient id={`${id}${i}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#153E6A" stopOpacity="0.72" />
-              <Stop offset="0.4" stopColor="#102749" stopOpacity="0.93" />
-              <Stop offset="1" stopColor="#0A1733" stopOpacity="1" />
-            </SvgGradient>
-          </Defs>
-          <Path d={`${line(amp, y)} V ${floor} H 0 Z`} fill={fill === 'deep' ? `url(#${id}${i})` : fill} />
+          <Path d={`${line(amp, y)} V ${floor} H 0 Z`} fill={fill === 'deep' ? 'rgba(14,34,66,0.9)' : fill} />
           <Path d={line(amp, y)} stroke={stroke} strokeWidth={2.2} fill="none" />
         </Svg>
       ))}
@@ -127,7 +112,6 @@ function Bubble({ text, tone, style }: { text: string; tone: 'nu' | 'ra'; style:
       position: 'absolute', maxWidth: 150, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 14,
       backgroundColor: tone === 'nu' ? '#EEF0FF' : '#FFF1E6',
       borderWidth: 1, borderColor: tone === 'nu' ? 'rgba(67,56,202,0.18)' : 'rgba(194,65,12,0.18)',
-      shadowColor: '#0B1029', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
     }, style]}>
       <Text style={{ color: tone === 'nu' ? '#1A1D5A' : '#5A1E04', fontSize: 13.5, lineHeight: 18, fontFamily: T.brand }}>{text}</Text>
     </View>
@@ -254,59 +238,21 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
     // anything hanging off the bottom would make the page scroll
     <View style={{ flex: 1, backgroundColor: NIGHT[1], overflow: 'hidden' }}>
       <StatusBar style={beat >= SUN_AT ? 'dark' : 'light'} />
-      <LinearGradient colors={NIGHT} style={{ position: 'absolute', inset: 0 }} />
 
       {/* dawn: the sunrise sky, down to an orange horizon */}
       <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: waterY + 2, opacity: dawn }}>
-        <LinearGradient colors={DAWN} locations={DAWN_STOPS} style={{ flex: 1 }} />
+        <View style={{ flex: 1, backgroundColor: '#FAF7F0' }} />
       </Animated.View>
-      {/* the glow around the sun — sized to the screen, with the gradient
-          placed on the sun: a view bigger than the screen can be scrolled
-          sideways on the web */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: dawn }}>
-        <Svg width={W} height={H}>
-          <Defs>
-            <RadialGradient id="sunglow" gradientUnits="userSpaceOnUse" cx={sunCx} cy={sunCy} r={W * 0.7}>
-              <Stop offset="0" stopColor="#FFE2B8" stopOpacity="0.6" />
-              <Stop offset="0.2" stopColor="#FFB067" stopOpacity="0.32" />
-              <Stop offset="0.5" stopColor="#FF8A5C" stopOpacity="0.12" />
-              <Stop offset="1" stopColor="#FF6B35" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#sunglow)" />
-        </Svg>
-      </Animated.View>
-      {/* a warmer halo where Ra arrives */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: raIn }}>
-        <Svg width={W} height={H}>
-          <Defs>
-            <RadialGradient id="rahalo" gradientUnits="userSpaceOnUse" cx={raCx} cy={raCy} r={charS * 0.9}>
-              <Stop offset="0" stopColor="#FFD2A8" stopOpacity="0.45" />
-              <Stop offset="1" stopColor="#FF8A5C" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#rahalo)" />
-        </Svg>
-      </Animated.View>
-
       {/* the sun, rising out of the sea behind the stone */}
       <Animated.View pointerEvents="none" style={{
         position: 'absolute', left: sunCx - sunD / 2, top: sunTop, width: sunD, height: sunD,
         opacity: dawn.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
         transform: [{ translateY: dawn.interpolate({ inputRange: [0, 1], outputRange: [waterY - sunTop, 0] }) }],
       }}>
-        <LinearGradient colors={SUN} locations={[0, 0.45, 1]}
-          style={{ width: sunD, height: sunD, borderRadius: sunD / 2 }} />
-      </Animated.View>
-
-      {/* Ra's light landing on the stone */}
-      <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: 0, top: 0, width: W, height: H,
-        opacity: raIn.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 0.45] }),
-      }}>
-        <Svg width={W} height={H}>
-          <Polygon points={`${raCx - 14},${raCy} ${raCx + 14},${raCy} ${markX + 12},${markY} ${markX - 12},${markY}`} fill="#FFD2A8" />
-        </Svg>
+        {/* a sun made of dots, as on Focus and Done */}
+        <View style={{ position: 'absolute', left: (sunD - sunD * 1.9 - 8) / 2, top: (sunD - sunD * 1.9 - 8) / 2 }}>
+          <DotSun size={sunD * 1.9} />
+        </View>
       </Animated.View>
 
       {/* Ra, the sun's first light: arrives just after the sun, then waves */}
@@ -351,28 +297,6 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
         <Water width={W} height={H - waterY + 30} still={still} />
       </View>
 
-      {/* the sunrise on the water: warm near the surface */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: waterY - 4, height: H * 0.24, opacity: dawn }}>
-        <LinearGradient colors={['rgba(255,150,90,0.2)', 'rgba(255,120,70,0.06)', 'rgba(255,120,70,0)']} style={{ flex: 1 }} />
-      </Animated.View>
-      {/* the sun's reflection: a soft pool of light on the surface, straight
-          under the sun, wider than it is tall — no edges, and it only
-          brightens and dims with the water, so its shape never changes */}
-      <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: 0, top: 0, width: W, height: H,
-        opacity: Animated.multiply(dawn, shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] })),
-      }}>
-        <Svg width={W} height={H}>
-          <Defs>
-            <RadialGradient id="reflection" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor="#FFE0B0" stopOpacity="0.5" />
-              <Stop offset="0.5" stopColor="#FFB067" stopOpacity="0.18" />
-              <Stop offset="1" stopColor="#FF8A5C" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Ellipse cx={sunCx} cy={waterY + sunD * 0.28} rx={sunD * 0.95} ry={sunD * 0.32} fill="url(#reflection)" />
-        </Svg>
-      </Animated.View>
       {/* Nu + Ra: who they are, and the name */}
       <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: hello }}>
         <Bubble tone="nu" text="I’m Nu. I hold everything." style={{ left: nuLeft + 8, top: nuSurfaced - 46 }} />

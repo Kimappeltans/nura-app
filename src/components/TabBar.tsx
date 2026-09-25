@@ -1,20 +1,20 @@
 import type React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { router, usePathname } from 'expo-router';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
+import { LivePill } from './LivePill';
 
 /**
  * Nura is three rooms and one mode:
  *   Home      — what should I do now?
  *   Your tasks — what exists?
- *   Your day  — what's happening today, and what happened?
+ *   Calendar  — the month, and what's on a day?
  * and Focus (Ra), which has no tab bar at all: you're doing one thing.
- * Everything else (calendar, wins, the backlog pass, habits, settings…) is
+ * Everything else (wins, the backlog pass, habits, settings…) is
  * reached from inside one of the three, not given a tab of its own.
  */
 export type { Tab } from '../store';
@@ -29,7 +29,7 @@ const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] 
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round">
       <Rect x={5} y={5} width={14} height={14} rx={3} /><Path d="M8 9h8M8 12h8M8 15h5" />
     </Svg>) },
-  { key: 'day', label: 'Your Day', icon: c => (
+  { key: 'day', label: 'Calendar', icon: c => (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round">
       <Path d="M4 8h16M8 4v4M16 4v4" /><Rect x={4} y={5} width={16} height={15} rx={4} /><Path d="M8 12h3M8 15h5" />
     </Svg>) },
@@ -37,7 +37,7 @@ const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] 
 
 /**
  * The tab bar is on the three rooms and on every screen you move through from
- * them (profile, settings, wins, the calendar, a project…), so you can always
+ * them (profile, settings, wins, a project…), so you can always
  * get back. Tapping a tab — even the one you're on — closes whatever is open
  * above the rooms and shows that room. Not on modes and self-contained tasks:
  * Focus, the timer, the composer, the planner, sign-in, the opening.
@@ -57,9 +57,8 @@ export function TabBar() {
   const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: Math.max(insets.bottom - 4, 12), backgroundColor: t.base }}>
-      {/* no hard edge: the room fades into the bar */}
-      <LinearGradient pointerEvents="none" colors={[`${t.base}00`, t.base]}
-        style={{ position: 'absolute', left: 0, right: 0, top: -26, height: 26 }} />
+      {/* a session left running with ⌄ — tap to go back to it */}
+      <LivePill />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {/* the three rooms, in one floating pill */}
         <View accessibilityRole="tablist" style={{
@@ -82,14 +81,16 @@ export function TabBar() {
         <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); useStore.setState({ telling: true }); }}
           accessibilityRole="button" accessibilityLabel="Tell Nu anything"
           style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-          <LinearGradient colors={t.nuBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{
+          {/* dark, flat (rule 1): ink by day; a lifted navy with a hairline at night */}
+          <View style={{
             width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center',
-            shadowColor: t.nuBtn[0], shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
+            backgroundColor: t.key === 'nu' ? '#1E2652' : '#1B1830',
+            borderWidth: t.key === 'nu' ? 1 : 0, borderColor: 'rgba(170,185,255,0.30)',
           }}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={t.onNu} strokeWidth={2.2} strokeLinecap="round">
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round">
               <Path d="M12 5v14M5 12h14" />
             </Svg>
-          </LinearGradient>
+          </View>
         </Pressable>
       </View>
     </View>

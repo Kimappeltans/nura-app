@@ -1,5 +1,4 @@
 import { View, Text, Pressable, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
@@ -35,11 +34,7 @@ function SuggestionCard({ s, onYes, onNo }: { s: Suggestion; onYes: () => void; 
   const actionable = !!s.action && s.action.type !== 'none';
   return (
     <View style={{ borderRadius: 17, overflow: 'hidden', borderWidth: 1, borderColor: ra ? 'rgba(255,139,88,0.28)' : t.stroke }}>
-      <LinearGradient
-        colors={t.key === 'nu'
-          ? (ra ? ['rgba(255,150,100,0.12)', 'rgba(255,255,255,0.03)'] : ['rgba(140,151,246,0.14)', 'rgba(255,255,255,0.03)'])
-          : [t.card, t.layer]}
-        start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
+      <View style={{ position: 'absolute', inset: 0, backgroundColor: t.card }} />
       <View style={{ flexDirection: 'row', gap: 12, padding: 14, alignItems: 'flex-start' }}>
         {ra
           ? <Image source={poseImage('ra-icon')} style={{ width: 52, height: 52 }} resizeMode="contain" />

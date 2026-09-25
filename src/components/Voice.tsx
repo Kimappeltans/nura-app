@@ -13,28 +13,33 @@ import { useDictation, say, hush, canSpeak, useSpeaking, readsAloud } from '../v
  * you press the screen's own button. Renders nothing where the phone can't
  * listen — the field is still there to type in.
  */
-export function MicButton({ value, onChange, label = 'Speak to Nu', compact }: {
+export function MicButton({ value, onChange, label = 'Speak to Nu', compact, size = 38, onListening }: {
   value: string;
   onChange: (text: string) => void;
   label?: string;
   /** a round mic button that sits inside a field, no words */
   compact?: boolean;
+  /** the round button's size */
+  size?: number;
+  /** told when listening starts and stops (Tell Nu draws the voice in dots) */
+  onListening?: (on: boolean) => void;
 }) {
   const t = useTheme();
   const base = useRef('');
   const { state, note, toggle } = useDictation(heard => onChange([base.current, heard].filter(Boolean).join(' ')));
-  if (state === 'unavailable') return null;
   const on = state === 'listening';
+  useEffect(() => { onListening?.(on); }, [on]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (state === 'unavailable') return null;
   if (compact) {
     return (
       <Pressable onPress={() => { Haptics.selectionAsync(); if (!on) base.current = value.trim(); toggle(); }}
         accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={on ? 'Stop listening' : label}
         hitSlop={6} style={({ pressed }) => ({
-          width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+          width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
           borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
           backgroundColor: on ? t.raWash : pressed ? t.subtle : 'transparent',
         })}>
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={on ? t.ra : t.ink2} strokeWidth={2} strokeLinecap="round">
+        <Svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24" fill="none" stroke={on ? t.ra : t.ink2} strokeWidth={2} strokeLinecap="round">
           <Rect x={9} y={3} width={6} height={12} rx={3} /><Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
         </Svg>
       </Pressable>

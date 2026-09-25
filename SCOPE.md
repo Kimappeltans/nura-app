@@ -272,3 +272,8 @@ development build.
    progress bar, Skip top right, main button pinned to the bottom); the
    question became "What do you want help with?"; the profile step comes
    after the brain dump. Nu's Focus button is pinned to the bottom too.
+7. **Calendar instead of Your Day** (25 September). Home already shows how
+   today is going (the day's path, what's done, today's stack), so Your Day
+   repeated it. The third tab is now Calendar: the month of suns and the
+   picked day's flow. Day ends moved to Settings; the old screen is
+   `src/legacy/Day.tsx`.

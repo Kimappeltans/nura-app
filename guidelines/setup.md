@@ -1,33 +1,33 @@
 # Setup
 
-## No npm package (yet)
+## The app
 
-Nura's production app is React Native (Expo), not a web component library —
-there's no publishable web package to `npm install` here. Treat this kit as a
-**visual/token reference only**: apply the colors, type, spacing, and
-component patterns described in this kit's other files using plain CSS /
-Tailwind / whatever the target project already uses. Don't attempt to import
-`react-native`-specific primitives (`View`, `Pressable`,
-`expo-linear-gradient`, etc.) — they don't run in a browser.
+Nura is React Native (Expo Router) and runs on iOS and the web from the same
+code. Tokens live in `src/theme.ts`; `useTheme()` in `src/store.ts` picks the
+light for the current screen; `inWorld()` in `src/world.tsx` says which world
+a route belongs to.
 
 ## Fonts
 
-Headlines, buttons, and labels use **Poppins** (weights 500 and 600). Body
-copy uses the platform's default system font stack — do not set Poppins on
-paragraph-length text.
+**Inter Tight** everywhere, from `@expo-google-fonts/inter-tight`, loaded in
+`app/_layout.tsx` (400, 500, 600). Poppins is retired — do not add it back.
 
-```css
-font-family: 'Poppins', system-ui, sans-serif;   /* headings, buttons, labels only */
-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;  /* body */
+For HTML mockups:
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 ```
 
-Poppins loads from Google Fonts in the existing marketing site
-(`nura-site/index.html`) — self-host or use a CDN link depending on the
-target project's constraints.
+## Reference boards
 
-## Theming
+`design/nura-journey-blend-v5.html` is self-contained (characters, icons and
+wordmark are embedded; only the font loads from Google). Append `#sun`,
+`#light` or `#dark` to open it in one appearance, and `&only=N` to show one
+screen edge to edge — that is how `design/export/` is rendered with headless
+Chrome.
 
-Two full palettes exist (`tokens.md`), applied per **mode** (Nu or Ra), not
-per OS light/dark preference. If the target project only supports a single
-light/dark toggle, default to Nu's navy palette — it's the "everything lives
-here" surface and reads correctly as the primary ground.
+## Running it
+
+- Web: `npx expo start --web` (see `.claude/launch.json`: `nura-web` on 8099,
+  `nura-web-2` on 8100).
+- iOS: a development build (`npx expo run:ios`).

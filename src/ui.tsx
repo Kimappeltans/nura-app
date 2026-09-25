@@ -112,43 +112,13 @@ export function IconChevron({ size = 28, color }: IconProps) {
  * it (mode defaults to 'nu' before onboarding ever sets anything).
  */
 export function Mica(
-  { force, sunProgress }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
+  { force }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
 ) {
   const t = useTheme(force);
-  // The coral glow literally rises and brightens as the day's completions add
-  // up — Home's "the sun comes up as you do things" mechanic. 0 when nothing
-  // has been finished yet (glow sits low, at its normal resting strength); 1
-  // once the day's target is well underway (glow climbs toward centre and
-  // warms). Every other screen just omits the prop and gets the old static glow.
-  const s = sunProgress == null ? 0 : Math.max(0, Math.min(1, sunProgress));
-  const raCy = 86 - s * 32;       // 86% (low, resting) -> 54% (risen)
-  const raOpacity = t.glowRa + s * 0.20;
-
-  return (
-    <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
-      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: t.atmosphereVertical ? 0 : 1, y: 1 }} locations={[0, 0.55, 1]}
-        style={{ position: 'absolute', inset: 0 }} />
-      {/* Two ambient glows — indigo high-left, coral low-right — bled into the
-          ground the way Fluent's Mica does. A flat fill behind rounded cards
-          is what makes a dark app look like a wireframe: there is nothing for
-          the elevation to be measured against. These give the surfaces
-          something to sit ON. */}
-      <Svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-        <Defs>
-          <RadialGradient id="mica-nu" cx="14%" cy="4%" r="62%">
-            <Stop offset="0" stopColor={t.nu} stopOpacity={t.glowNu} />
-            <Stop offset="1" stopColor={t.nu} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="mica-ra" cx="96%" cy={`${raCy}%`} r="66%">
-            <Stop offset="0" stopColor={t.ra} stopOpacity={raOpacity} />
-            <Stop offset="1" stopColor={t.ra} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#mica-nu)" />
-        <Rect width="100%" height="100%" fill="url(#mica-ra)" />
-      </Svg>
-    </View>
-  );
+  // Flat (guidelines/Guidelines.md, rule 1): the ground is one colour — no
+  // atmosphere gradient, no glows. `sunProgress` is still accepted so callers
+  // needn't change; the day's progress lives on the day's path now.
+  return <View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: t.base }} />;
 }
 
 /**
@@ -161,25 +131,16 @@ export function Mica(
  * across it.
  */
 export function Surface(
-  { children, style, raised = true, accent }:
+  { children, style }:
   { children: React.ReactNode; style?: ViewStyle; raised?: boolean; accent?: Tone },
 ) {
   const t = useTheme();
-  const a = accent === 'ra' ? t.raBtn : accent === 'nu' ? t.nuBtn : null;
+  // a flat fill and a hairline — no wash, no shadow, no accent rule
   return (
     <View style={[{
       borderRadius: radius.lg, overflow: 'hidden',
-      borderWidth: 1, borderColor: t.stroke,
-    }, raised ? elevation.e8 : elevation.e2, style]}>
-      <LinearGradient
-        colors={t.surface} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }}
-        style={{ position: 'absolute', inset: 0 }}
-      />
-      {/* a 2px gradient rule along the top edge, where an accent is wanted */}
-      {!!a && (
-        <LinearGradient colors={a} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }} />
-      )}
+      borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card,
+    }, style]}>
       {children}
     </View>
   );
@@ -224,6 +185,10 @@ const POSES = {
   'ra-sun': require('../assets/story/ra-sun.webp'),
   'ra-hello': require('../assets/story/ra-hello.webp'),
   'ra-rest': require('../assets/story/ra-rest.webp'),
+  // lying down, eyes closed — Night, once the day is done
+  'nu-rest': require('../assets/story/nu-rest.webp'),
+  // hugging a small stack of cards, eyes closed — Home, holding your day
+  'nu-hold': require('../assets/story/nu-hold.webp'),
   // the waving Ra from the redesign — compact, no rays, so it sits in a small round button
   'ra-icon': require('../assets/story/ra-icon.webp'),
 } as const;
@@ -439,9 +404,7 @@ export function Bar(
         height: '100%', borderRadius: height / 2,
         width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
       }}>
-        <LinearGradient colors={color ? [color, color] : grad}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={{ flex: 1, borderRadius: height / 2 }} />
+        <View style={{ flex: 1, borderRadius: height / 2, backgroundColor: color ?? grad[0] }} />
       </Animated.View>
     </View>
   );
@@ -662,14 +625,8 @@ export function Celebrate() {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismiss}>
       <Pressable onPress={dismiss} style={{ flex: 1 }}>
-        <LinearGradient
-          colors={rankUp
-            ? ['#FFD060', '#FF8A5C', '#C2410C']
-            : golden
-              ? ['#FFB020', '#FF6B35', '#C2410C']
-              : ['#FF8A4C', '#FF6B35', '#E14B12']}
-          start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6 }}>
+        {/* flat coral, like Done (rule 1) */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6, backgroundColor: '#FF6B35' }}>
           <Animated.View style={{
             alignItems: 'center', gap: 4,
             transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
@@ -715,7 +672,7 @@ export function Celebrate() {
               }}>{c.line}</Text>
             )}
           </Animated.View>
-        </LinearGradient>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -790,7 +747,7 @@ export function IconBadge(
   const shared: ViewStyle = { width: size, height: size, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' };
   if (tone === 'gradient') {
     return (
-      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={shared}>{icon}</LinearGradient>
+      <View style={[shared, { backgroundColor: colors[0] }]}>{icon}</View>
     );
   }
   return <View style={[shared, { backgroundColor: tone === 'wash' ? wash : t.brandSolid }]}>{icon}</View>;
@@ -838,8 +795,7 @@ export function WeekBars({ data, height = 84, accent = 'ra' }: { data: { label: 
             borderRadius: radius.sm, overflow: 'hidden', backgroundColor: t.track,
           }}>
             {d.value > 0 && (
-              <LinearGradient colors={colors}
-                style={{ width: '100%', height: Math.max(8, (d.value / max) * barArea) }} />
+              <View style={{ width: '100%', height: Math.max(8, (d.value / max) * barArea), backgroundColor: colors[0] }} />
             )}
           </View>
           <Text style={{ color: t.ink3, fontSize: 10.5 }}>{d.label}</Text>
@@ -903,7 +859,7 @@ export function Card({ children, style, raised }: { children: React.ReactNode; s
     <View style={[{
       backgroundColor: t.card, borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth, borderColor: t.stroke, padding: 18,
-    }, raised ? elevation.e4 : elevation.e2, style]}>{children}</View>
+    }, style]}>{children}</View>
   );
 }
 
@@ -913,8 +869,9 @@ export function Card({ children, style, raised }: { children: React.ReactNode; s
  * changes with the world (tone), never the shape, padding or type.
  */
 export const BUTTON = {
-  md: { height: 50, radius: 14, font: 15.5 },
-  sm: { height: 40, radius: 12, font: 14 },
+  // pills, like the sheet's Begin (guidelines/components/overview.md)
+  md: { height: 52, radius: 26, font: 15.5 },
+  sm: { height: 40, radius: 20, font: 14 },
 } as const;
 type ButtonSize = keyof typeof BUTTON;
 
@@ -932,7 +889,8 @@ export function Primary(
   const b = BUTTON[size];
   // disabled is flat and neutral: the gradient at low opacity read as a
   // muddy brown on navy
-  const fill = disabled ? [t.subtle, t.subtle] as const : colors;
+  // one flat colour (rule 1): the first stop of the tone, no gradient
+  const fill = disabled ? t.subtle : colors[0];
   return (
     <Pressable
       disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
@@ -940,12 +898,10 @@ export function Primary(
       style={({ pressed }) => ({
         opacity: pressed ? 0.92 : 1, borderRadius: b.radius,
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        ...(disabled ? {} : tone === 'ra' ? elevation.warm : elevation.e4),
         ...style,
       })}>
-      <LinearGradient
-        colors={fill} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }}
-        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+      <View
+        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: fill }}>
         {/* one line, ending in … — a long task title in "Focus · …" ran
             out past the button's edges */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: size === 'sm' ? 15 : 18 }}>
@@ -953,7 +909,7 @@ export function Primary(
           {icon}
         </View>
         {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }

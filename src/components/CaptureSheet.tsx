@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, Modal, Image, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useStore, useTheme, PinnedPalette } from '../store';
-import { SHEETS } from '../themeTrials';
+import { useStore, useTheme } from '../store';
 import { capture } from '../db';
 import { route, parseTask, describe, type Draft } from '../assistant';
 import { type as T } from '../theme';
-import { Character, Primary, Ghost } from '../ui';
-import { MicButton } from './Voice';
-import { NuGlow, NU_SIZE } from './NuGlow';
-import { Sheet } from './Sheet';
+import { poseImage } from '../ui';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { labelById } from '../labels';
+import { LabelGlyph } from './LabelIcon';
+import { useDictation } from '../voice';
+import { DotWave } from './DotWave';
 import { readInput } from '../coach';
 import type { StateRead } from '../learn/types';
 
@@ -26,13 +28,7 @@ import type { StateRead } from '../learn/types';
  * When? and How long? set those in a tap; + Details opens the full composer.
  */
 export function CaptureSheet(props: { visible: boolean; onClose: () => void }) {
-  const room = useTheme();
-  const sheetTrial = useStore(s => s.sheetTrial);
-  // TRIAL: over a dark room, the sheet can be Nu's own light space
-  const own = room.key === 'nu' ? SHEETS[sheetTrial] : null;
-  return own
-    ? <PinnedPalette.Provider value={own}><CaptureBody {...props} /></PinnedPalette.Provider>
-    : <CaptureBody {...props} />;
+  return <CaptureBody {...props} />;
 }
 
 const at = (days: number, h: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
@@ -42,6 +38,7 @@ const WHEN = [
   { label: 'Next week', due: () => at(7, 9) },
 ];
 const HOW_LONG = [5, 15, 30, 60];
+const CORAL_ON = '#FF6B35';
 
 function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useTheme();
@@ -50,7 +47,6 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [open, setOpen] = useState<'when' | 'long' | null>(null);
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
   const [mins, setMins] = useState<number | null>(null);
-  const [focused, setFocused] = useState(false);
   // what the coach made of it, for the text it was read for (only messy text reaches the model)
   const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
   const input = useRef<TextInput>(null);
@@ -139,64 +135,119 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
     : read?.kind === 'project' ? 'That sounds bigger than one task.'
     : '';
 
-  const Chip = ({ label, on, onPress }: { label: string; on?: boolean; onPress: () => void }) => (
+  const Chip = ({ label, on, onPress, icon }: { label: string; on?: boolean; onPress: () => void; icon?: React.ReactNode }) => (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button" accessibilityState={{ selected: on }}
       style={({ pressed }) => ({
-        flex: 1, minHeight: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
-        borderWidth: 1, borderColor: on ? t.pickEdge ?? t.nu : t.strokeStrong, backgroundColor: on ? t.pick ?? t.nuWash : pressed ? t.subtle : t.layer,
+        height: 34, borderRadius: 17, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 13,
+        borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
       })}>
-      <Text numberOfLines={1} style={{ color: on ? t.ink : t.ink2, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
+      {icon}
+      <Text numberOfLines={1} style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
     </Pressable>
   );
 
+  // Tell Nu listens as soon as it opens (v5, 7:14); Aa is for typing instead
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const base = useRef('');
+  const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
+  const listening = dict.state === 'listening';
+  // type or say it — both there from the start: the field is ready for the
+  // keyboard, the mic is one tap away, and either one fills the same words
+  useEffect(() => {
+    if (!visible) { if (listening) dict.toggle(); return; }
+    const id = setTimeout(() => input.current?.focus(), 120);
+    return () => clearTimeout(id);
+  }, [visible]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleMic = () => {
+    Haptics.selectionAsync();
+    if (!listening) { base.current = text.trim(); input.current?.blur(); }
+    dict.toggle();
+  };
+
+  // what Nu understood, as chips: when, what kind, how long
+  const d = read && read.kind !== 'many' ? withChoices(read.draft) : null;
+  const label = d?.label ? labelById(d.label) : null;
+  const whenText = d?.due_at ? new Date(d.due_at).toLocaleDateString(undefined, { weekday: 'long' }) === new Date(Date.now() + 86400_000).toLocaleDateString(undefined, { weekday: 'long' })
+    ? `Tomorrow${d.has_time ? ` · ${new Date(d.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
+    : describe({ ...d, est_minutes: null }) : null;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const tail = listening && words.length > 3 ? 2 : 0;
+
   return (
-    <Sheet visible={visible} onClose={onClose} onShow={() => setTimeout(() => input.current?.focus(), 80)}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <NuGlow size={NU_SIZE.sheet}><Character name="nu-listen" size={NU_SIZE.sheet} motion="greet" /></NuGlow>
-        <Text style={{ flex: 1, color: t.ink, fontSize: 21, fontFamily: T.display, letterSpacing: -0.4 }}>Tell Nu anything.</Text>
-      </View>
-
-      {/* in a View: on the web a bare input would sit under the sheet's gradient */}
-      <View style={{
-        marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1,
-        borderColor: focused ? t.nu : t.strokeStrong, backgroundColor: t.layer, paddingLeft: 14, paddingRight: 6,
-      }}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
+        {/* what you're saying or typing, as big as a headline */}
         <TextInput ref={input} value={text} onChangeText={setText} multiline
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-          placeholder="What needs doing?" placeholderTextColor={t.ink3}
-          style={{ flex: 1, minHeight: 50, maxHeight: 150, color: t.ink, fontSize: 16, paddingTop: 14, paddingBottom: 14 }} />
-        <MicButton value={text} onChange={setText} label="Say it to Nu" compact />
-      </View>
+          placeholder="Type it, or say it." placeholderTextColor={t.mute ?? t.ink3}
+          style={{ color: t.ink, fontSize: 36, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.6, maxHeight: 190, padding: 0 }} />
 
-      <View style={{ flexDirection: 'row', gap: 7, marginTop: 10 }}>
-        <Chip label={when != null ? WHEN[when].label : 'When?'} on={open === 'when' || when != null} onPress={() => setOpen(o => (o === 'when' ? null : 'when'))} />
-        <Chip label={mins != null ? `${mins} min` : 'How long?'} on={open === 'long' || mins != null} onPress={() => setOpen(o => (o === 'long' ? null : 'long'))} />
-        <Chip label="+ Details" onPress={details} />
-      </View>
-      {open === 'when' && (
-        <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>
-          {WHEN.map((w, i) => <Chip key={w.label} label={w.label} on={when === i} onPress={() => { setWhen(when === i ? null : i); setOpen(null); }} />)}
+        {/* what Nu understood */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 18 }}>
+          {!!whenText && <Chip label={whenText} on={open === 'when'} onPress={() => setOpen(o => (o === 'when' ? null : 'when'))}
+            icon={<Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={t.nu} strokeWidth={1.8} strokeLinecap="round"><Circle cx={12} cy={12} r={9} /><Path d="M12 7v5l3 2" /></Svg>} />}
+          {!!label && <Chip label={label.name} onPress={details} icon={<LabelGlyph id={label.id} size={15} color={t.nu} />} />}
+          {!!d?.est_minutes && <Chip label={`${d.est_minutes} min`} on={open === 'long'} onPress={() => setOpen(o => (o === 'long' ? null : 'long'))} />}
+          {read?.kind === 'many' && <Chip label={`${read.drafts.length} separate things`} onPress={() => {}} />}
+          {!!words.length && !whenText && read?.kind !== 'many' && <Chip label="When?" onPress={() => setOpen(o => (o === 'when' ? null : 'when'))} />}
+          {!!words.length && <Chip label="+ Details" onPress={details} />}
         </View>
-      )}
-      {open === 'long' && (
-        <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>
-          {HOW_LONG.map(m => <Chip key={m} label={`${m} min`} on={mins === m} onPress={() => { setMins(mins === m ? null : m); setOpen(null); }} />)}
+        {open === 'when' && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
+            {WHEN.map((w, i) => <Chip key={w.label} label={w.label} on={when === i} onPress={() => { setWhen(when === i ? null : i); setOpen(null); }} />)}
+          </View>
+        )}
+        {open === 'long' && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
+            {HOW_LONG.map(m => <Chip key={m} label={`${m} min`} on={mins === m} onPress={() => { setMins(mins === m ? null : m); setOpen(null); }} />)}
+          </View>
+        )}
+        {!!coached?.reply && coached.source === 'model' && (
+          <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 12, fontFamily: T.brand }}>{coached.reply}</Text>
+        )}
+        {read?.kind === 'project' && (
+          <Pressable onPress={plan} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 12 }}>
+            <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Plan it with Nu ›</Text>
+          </Pressable>
+        )}
+
+        {/* your voice, in dots */}
+        {listening && <View style={{ marginTop: 28 }}><DotWave active width={width - 48} /></View>}
+
+        {/* Nu, listening */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none">
+          <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: listening ? 150 : 190, height: listening ? 150 : 190, marginBottom: -18 }} />
         </View>
-      )}
 
-      {/* Nu answers, when there's something kind to say (a feeling, a lot at once) */}
-      {!!coached?.reply && coached.source === 'model' && (
-        <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 10, fontFamily: T.brand }}>{coached.reply}</Text>
-      )}
-      {!!readback && (
-        <Text style={{ color: read?.kind === 'project' ? t.nu : t.ink3, fontSize: 13, marginTop: 10 }}>{readback}</Text>
-      )}
-
-      <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
-        {read?.kind === 'project' && <Ghost label="Plan it with Nu" onPress={plan} style={{ flex: 1, borderColor: t.nu }} />}
-        <Primary label={read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'} tone="ra"
-          onPress={add} disabled={!read} style={{ flex: 1 }} />
+        {/* Aa · ✓ · × */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {dict.state !== 'unavailable' ? (
+            <Pressable onPress={toggleMic} accessibilityRole="button" accessibilityLabel={listening ? 'Stop listening' : 'Say it'}
+              accessibilityState={{ selected: listening }}
+              style={({ pressed }) => ({
+                width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center',
+                borderWidth: listening ? 2 : 1, borderColor: listening ? CORAL_ON : t.stroke,
+                backgroundColor: listening ? 'rgba(255,107,53,0.12)' : pressed ? t.subtle : t.card,
+              })}>
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={listening ? CORAL_ON : t.nu} strokeWidth={2} strokeLinecap="round"><Path d="M9 6a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3" /></Svg>
+            </Pressable>
+          ) : <View style={{ width: 54 }} />}
+          <Pressable onPress={add} disabled={!read} accessibilityRole="button"
+            accessibilityLabel={read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'}
+            style={({ pressed }) => ({
+              width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: t.nu, opacity: read ? 1 : 0.45, transform: [{ scale: pressed ? 0.96 : 1 }],
+            })}>
+            <Svg width={30} height={30} viewBox="0 0 24 24"><Path d="M5 12.5l4.5 4.5L19 7.5" stroke={t.onNu} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+          </Pressable>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close"
+            style={({ pressed }) => ({ width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card })}>
+            <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={t.nu} strokeWidth={1.9} strokeLinecap="round" /></Svg>
+          </Pressable>
+        </View>
       </View>
-    </Sheet>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }

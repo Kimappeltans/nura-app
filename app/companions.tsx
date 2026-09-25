@@ -48,17 +48,6 @@ function Companions() {
         {/* ---- the pair, at their current size ---- */}
         <View style={{ height: 220, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
           {/* the aura: the one thing that visibly grows with you */}
-          {stage.glow > 0 && (
-            <Svg width="100%" height={220} style={{ position: 'absolute' }}>
-              <Defs>
-                <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0" stopColor={t.ra} stopOpacity={stage.glow} />
-                  <Stop offset="1" stopColor={t.ra} stopOpacity="0" />
-                </RadialGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#aura)" />
-            </Svg>
-          )}
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
             <Character name="nu-idle" size={132 * stage.scale} motion="greet" />
             <Character name="ra-wave" size={144 * stage.scale} motion="greet" />

@@ -118,7 +118,7 @@ function Triage() {
           <View style={[{
             borderRadius: radius.xl, padding: 18, marginBottom: 18,
             backgroundColor: t.card, borderWidth: 1, borderColor: t.strokeStrong,
-          }, elevation.e8]}>
+          }]}>
             <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, lineHeight: 28 }}>
               {current.title}
             </Text>

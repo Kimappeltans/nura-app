@@ -60,7 +60,6 @@ export function SpeechBubble({ text, tone, tailX, tipY, clipW, delay = 0 }: {
       <View style={{ position: 'absolute', bottom: 0, left: 0, width: WIDTH }}>
         <View style={{
           backgroundColor: bg, borderRadius: 16, paddingHorizontal: 11, paddingVertical: 9,
-          shadowColor: '#000', shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
         }}>
           <Text style={{ color: fg, fontSize: 13.5, lineHeight: 18, fontFamily: T.brand }}>{text}</Text>
         </View>

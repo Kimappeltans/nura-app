@@ -6,17 +6,16 @@ import { useStore, useTheme } from '../src/store';
 // (NuHome) and the list-first home (Nu) — are kept in src/legacy.
 import Home from '../src/screens/Home';
 import Tasks from '../src/screens/Tasks';
-import Day from '../src/screens/Day';
+import Calendar from '../src/screens/Calendar';
 import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
-import { World } from '../src/world';
 
 /**
  * The app past onboarding is three rooms in the same dark water, with a tab
- * bar — Home (what should I do now?), Your tasks (what exists?), Your day
- * (what's happening, and what happened?) — and one mode: Focus, Ra's warm
+ * bar — Home (what should I do now?), Your tasks (what exists?), Calendar
+ * (the month, and what's on a day) — and one mode: Focus, Ra's warm
  * room, which has no tab bar because you're doing one thing. Capture is a
  * sheet over whichever room you're in.
  */
@@ -36,7 +35,7 @@ export default function Index() {
       <View style={{ flex: 1 }}>
         {tab === 'home' && <Home onTab={setTab} />}
         {tab === 'tasks' && <Tasks />}
-        {tab === 'day' && <World kind="mixed"><Day /></World>}
+        {tab === 'day' && <Calendar />}
       </View>
       <TabBar />
     </View>

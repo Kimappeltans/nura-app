@@ -18,9 +18,11 @@ export interface Palette {
   key: 'nu' | 'ra';
   base: string; layer: string; card: string; subtle: string;
   ink: string; ink2: string; ink3: string;
+  /** a two-tone headline's second line (guidelines/styles.md) */
+  mute?: string;
   stroke: string; strokeStrong: string;
 
-  // NU — the water, indigo
+  // NU — links, rings and marks: ink, never indigo (guidelines/tokens.md)
   nu: string; nuSoft: string; nuWash: string;
   nuBtn: readonly [string, string]; onNu: string;
   // RA — the light, sunrise coral
@@ -59,8 +61,9 @@ export interface Palette {
 }
 
 /**
- * NU — the water. Deep navy, indigo accent. Everything lives here and none of
- * it is startable, so the only warm thing on the screen is the way out.
+ * NU — the water. Deep navy by night; its accent is the ink itself (no indigo).
+ * Everything lives here and none of it is startable, so the only warm thing on
+ * the screen is the way out.
  */
 export const nuTheme: Palette = {
   key: 'nu',
@@ -70,17 +73,18 @@ export const nuTheme: Palette = {
   subtle: '#1D2551',
   ink: '#F2F4FB',
   ink2: '#AEB6D4',
-  ink3: '#7E87AC',
-  stroke: 'rgba(170,185,255,0.12)',
+  ink3: '#929CC5',
+  mute: '#9FA8D0',
+  stroke: 'rgba(170,185,255,0.14)',
   strokeStrong: 'rgba(170,185,255,0.22)',
 
-  nu: '#8C97F6',                     // accent ON navy, so it's the light one
-  nuSoft: '#B6BEFA',
-  nuWash: 'rgba(91,108,240,0.16)',
-  nuBtn: ['#3E45C9', '#5C67E8'],     // white text sits at ~4.6:1 on the light end
-  onNu: '#FFFFFF',
-  pick: '#403B7D',
-  pickEdge: '#7772C2',
+  nu: '#F2F4FB',                     // the ink: links, rings, marks
+  nuSoft: '#AEB6D4',
+  nuWash: 'rgba(255,255,255,0.08)',
+  nuBtn: ['#F2F4FB', '#F2F4FB'],
+  onNu: '#0B1029',
+  pick: 'rgba(255,255,255,0.10)',
+  pickEdge: 'rgba(255,255,255,0.45)',
 
   ra: '#FF8A5C',                     // sunrise coral, lifted for a dark ground
   raSoft: '#FFB183',
@@ -89,17 +93,17 @@ export const nuTheme: Palette = {
   raBtn: ['#FF6B35', '#FFA05C'],
   onRa: '#3B1204',                   // near-black brown on coral, ~8:1
 
-  brandSolid: '#8C97F6',
-  onBrand: '#FFFFFF',
+  brandSolid: '#FF8A5C',
+  onBrand: '#3B1204',
   track: '#1E2652',
   // light lifted off the ground, not a lighter grey — this is what makes a
   // dark surface read as raised rather than merely different
   surface: ['rgba(255,255,255,0.085)', 'rgba(255,255,255,0.022)'],
   glowNu: 0.30, glowRa: 0.16,
   atmosphere: ['#0B1030', '#070C26', '#04091E'],
-  scale: ['#161D42', '#222C68', '#2F3D93', '#4150C4', '#5B6CF0', '#95A0F8'],
-  heroWash: ['rgba(255,150,100,0.30)', 'rgba(140,151,246,0.16)', 'rgba(91,108,240,0.10)'],
-  emphasisWash: ['rgba(140,151,246,0.20)', 'rgba(91,108,240,0.08)'],
+  scale: ['#161D42', '#3A2B45', '#6B3A3C', '#B8532F', '#FF6B35', '#FFA05C'],
+  heroWash: ['rgba(255,150,100,0.30)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.03)'],
+  emphasisWash: ['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.04)'],
   statusBar: 'light',
 };
 
@@ -116,13 +120,14 @@ export const raTheme: Palette = {
   ink: '#171313',                    // 16.4:1
   ink2: '#4A4340',                   // 8.6:1
   ink3: '#7B7360',                   // 4.5:1 — the floor, nothing dimmer than this
-  stroke: 'rgba(23,19,19,0.10)',
-  strokeStrong: 'rgba(23,19,19,0.18)',
+  mute: '#958B77',                   // large display text only (>= 3:1)
+  stroke: 'rgba(23,19,19,0.08)',
+  strokeStrong: 'rgba(23,19,19,0.16)',
 
-  nu: '#4338CA',
-  nuSoft: '#6B5FE0',
-  nuWash: 'rgba(67,56,202,0.09)',
-  nuBtn: ['#3E36B8', '#5B51DC'],
+  nu: '#171313',                     // the ink: links, rings, marks
+  nuSoft: '#4A4340',
+  nuWash: 'rgba(23,19,19,0.06)',
+  nuBtn: ['#1B1830', '#1B1830'],     // the dark of Begin and +
   onNu: '#FFFFFF',
 
   ra: '#FF6B35',                     // the sunrise itself — fills and strokes
@@ -139,8 +144,8 @@ export const raTheme: Palette = {
   glowNu: 0.07, glowRa: 0.10,
   atmosphere: ['#FFFDF8', '#FAF7F0', '#F4EDDF'],
   scale: ['#F0EADC', '#FBD9C4', '#FCB995', '#FB8A54', '#F2621F', '#C2410C'],
-  heroWash: ['rgba(255,150,100,0.16)', 'rgba(67,56,202,0.08)', 'rgba(67,56,202,0.05)'],
-  emphasisWash: ['rgba(67,56,202,0.10)', 'rgba(67,56,202,0.04)'],
+  heroWash: ['rgba(255,150,100,0.16)', 'rgba(23,19,19,0.04)', 'rgba(23,19,19,0.02)'],
+  emphasisWash: ['rgba(23,19,19,0.06)', 'rgba(23,19,19,0.02)'],
   statusBar: 'dark',
 };
 
@@ -153,7 +158,7 @@ export const utilityTheme: Palette = {
   ...nuTheme,
   glowNu: 0.10, glowRa: 0,
   atmosphere: ['#0D1231', '#0B1029', '#0B1029'],
-  heroWash: ['rgba(140,151,246,0.14)', 'rgba(140,151,246,0.06)', 'rgba(91,108,240,0.04)'],
+  heroWash: ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.02)'],
 };
 
 /**
@@ -195,10 +200,11 @@ export const elevation = {
 /** Line icons everywhere are drawn at this weight. */
 export const iconStroke = 1.8;
 
+/** Inter Tight, only (guidelines/Guidelines.md, rule 2). */
 export const type = {
-  display: 'Poppins_600SemiBold',
-  displayLight: 'Poppins_400Regular',
-  brand: 'Poppins_500Medium',
+  display: 'InterTight_600SemiBold',
+  displayLight: 'InterTight_400Regular',
+  brand: 'InterTight_500Medium',
 } as const;
 
 /**
