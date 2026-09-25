@@ -124,7 +124,7 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
             <SectionHead label={`Still here · ${still.length}`} action="See all" onAction={() => onTab('tasks')} />
             <ListCard>
               {still.slice(0, STILL_MAX).map((task, i, shown) => (
-                <TaskLine key={task.id} title={task.title} label={task.label} divider={i < shown.length - 1}
+                <TaskLine key={task.id} title={task.title} divider={i < shown.length - 1}
                   meta={[projectOf.get(task.id)?.project.title, ...taskMeta(task)]}
                   onPress={() => setPeek(task)} onHold={() => setHeld(task)} onMore={() => setPeek(task)} />
               ))}

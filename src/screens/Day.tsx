@@ -16,7 +16,7 @@ import { SectionHead, ListCard } from '../components/ListCard';
 import { TaskLine, taskMeta } from '../components/TaskLine';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
-import { ActionSheet } from '../components/ActionSheet';
+import { Sheet } from '../components/Sheet';
 import { NuGlow, NU_SIZE } from '../components/NuGlow';
 
 const DAY = 86400_000;
@@ -172,7 +172,7 @@ export default function Day() {
                 accessibilityRole="button" style={({ pressed }) => ({ marginTop: 12, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 })}>
                 <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                   style={{ minHeight: 40, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.display }}>Begin with Ra</Text>
+                  <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.display }}>Begin · 5 minutes</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -282,14 +282,41 @@ export default function Day() {
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />
-      <ActionSheet visible={adjusting} title="When should today end?"
-        subtitle="Nura uses this to judge whether things fit. It isn’t a deadline."
-        actions={DAY_ENDS.map(d => ({
-          key: String(d.min), glyph: d.min === dayEndMin ? '●' : '○', label: d.label,
-          sub: d.min === dayEndMin ? 'now' : undefined, onPress: () => setDayEnd(d.min),
-        }))}
-        dismissLabel="Keep it" onDismiss={() => setAdjusting(false)} />
+      <DayEndSheet visible={adjusting} current={dayEndMin} onClose={() => setAdjusting(false)}
+        onKeep={m => { setDayEnd(m); setAdjusting(false); }} />
     </SafeAreaView>
+  );
+}
+
+/** When should today end? — a few times as chips, and one button to keep the choice. */
+function DayEndSheet({ visible, current, onClose, onKeep }: { visible: boolean; current: number; onClose: () => void; onKeep: (min: number) => void }) {
+  const t = useTheme();
+  const [pick, setPick] = useState(current);
+  useEffect(() => { if (visible) setPick(current); }, [visible]);
+  const label = DAY_ENDS.find(d => d.min === pick)?.label ?? '';
+  return (
+    <Sheet visible={visible} onClose={onClose}>
+      <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>YOUR DAY</Text>
+      <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.4, marginTop: 5 }}>When should today end?</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>
+        {DAY_ENDS.map(d => {
+          const on = d.min === pick;
+          return (
+            <Pressable key={d.min} onPress={() => { Haptics.selectionAsync(); setPick(d.min); }} accessibilityRole="button" accessibilityState={{ selected: on }}
+              style={{ flexGrow: 1, minWidth: '30%', minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
+                borderWidth: 1, borderColor: on ? t.nu : t.strokeStrong, backgroundColor: on ? t.nuWash : t.layer }}>
+              <Text style={{ color: on ? t.ink : t.ink2, fontSize: 13.5, fontFamily: T.brand }}>{d.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Pressable onPress={() => onKeep(pick)} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.9 : 1 })}>
+        <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ minHeight: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: t.onRa, fontSize: 15.5, fontFamily: T.display }}>Keep {label}</Text>
+        </LinearGradient>
+      </Pressable>
+    </Sheet>
   );
 }
 

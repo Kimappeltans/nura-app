@@ -205,12 +205,11 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
                           })}>
                           <Text numberOfLines={1} style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{p.project.title}</Text>
                           <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12, marginTop: 3 }}>
-                            {p.current ? `Next: ${p.current.title}` : 'No move chosen yet'}
+                            {`${p.total - p.done} next move${p.total - p.done === 1 ? '' : 's'} · ${p.total} total`}
                           </Text>
                           <View style={{ height: 4, borderRadius: 2, backgroundColor: t.track, marginTop: 11, overflow: 'hidden' }}>
                             <View style={{ width: `${Math.max(4, pct * 100)}%`, height: '100%', borderRadius: 2, backgroundColor: i % 2 ? t.ra : t.nu }} />
                           </View>
-                          <Text style={{ color: t.ink3, fontSize: 11, marginTop: 6 }}>{p.done} of {p.total} steps</Text>
                         </Pressable>
                       );
                     })}
