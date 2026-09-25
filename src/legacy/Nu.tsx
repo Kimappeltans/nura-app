@@ -12,7 +12,7 @@ import { LabelTile } from '../components/LabelIcon';
 import { formatDue } from '../components/DatePicker';
 import { PriorityChip } from '../components/PriorityChip';
 import { TaskSheet } from '../components/TaskSheet';
-import { AppMenu } from '../components/AppMenu';
+import { AppMenu } from './AppMenu';
 import { IconButton, MenuGlyph } from '../components/IconButton';
 import { SearchField } from '../components/SearchField';
 import { SlippingCheckIn } from '../components/SlippingCheckIn';
@@ -21,7 +21,7 @@ import { AddToToday } from '../components/TaskRow';
 import { useTaskActions } from '../useTaskActions';
 import { Mica, Surface, Character, Primary, IconChevron, IconCalendar, IconSearch, Check, Press, poseImage } from '../ui';
 
-const wordmark = require('../../assets/brand/wordmark-tight.png');
+const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 /** A calm sea for the top of Nu: a gentle wave at `y`, filled to the bottom. */
 const seaLine = (w: number, y: number, amp: number) =>

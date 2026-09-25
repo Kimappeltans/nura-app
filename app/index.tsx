@@ -1,24 +1,46 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useStore } from '../src/store';
-// The home as a place: the scene and the one thing to begin. The earlier
-// list-first home is kept — import '../src/screens/Nu' here to go back.
-import Nu from '../src/screens/NuHome';
+import { useStore, useTheme } from '../src/store';
+// Three rooms and one mode. The earlier homes — the river scene
+// (NuHome) and the list-first home (Nu) — are kept in src/legacy.
+import Home from '../src/screens/Home';
+import Tasks from '../src/screens/Tasks';
+import Tide from '../src/screens/Tide';
 import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
 import Loading from '../src/screens/Loading';
+import { TabBar, type Tab } from '../src/components/TabBar';
+import { CaptureSheet } from '../src/components/CaptureSheet';
 
 /**
- * The whole app is one screen in one of three states: not-yet-checked
- * (Loading), first-launch (Onboarding — welcome, then connect), or Home/Focus.
- * There is no tab bar: the Home/Focus switch IS the navigation, and onboarding
- * is a one-time gate in front of it.
+ * The app past onboarding is three rooms in the same dark water, with a tab
+ * bar — Home (what should I do now?), My tasks (what exists?), Your day
+ * (what's happening, and what happened?) — and one mode: Focus, Ra's warm
+ * room, which has no tab bar because you're doing one thing. Capture is a
+ * sheet over whichever room you're in.
  */
 export default function Index() {
+  const t = useTheme();
   const { mode, onboarded, refresh } = useStore();
+  const [tab, setTab] = useState<Tab>('home');
+  const [capturing, setCapturing] = useState(false);
   useFocusEffect(useCallback(() => { refresh(); }, []));
 
   if (onboarded === null) return <Loading />;
   if (!onboarded) return <Onboarding />;
-  return mode === 'ra' ? <Ra /> : <Nu />;
+  if (mode === 'ra') return <Ra />;
+
+  const capture = () => setCapturing(true);
+  return (
+    <View style={{ flex: 1, backgroundColor: t.base }}>
+      <View style={{ flex: 1 }}>
+        {tab === 'home' && <Home onTab={setTab} onCapture={capture} />}
+        {tab === 'tasks' && <Tasks onCapture={capture} />}
+        {tab === 'day' && <Tide room />}
+      </View>
+      <TabBar tab={tab} onTab={setTab} />
+      <CaptureSheet visible={capturing} onClose={() => setCapturing(false)} />
+    </View>
+  );
 }

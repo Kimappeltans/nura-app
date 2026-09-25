@@ -3,22 +3,23 @@ import { askToReplayIntro } from '../intro';
 import { ActionSheet, type SheetAction } from './ActionSheet';
 
 /**
- * Every place in the app, in one list — the only menu there is. It opens
- * from Nu, which is home; everywhere else is one sheet away and closes back
- * to it.
+ * MORE — behind your avatar, everything that isn't one of the three rooms.
+ * Calendar and Wins live in Your day, the backlog pass and habits in My
+ * tasks, connected apps and your account in Settings; so this stays short.
+ * (The earlier every-place menu is in src/legacy/AppMenu.tsx.)
  */
-const PLACES: SheetAction[] = [
+const MORE: SheetAction[] = [
+  { key: 'you', glyph: '☺', label: 'Profile', sub: 'your name, and what gets in the way', onPress: () => router.push('/profile') },
+  { key: 'companions', glyph: '◇', label: 'Companions', sub: 'Nu and Ra', onPress: () => router.push('/companions') },
+  { key: 'settings', glyph: '⚙', label: 'Settings', sub: 'appearance, reminders, voice, connected apps, account', onPress: () => router.push('/settings') },
   { key: 'plan', glyph: '✦', label: 'Plan something bigger', sub: 'Nu helps find the first move', onPress: () => router.push('/project/new') },
-  { key: 'say', glyph: '☀', label: 'Say it to Ra', sub: 'a sentence becomes a task, dates and all', onPress: () => router.push('/chat') },
-  { key: 'day', glyph: '◐', label: 'Your day', sub: 'what you did, and the shape of today', onPress: () => router.push('/tide') },
-  { key: 'cal', glyph: '▦', label: 'Calendar', onPress: () => router.push('/calendar') },
-  { key: 'wins', glyph: '★', label: 'Wins', sub: 'everything you’ve finished', onPress: () => router.push('/wins') },
-  { key: 'you', glyph: '☺', label: 'Profile', sub: 'your name, and Nu and Ra', onPress: () => router.push('/profile') },
-  { key: 'settings', glyph: '⚙', label: 'Settings', sub: 'appearance, reminders, language and voice', onPress: () => router.push('/settings') },
   { key: 'story', glyph: '↺', label: 'Watch the opening again', sub: 'the story of Nu and Ra', onPress: () => router.push('/opening') },
   { key: 'restart', glyph: '⤺', label: 'Start from the beginning', sub: 'the story and the first questions', tone: 'quiet', onPress: askToReplayIntro },
 ];
 
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  return <ActionSheet visible={visible} title="Menu" actions={PLACES} dismissLabel="Close" onDismiss={onClose} />;
+  return (
+    <ActionSheet visible={visible} title="More" subtitle="Everything secondary lives here."
+      actions={MORE} dismissLabel="Close" onDismiss={onClose} />
+  );
 }

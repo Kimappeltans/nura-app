@@ -13,25 +13,29 @@ import type { Task } from '../db';
  * One task in a list.
  *   - `onTick` shows a tick circle on the left (for what's on Today);
  *     otherwise the task's label, if it has one — no empty placeholder;
- *   - `onAdd` shows a "+" on the right that puts it on Today; otherwise a
- *     chevron;
+ *   - on the right: `onStart` a "Start" button (straight to Ra), `onAdd` a
+ *     "+" that puts it on Today, `onMore` a "•••" that opens its sheet;
+ *     otherwise a chevron;
  *   - `caption` goes under the title with the date (a project's name,
  *     "Today"); a task snoozed "later" reads as later and sits back.
  * Tap does `onPress`; hold does `onHold` (the task's sheet).
  */
-export function TaskRow({ task, onPress, onHold, onTick, onAdd, caption, divider = true }: {
+export function TaskRow({ task, onPress, onHold, onTick, onAdd, onMore, onStart, caption, divider = true }: {
   task: Task;
   onPress: () => void;
   onHold: () => void;
   onTick?: () => void;
   onAdd?: () => void;
+  onMore?: () => void;
+  onStart?: () => void;
   caption?: string | null;
   divider?: boolean;
 }) {
   const t = useTheme();
   const later = !!task.snoozed_until && task.snoozed_until > Date.now();
   const due = task.due_at ? formatDue(task.due_at, !!task.has_time) : null;
-  const sub = [caption, due, later ? 'later' : null].filter(Boolean).join(' · ');
+  const mins = task.est_minutes ? `${task.est_minutes} min` : null;
+  const sub = [caption, due, mins, later ? 'later' : null].filter(Boolean).join(' · ');
   return (
     <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onHold(); }}
       style={({ pressed }) => ({
@@ -45,7 +49,38 @@ export function TaskRow({ task, onPress, onHold, onTick, onAdd, caption, divider
         {!!sub && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12.5 }}>{sub}</Text>}
       </View>
       <PriorityChip n={task.priority ?? 0} />
-      {onAdd ? <AddToToday title={task.title} onPress={onAdd} /> : <IconChevron size={15} color={t.ink3} />}
+      {onStart ? <StartButton title={task.title} onPress={onStart} />
+        : onAdd ? <AddToToday title={task.title} onPress={onAdd} />
+        : onMore ? <MoreButton title={task.title} onPress={onMore} />
+        : <IconChevron size={15} color={t.ink3} />}
+    </Pressable>
+  );
+}
+
+/** "Start": straight into Ra with this task. */
+function StartButton({ title, onPress }: { title: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Start ${title}`}
+      style={({ pressed }) => ({
+        paddingHorizontal: 12, paddingVertical: 7, borderRadius: 11, borderWidth: 1,
+        borderColor: t.ra, backgroundColor: pressed ? t.raWash : 'transparent',
+      })}>
+      <Text style={{ color: t.key === 'nu' ? t.raSoft : t.raDeep, fontSize: 12.5, fontFamily: T.brand }}>Start</Text>
+    </Pressable>
+  );
+}
+
+/** "•••": the task's sheet, without having to know about the long press. */
+function MoreButton({ title, onPress }: { title: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More for ${title}`}
+      style={({ pressed }) => ({
+        width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
+      })}>
+      <Text style={{ color: t.ink3, fontSize: 13, letterSpacing: 1, lineHeight: 15 }}>•••</Text>
     </Pressable>
   );
 }
