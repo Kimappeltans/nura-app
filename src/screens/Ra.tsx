@@ -14,7 +14,6 @@ import { reconcileNudges } from '../notifications';
 import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
 import { radius, type as T, copy } from '../theme';
 import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
-import { whyLine } from '../priority';
 import { DurationDial, ESTIMATE_STOPS, SESSION_STOPS } from '../components/DurationDial';
 import { PriorityChip } from '../components/PriorityChip';
 import { MoveHelp } from '../components/MoveHelp';
@@ -292,7 +291,6 @@ export default function Ra() {
               Choose one. Anything you put on Today in Nu comes first next time.
             </Text>
             {sugs.map(sg => {
-              const why = whyLine(sg.rule, sg.task, energy);
               const pr = sg.task.priority ?? 0;
               return (
                 <Pressable key={sg.task.id}
@@ -308,10 +306,9 @@ export default function Ra() {
                     </Text>
                     {pr > 0 && <PriorityChip n={pr} />}
                   </View>
-                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>
-                    {why ? why.charAt(0).toUpperCase() + why.slice(1) : ''}
-                    {sg.task.est_minutes ? `${why ? ' · ' : ''}≈ ${sg.task.est_minutes} min` : ''}
-                  </Text>
+                  {!!sg.task.est_minutes && (
+                    <Text style={{ color: t.ink3, fontSize: 13.5 }}>≈ {sg.task.est_minutes} min</Text>
+                  )}
                 </Pressable>
               );
             })}
@@ -403,15 +400,6 @@ export default function Ra() {
                 <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{now.first_action}</Text>
               </View>
             )}
-
-            {/* Same reason the hero card on Nu gave for this one — repeated
-                here because Ra is where the "why should I trust this pick"
-                doubt actually surfaces, not where it was first shown. */}
-            {proj?.step.why ? (
-              <Text style={{ color: t.ink3, fontSize: 13.5, lineHeight: 19 }}>{proj.step.why}</Text>
-            ) : (() => { const why = whyLine(nowRule, now, energy); return !!why && (
-              <Text style={{ color: t.ink3, fontSize: 13.5 }}>Why this one: {why}</Text>
-            ); })()}
             <HearIt text={[now.title, now.first_action].filter(Boolean).join('. ')} label="Hear Ra say it" />
 
             {/* ------------------------------------------------------------ *

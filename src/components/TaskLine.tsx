@@ -22,7 +22,7 @@ import type { Task } from '../db';
  */
 export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore, onAdd, onTick, done, divider = true, dim }: {
   title: string;
-  /** the task's label, drawn as a small tile on the left */
+  /** the task's label, drawn as a small tile on the left (null: a plain tile) */
   label?: string | null;
   meta?: (string | null | false | undefined)[];
   onPress?: () => void;
@@ -47,7 +47,7 @@ export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore,
         backgroundColor: pressed ? t.subtle : 'transparent', opacity: done ? 0.72 : dim ? 0.55 : 1,
       })}>
       {onTick && <Check tone="ra" onPress={onTick} />}
-      {!onTick && !done && !!label && <LabelTile id={label} size={32} />}
+      {!onTick && !done && label !== undefined && <LabelTile id={label} size={30} />}
       {done && (
         <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash }}>
           <Text style={{ color: t.nu, fontSize: 12, fontFamily: T.brand }}>✓</Text>
@@ -59,9 +59,9 @@ export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore,
           textDecorationLine: done ? 'line-through' : 'none', textDecorationColor: t.ink3,
         }}>{title}</Text>
         {parts.length > 0 && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, overflow: 'hidden' }}>
             {parts.map((p, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: i === parts.length - 1 ? 1 : 0, minWidth: 0 }}>
                 {i > 0 && <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: t.ink3 }} />}
                 <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12.5 }}>{p}</Text>
               </View>

@@ -9,7 +9,7 @@ import { whyLine } from '../priority';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
 import { SearchBar } from '../components/SearchField';
-import { NuGlow, NU_SIZE } from '../components/NuGlow';
+import { NuGlow } from '../components/NuGlow';
 import { useTaskActions } from '../useTaskActions';
 import { NowCard } from '../components/NowCard';
 import { TaskRow } from '../components/TaskRow';
@@ -19,6 +19,8 @@ import { SectionHead, ListCard } from '../components/ListCard';
 import { SlippingCheckIn } from '../components/SlippingCheckIn';
 import { HomeAsks } from '../components/HomeAsks';
 import type { Tab } from '../components/TabBar';
+
+const NU_SIZE = 104;   // the one size Nu had when this was Home
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
 export const byPriority = (a: Task, b: Task) =>
@@ -145,7 +147,7 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
               </Pressable>
             </View>
 
-            <NowCard task={one} why={why} from={oneProject?.project.title}
+            <NowCard task={one} from={oneProject?.project.title}
               onBegin={() => one && focusOn(one.id)} onOpen={() => one && open(one)}
               onAnother={() => onTab('tasks')} onPlan={() => router.push('/project/new')} />
 

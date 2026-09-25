@@ -8,7 +8,6 @@ import { useStore, useTheme } from '../store';
 import type { Task } from '../db';
 import { eventsBetween, type UpcomingEvent } from '../calendar';
 import { capacityFor } from '../capacity';
-import { whyLine } from '../priority';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
 import { RoomBar } from '../components/RoomBar';
@@ -42,7 +41,7 @@ const DAY_ENDS = [
  */
 export default function Day() {
   const t = useTheme();
-  const { wins, inbox, todayPicked, agenda, now, nowRule, energy, nextEvent, focusOn, dayEndMin, setDayEnd } = useStore();
+  const { wins, inbox, todayPicked, agenda, now, nextEvent, focusOn, dayEndMin, setDayEnd } = useStore();
   const [offset, setOffset] = useState(0);
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
@@ -92,7 +91,7 @@ export default function Day() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
-      <RoomBar title="Your day" who="ra" />
+      <RoomBar title="Your Day" who="ra" />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingTop: 2, paddingBottom: 14 }}>
@@ -114,7 +113,7 @@ export default function Day() {
                 accessibilityLabel={d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
                 style={{
                   flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, borderWidth: 1,
-                  borderColor: on ? t.nu : t.stroke, backgroundColor: on ? t.nuWash : t.layer,
+                  borderColor: on ? t.pickEdge ?? t.nu : t.stroke, backgroundColor: on ? t.pick ?? t.nuWash : t.layer,
                 }}>
                 <Text style={{ color: on ? t.ink : t.ink3, fontSize: 11, fontFamily: T.brand, letterSpacing: 0.6 }}>
                   {d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}
@@ -129,10 +128,10 @@ export default function Day() {
         <View style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: t.stroke, marginBottom: 14 }}>
           <LinearGradient colors={t.key === 'nu' ? ['rgba(255,255,255,0.11)', 'rgba(255,255,255,0.035)'] : [t.card, t.layer]}
             start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
-          <View style={{ position: 'absolute', right: 0, bottom: -6, opacity: 0.95 }}>
-            <NuGlow size={NU_SIZE}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE, height: NU_SIZE }} resizeMode="contain" /></NuGlow>
+          <View style={{ position: 'absolute', right: 6, bottom: -8, opacity: 0.9 }}>
+            <NuGlow size={NU_SIZE.glance}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.glance, height: NU_SIZE.glance }} resizeMode="contain" /></NuGlow>
           </View>
-          <View style={{ padding: 15, paddingRight: 118 }}>
+          <View style={{ padding: 15, paddingRight: 84 }}>
             <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.9, fontFamily: T.brand }}>
               {isToday ? 'TODAY AT A GLANCE' : `${weekday.toUpperCase()} AT A GLANCE`}
             </Text>
@@ -140,9 +139,6 @@ export default function Day() {
               {offset < 0 ? (risen.length ? 'Look what rose.' : 'A quiet day. That counts too.')
                 : ended ? 'Your day is done. Anything now is extra.'
                 : cap.fits ? 'Enough room for what matters.' : 'More than fits — nothing is late.'}
-            </Text>
-            <Text style={{ color: t.ink2, fontSize: 13, lineHeight: 18, marginTop: 4 }}>
-              {`${events.length} anchored · ${floating.length + timed.length} task${floating.length + timed.length === 1 ? '' : 's'} · the day ends at ${endLabel}.`}
             </Text>
             <View style={{ flexDirection: 'row', gap: 18, marginTop: 12 }}>
               <Stat value={planned ? span(planned) : '—'} label="planned" />
@@ -163,11 +159,6 @@ export default function Day() {
                 <Text style={{ color: t.ink3, fontSize: 12 }}>{clearUntil}</Text>
               </View>
               <Text style={{ color: t.ink, fontSize: 16, lineHeight: 21, fontFamily: T.display, marginTop: 8 }}>{nowTask.title}</Text>
-              {!!whyLine(nowRule, nowTask, energy) && (
-                <Text style={{ color: t.ink2, fontSize: 13, lineHeight: 18, marginTop: 4 }}>
-                  Why this one: {whyLine(nowRule, nowTask, energy)}.
-                </Text>
-              )}
               <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); focusOn(nowTask.id); }}
                 accessibilityRole="button" style={({ pressed }) => ({ marginTop: 12, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 })}>
                 <LinearGradient colors={t.raBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -189,7 +180,11 @@ export default function Day() {
               return (
                 <View key={it.kind === 'event' ? `e${it.e.id}` : `t${it.task.id}`}
                   style={{ flexDirection: 'row', gap: 8, opacity: past ? 0.5 : 1 }}>
-                  <Text style={{ width: 58, textAlign: 'right', color: t.ink3, fontSize: 12, paddingTop: 11 }}>{clock(it.at)}</Text>
+                  {/* the time, narrow: 6:00 over PM */}
+                  <View style={{ width: 40, alignItems: 'flex-end', paddingTop: 10 }}>
+                    <Text style={{ color: t.ink3, fontSize: 12 }}>{clock(it.at).replace(/\s?[AP]M$/i, '')}</Text>
+                    <Text style={{ color: t.ink3, fontSize: 9.5, letterSpacing: 0.6, opacity: 0.8 }}>{/PM/i.test(clock(it.at)) ? 'PM' : /AM/i.test(clock(it.at)) ? 'AM' : ''}</Text>
+                  </View>
                   <View style={{ width: 14, alignItems: 'center' }}>
                     {!last && <View style={{ position: 'absolute', top: 16, bottom: -2, width: 1, backgroundColor: t.strokeStrong }} />}
                     <View style={{
@@ -206,7 +201,7 @@ export default function Day() {
                         </Text>
                       </View>
                     ) : (
-                      <View style={{ borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,139,88,0.45)', padding: 11 }}>
+                      <View style={{ borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', borderColor: t.strokeStrong, backgroundColor: t.layer, padding: 11 }}>
                         <Text numberOfLines={1} style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{it.task.title}</Text>
                         <Text style={{ color: t.ink3, fontSize: 12, marginTop: 2 }}>
                           {[it.task.est_minutes ? `${it.task.est_minutes} min` : null, 'Task'].filter(Boolean).join(' · ')}
@@ -239,8 +234,7 @@ export default function Day() {
                 <TaskLine key={task.id} title={task.title} divider={i < floating.length - 1}
                   meta={[...taskMeta(task, { due: false }), 'flexible']}
                   onPress={() => setPeek(task)} onHold={() => setHeld(task)}
-                  onStart={isToday ? () => focusOn(task.id) : undefined}
-                  onMore={isToday ? undefined : () => setPeek(task)} />
+                  onMore={() => setPeek(task)} />
               ))}
             </ListCard>
           </>
@@ -273,7 +267,7 @@ export default function Day() {
           marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           borderRadius: 15, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.layer, padding: 13,
         }}>
-          <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>Your day ends at {endLabel}</Text>
+          <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>Your Day ends at {endLabel}</Text>
           <Pressable onPress={() => setAdjusting(true)} hitSlop={8} accessibilityRole="button">
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>Adjust</Text>
           </Pressable>
@@ -304,7 +298,7 @@ function DayEndSheet({ visible, current, onClose, onKeep }: { visible: boolean; 
           return (
             <Pressable key={d.min} onPress={() => { Haptics.selectionAsync(); setPick(d.min); }} accessibilityRole="button" accessibilityState={{ selected: on }}
               style={{ flexGrow: 1, minWidth: '30%', minHeight: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1, borderColor: on ? t.nu : t.strokeStrong, backgroundColor: on ? t.nuWash : t.layer }}>
+                borderWidth: 1, borderColor: on ? t.pickEdge ?? t.nu : t.strokeStrong, backgroundColor: on ? t.pick ?? t.nuWash : t.layer }}>
               <Text style={{ color: on ? t.ink : t.ink2, fontSize: 13.5, fontFamily: T.brand }}>{d.label}</Text>
             </Pressable>
           );

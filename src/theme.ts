@@ -28,6 +28,8 @@ export interface Palette {
   raBtn: readonly [string, string]; onRa: string;
 
   brandSolid: string; onBrand: string; track: string;
+  /** a picked chip (a filter, a day, a time): its fill and edge, when not the washes */
+  pick?: string; pickEdge?: string;
   /** the two-stop wash every raised surface is filled with (Fluent's layering) */
   surface: readonly [string, string];
   /** how strongly the two ambient glows read on this ground */
@@ -77,6 +79,8 @@ export const nuTheme: Palette = {
   nuWash: 'rgba(91,108,240,0.16)',
   nuBtn: ['#3E45C9', '#5C67E8'],     // white text sits at ~4.6:1 on the light end
   onNu: '#FFFFFF',
+  pick: '#403B7D',
+  pickEdge: '#7772C2',
 
   ra: '#FF8A5C',                     // sunrise coral, lifted for a dark ground
   raSoft: '#FFB183',

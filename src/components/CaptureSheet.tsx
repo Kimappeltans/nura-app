@@ -124,7 +124,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button" accessibilityState={{ selected: on }}
       style={({ pressed }) => ({
         flex: 1, minHeight: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
-        borderWidth: 1, borderColor: on ? t.nu : t.strokeStrong, backgroundColor: on ? t.nuWash : pressed ? t.subtle : t.layer,
+        borderWidth: 1, borderColor: on ? t.pickEdge ?? t.nu : t.strokeStrong, backgroundColor: on ? t.pick ?? t.nuWash : pressed ? t.subtle : t.layer,
       })}>
       <Text numberOfLines={1} style={{ color: on ? t.ink : t.ink2, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
     </Pressable>
@@ -133,7 +133,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   return (
     <Sheet visible={visible} onClose={onClose} onShow={() => setTimeout(() => input.current?.focus(), 80)}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <NuGlow size={NU_SIZE}><Character name="nu-listen" size={NU_SIZE} motion="greet" /></NuGlow>
+        <NuGlow size={NU_SIZE.sheet}><Character name="nu-listen" size={NU_SIZE.sheet} motion="greet" /></NuGlow>
         <Text style={{ flex: 1, color: t.ink, fontSize: 21, fontFamily: T.display, letterSpacing: -0.4 }}>Tell Nu anything.</Text>
       </View>
 

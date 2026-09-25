@@ -107,7 +107,7 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 96 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ paddingTop: 2, paddingBottom: 14 }}>
-          <Text style={{ color: t.ink, fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.9 }}>Your tasks</Text>
+          <Text style={{ color: t.ink, fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.9 }}>Your Tasks</Text>
         </View>
 
         {/* Nu has sorted before you look */}
@@ -116,7 +116,7 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
             <LinearGradient colors={t.key === 'nu' ? ['rgba(255,255,255,0.11)', 'rgba(255,255,255,0.04)'] : [t.card, t.layer]}
               start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
-              <NuGlow size={NU_SIZE}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE, height: NU_SIZE }} resizeMode="contain" /></NuGlow>
+              <NuGlow size={NU_SIZE.card}><Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.card, height: NU_SIZE.card }} resizeMode="contain" /></NuGlow>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: t.ink, fontSize: 14.5, fontFamily: T.display }}>
                   {sorted.attention.length ? 'I sorted the noise.' : 'Nothing needs you today.'}
@@ -149,7 +149,7 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
                     accessibilityRole="button" accessibilityState={{ selected: on }}
                     style={{
                       paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, borderWidth: 1,
-                      borderColor: on ? t.nu : t.strokeStrong, backgroundColor: on ? t.nuWash : t.layer,
+                      borderColor: on ? t.pickEdge ?? t.nu : t.strokeStrong, backgroundColor: on ? t.pick ?? t.nuWash : t.layer,
                     }}>
                     <Text style={{ color: on ? t.ink : t.ink2, fontSize: 13, fontFamily: T.brand }}>{f.label}</Text>
                   </Pressable>
@@ -189,7 +189,10 @@ export default function Tasks({ onCapture }: { onCapture: () => void }) {
 
             {(filter === 'projects' || (filter === 'all' && projects.length > 0)) && (
               <>
-                <SectionHead label={`Projects · ${projects.length}`} action="Plan one" onAction={() => router.push('/project/new')} />
+                <SectionHead label={`Projects · ${projects.length}`}
+                  {...filter === 'all' && projects.length
+                    ? { action: 'View all', onAction: () => setFilter('projects') }
+                    : { action: 'Plan one', onAction: () => router.push('/project/new') }} />
                 {projects.length ? (
                   <ScrollView horizontal={filter === 'all'} showsHorizontalScrollIndicator={false}
                     style={filter === 'all' ? { marginHorizontal: -18 } : undefined}

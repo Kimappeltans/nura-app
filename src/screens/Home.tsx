@@ -5,7 +5,6 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../store';
 import type { Task } from '../db';
-import { whyLine } from '../priority';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
 import { NowCard } from '../components/NowCard';
@@ -41,7 +40,7 @@ const STILL_MAX = 4;
  */
 export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; onCapture: () => void }) {
   const t = useTheme();
-  const { inbox, todayPicked, projects, now, nowRule, energy, focusOn, wins, profile } = useStore();
+  const { inbox, todayPicked, projects, now, focusOn, wins, profile } = useStore();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
 
@@ -56,7 +55,6 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
     return p ? inbox.find(x => x.id === p.current!.task_id) ?? null : null;
   }, [now, projects, inbox]);
   const oneProject = one ? projectOf.get(one.id) : undefined;
-  const why = one && one === now ? whyLine(nowRule, one, energy) : null;
 
   // still here: the rest of Today, then everything else
   const still = useMemo(() => {
@@ -92,14 +90,14 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
           </Text>
         </View>
 
-        <NowCard task={one} why={why} from={oneProject?.project.title}
+        <NowCard task={one} from={oneProject?.project.title}
           onBegin={() => one && focusOn(one.id)} onOpen={() => one && setPeek(one)}
           onAnother={() => onTab('tasks')} onPlan={() => router.push('/project/new')} />
 
         {/* put anything down — Nu works out what it is */}
         <Pressable onPress={onCapture} accessibilityRole="button" accessibilityLabel="Add anything"
-          style={({ pressed }) => ({ marginTop: NU_SIZE - 44, opacity: pressed ? 0.92 : 1 })}>
-          <View style={{ height: 60, borderRadius: 15, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'visible' }}>
+          style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.92 : 1 })}>
+          <View style={{ height: 56, borderRadius: 15, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden' }}>
             <LinearGradient colors={t.key === 'nu' ? ['rgba(140,151,246,0.24)', 'rgba(140,151,246,0.10)'] : [t.card, t.layer]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={{ flex: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 }}>
@@ -107,13 +105,11 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
                 <Text style={{ color: '#fff', fontSize: 20, lineHeight: 23, fontFamily: T.brand }}>+</Text>
               </LinearGradient>
               <Text style={{ flex: 1, color: t.ink2, fontSize: 15.5 }}>Add anything…</Text>
-            </LinearGradient>
-            {/* Nu, standing on the bar — the one who takes it */}
-            <View pointerEvents="none" style={{ position: 'absolute', right: 10, bottom: 4 }}>
-              <NuGlow size={NU_SIZE}>
-                <Image source={poseImage('nu-listen')} style={{ width: NU_SIZE, height: NU_SIZE }} resizeMode="contain" />
+              {/* Nu, at the end of the bar — the one who takes it */}
+              <NuGlow size={NU_SIZE.bar}>
+                <Image source={poseImage('nu-listen')} style={{ width: NU_SIZE.bar, height: NU_SIZE.bar }} resizeMode="contain" />
               </NuGlow>
-            </View>
+            </LinearGradient>
           </View>
         </Pressable>
 
@@ -122,7 +118,7 @@ export default function Home({ onTab, onCapture }: { onTab: (t: Tab) => void; on
             <SectionHead label={`Still here · ${still.length}`} action="See all" onAction={() => onTab('tasks')} />
             <ListCard>
               {still.slice(0, STILL_MAX).map((task, i, shown) => (
-                <TaskLine key={task.id} title={task.title} divider={i < shown.length - 1}
+                <TaskLine key={task.id} title={task.title} label={task.label ?? null} divider={i < shown.length - 1}
                   meta={[projectOf.get(task.id)?.project.title, ...taskMeta(task)]}
                   onPress={() => setPeek(task)} onHold={() => setHeld(task)} onMore={() => setPeek(task)} />
               ))}

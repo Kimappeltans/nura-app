@@ -3,8 +3,8 @@ import { View } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme } from '../store';
 
-/** Nu is the same size wherever he appears in the three rooms and the Tell Nu sheet. */
-export const NU_SIZE = 104;
+/** How big Nu is in each place — small enough to sit inside what he's on, as the design has him. */
+export const NU_SIZE = { bar: 46, card: 56, sheet: 60, glance: 84 } as const;
 
 /**
  * A pool of pale light behind Nu. Nu is blue glass, and on the navy of the

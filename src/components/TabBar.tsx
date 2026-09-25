@@ -25,11 +25,11 @@ const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] 
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round">
       <Path d="M4 11.2 12 4l8 7.2v7.3a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><Path d="M9.5 20v-5.5h5V20" />
     </Svg>) },
-  { key: 'tasks', label: 'Your tasks', icon: c => (
+  { key: 'tasks', label: 'Your Tasks', icon: c => (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round">
       <Rect x={5} y={5} width={14} height={14} rx={3} /><Path d="M8 9h8M8 12h8M8 15h5" />
     </Svg>) },
-  { key: 'day', label: 'Your day', icon: c => (
+  { key: 'day', label: 'Your Day', icon: c => (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round">
       <Path d="M4 8h16M8 4v4M16 4v4" /><Rect x={4} y={5} width={16} height={15} rx={4} /><Path d="M8 12h3M8 15h5" />
     </Svg>) },
@@ -57,8 +57,11 @@ export function TabBar() {
   return (
     <View style={{
       flexDirection: 'row', paddingHorizontal: 15, paddingTop: 6, paddingBottom: Math.max(insets.bottom - 6, 10),
-      backgroundColor: t.base, borderTopWidth: 1, borderTopColor: t.stroke,
+      backgroundColor: t.base,
     }} accessibilityRole="tablist">
+      {/* no hard edge: the room fades into the bar */}
+      <LinearGradient pointerEvents="none" colors={[`${t.base}00`, t.base]}
+        style={{ position: 'absolute', left: 0, right: 0, top: -26, height: 26 }} />
       {TABS.map(x => {
         const on = x.key === tab;
         return (

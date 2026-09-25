@@ -86,11 +86,10 @@ function Waves({ width }: { width: number }) {
   );
 }
 
-export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
+export default function OneRises({ tasks, pick, onStart, onEverything }: {
   tasks: Task[];
   /** the suggestion that rises first — you can pick a different one */
   pick: Task;
-  why: string | null;
   onStart: (task: Task) => void;
   onEverything: () => void;
 }) {
@@ -176,7 +175,6 @@ export default function OneRises({ tasks, pick, why, onStart, onEverything }: {
             <Text numberOfLines={3} style={{ color: '#171313', fontSize: 26, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.6 }}>
               {chosen.title}
             </Text>
-            {chosen.id === pick.id && !!why && <Text style={{ color: '#4A4340', fontSize: 14 }}>Why this one: {why}</Text>}
           </View>
 
           {/* it's a suggestion — any of the others can rise instead; one
