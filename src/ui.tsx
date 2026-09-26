@@ -10,7 +10,7 @@ import Svg, {
   Path, Circle as SvgCircle, Rect, Defs, LinearGradient as SvgGradient,
   RadialGradient, Stop, Text as SvgText, Line,
 } from 'react-native-svg';
-import { radius, elevation, iconStroke, type as T } from './theme';
+import { radius, elevation, iconStroke, type as T, doneGround, doneStops } from './theme';
 import { useStore, useTheme } from './store';
 import { sunHeight, skyLabel } from './reward';
 
@@ -625,24 +625,25 @@ export function Celebrate() {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismiss}>
       <Pressable onPress={dismiss} style={{ flex: 1 }}>
-        {/* flat coral, like Done (rule 1) */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6, backgroundColor: '#FF6B35' }}>
+        {/* Done's light ground, so this reads as the start of the same moment */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6, backgroundColor: doneGround[1] }}>
+          <LinearGradient colors={doneGround} locations={doneStops} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <Animated.View style={{
             alignItems: 'center', gap: 4,
             transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
             opacity: pop,
           }}>
             <Character name="ra-celebrate" size={190} motion="celebrate" />
-            <Text style={{ color: '#FFF7EC', fontSize: 66, fontFamily: T.display, letterSpacing: -2 }}>
+            <Text style={{ color: '#3B1204', fontSize: 66, fontFamily: T.display, letterSpacing: -2 }}>
               +{displayNum}
             </Text>
-            <Text style={{ color: '#FFE3CE', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
+            <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
             {!!c.award.bonus.label && (
               <View style={{
                 marginTop: 10, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill,
-                backgroundColor: 'rgba(59,18,4,0.22)',
+                backgroundColor: 'rgba(59,18,4,0.07)',
               }}>
-                <Text style={{ color: '#FFF7EC', fontSize: 13, fontFamily: T.brand, letterSpacing: golden ? 1.5 : 0.2 }}>
+                <Text style={{ color: '#3B1204', fontSize: 13, fontFamily: T.brand, letterSpacing: golden ? 1.5 : 0.2 }}>
                   {golden ? '★ ' : '+'}{golden ? c.award.bonus.label : `${c.award.bonus.n} ${c.award.bonus.label}`}
                 </Text>
               </View>
@@ -653,21 +654,21 @@ export function Celebrate() {
               <View style={{
                 marginTop: 20, alignItems: 'center', gap: 5,
                 paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.xl,
-                backgroundColor: 'rgba(59,18,4,0.26)',
+                backgroundColor: 'rgba(59,18,4,0.06)',
               }}>
-                <Text style={{ color: '#FFE3CE', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
+                <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
                   RANK UP
                 </Text>
-                <Text style={{ color: '#FFF7EC', fontSize: 32, fontFamily: T.display, letterSpacing: -0.8 }}>
+                <Text style={{ color: '#3B1204', fontSize: 32, fontFamily: T.display, letterSpacing: -0.8 }}>
                   {rankUp.name}
                 </Text>
-                <Text style={{ color: '#FFE3CE', fontSize: 14.5, textAlign: 'center', maxWidth: 260, lineHeight: 21 }}>
+                <Text style={{ color: 'rgba(59,18,4,0.7)', fontSize: 14.5, textAlign: 'center', maxWidth: 260, lineHeight: 21, fontFamily: T.brand }}>
                   {rankUp.blurb}
                 </Text>
               </View>
             ) : (
               <Text style={{
-                color: '#FFF1E2', fontSize: 16.5, textAlign: 'center', marginTop: 16,
+                color: 'rgba(59,18,4,0.7)', fontSize: 16.5, textAlign: 'center', marginTop: 16,
                 maxWidth: 300, lineHeight: 24, fontFamily: T.brand,
               }}>{c.line}</Text>
             )}

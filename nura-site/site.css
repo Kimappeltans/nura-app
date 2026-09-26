@@ -1,0 +1,359 @@
+/* Nura — the site. Tokens and rules from guidelines/ (Guidelines.md, tokens.md). */
+/* Nura's own tokens (guidelines/tokens.md): cream by day, navy after the day ends,
+   coral only for the one thing to do. Flat: a fill and a hairline, never a shadow. */
+:root {
+  --cream: #FAF7F0; --layer: #F3EEE2; --subtle: #EFE9DB; --card: #FFFFFF;
+  --ink: #171313; --ink-2: #4A4340; --ink-3: #7B7360; --mute: #958B77;
+  --coral: #FF6B35; --coral-deep: #C2410C; --on-coral: #3B1204; --ink-nu: #1B1830;
+  --navy: #0B1029; --navy-2: #111838; --navy-3: #161D42;
+  --font: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ease-pop: cubic-bezier(0.22, 1, 0.36, 1);
+  --gutter: clamp(16px, 5vw, 40px);
+}
+/* a section's light — the same names, different values */
+.day   { --bg: #FFFFFF; --text: var(--ink); --sub: var(--ink-3); --mh: var(--mute); --line: rgba(23,19,19,.08); --tile: #FFFFFF; --tile-2: #FBF6F1; }
+.water { --bg: #FFF4EC; --tile: #FFFFFF; --tile-2: #FBF6F1; background-image: linear-gradient(180deg, #FFF4EC 0%, #FFFFFF 100%); }
+/* Nu's sections: deep blue, a little lighter at the bottom */
+.night { background-image: linear-gradient(180deg, #0B1029 0%, #10214F 100%); --bg: var(--navy);  --text: #F2F4FB; --sub: rgba(242,244,251,.62); --mh: rgba(242,244,251,.5); --line: rgba(242,244,251,.12); --tile: var(--navy-3); --tile-2: var(--navy-2); }
+.dawn  { --text: var(--on-coral); --sub: rgba(59,18,4,.62); --mh: rgba(59,18,4,.45); --line: rgba(59,18,4,.10); }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: #FFFFFF; color: var(--ink); font: 500 16px/1.5 var(--font); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+section { background: var(--bg); color: var(--text); }
+.wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 var(--gutter); }
+.pad { padding-block: clamp(64px, 10vw, 128px); }
+.pt0 { padding-top: 0; }
+
+/* type */
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.045em; line-height: 1.02; text-wrap: balance; }
+h1 { font-size: clamp(38px, 5.2vw, 66px); line-height: 1.04; }
+h2 { font-size: clamp(32px, 4.6vw, 54px); }
+h3 { font-size: 20px; letter-spacing: -0.03em; line-height: 1.15; }
+.mh { color: var(--mh); }
+.block { display: block; }
+.lead { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.5; color: var(--sub); max-width: 34em; margin: 22px 0 0; text-wrap: pretty; }
+p { margin: 0; }
+
+/* the one action is coral; everything else is a link */
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 52px; padding: 0 26px; border-radius: 26px;
+       font: 600 16px var(--font); letter-spacing: -0.01em; text-decoration: none; transition: transform .25s var(--ease-pop); }
+.btn:active { transform: scale(.97); }
+.btn-coral { background: var(--coral); color: var(--on-coral); }
+.btn-sm { height: 40px; padding: 0 18px; border-radius: 20px; font-size: 14.5px; }
+.link { font-weight: 600; text-decoration: none; }
+.link:hover, .btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--coral-deep); outline-offset: 3px; border-radius: 8px; }
+
+/* header */
+header { position: sticky; top: 0; z-index: 10; background: #FFFFFF; border-bottom: 1px solid transparent; transition: border-color .2s; }
+header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
+.bar { display: flex; align-items: center; gap: 28px; height: 64px; }
+.wordmark { display: block; width: 77px; height: 22px; background: var(--ink); -webkit-mask: url(assets/wordmark.png) center / contain no-repeat; mask: url(assets/wordmark.png) center / contain no-repeat; }
+.bar nav { display: flex; gap: 24px; margin-left: auto; font-size: 15px; color: var(--ink-2); }
+.bar nav a { text-decoration: none; }
+.bar nav a:hover { color: var(--ink); }
+@media (max-width: 800px) { .bar nav { display: none; } .bar .btn { margin-left: auto; } }
+
+/* a phone: the real screenshot in a dark bezel, flat */
+.phone { position: relative; width: 100%; max-width: 300px; margin: 0; padding: 7px; border-radius: 46px; background: #171313; }
+.phone img { width: 100%; border-radius: 39px; background: #F3EEE2; }
+/* the camera cutout, at the iPhone 17's size and place (margins in % are of the width) */
+.phone::after { content: ""; position: absolute; top: 7px; left: 50%; width: 30%; aspect-ratio: 126 / 37; margin-top: 2.6%; transform: translateX(-50%); border-radius: 999px; background: #000; }
+
+/* hero */
+.hero { padding-block: clamp(40px, 6vw, 80px) clamp(56px, 8vw, 104px); }
+.hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 34px; }
+.note { display: flex; align-items: center; gap: 10px; margin-top: 26px; font-size: 14px; color: var(--sub); }
+.note i { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); }
+.stage { position: relative; display: grid; place-items: center; }
+.stage .phone { position: relative; }
+@media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; } .stage .phone { max-width: 270px; } }
+
+/* the transformation: the mess → understood → a living plan → one move */
+.flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: clamp(40px, 6vw, 64px); }
+.stagebox { background: var(--tile); border: 1px solid var(--line); border-radius: 26px; padding: 22px 20px 24px; display: flex; flex-direction: column; }
+.stagebox .art { display: grid; place-items: center; height: 190px; margin-bottom: 18px; }
+.stagebox p { margin-top: 6px; color: var(--sub); font-size: 15px; }
+.stagebox .k { font-size: 13px; font-weight: 600; color: var(--coral-deep); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+@media (max-width: 980px) { .flow { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .flow { grid-template-columns: 1fr; } }
+/* 1 · loose thoughts */
+/* the pills fall in one by one and land on each other in a pile (site.js starts it) */
+.mess { position: relative; width: 100%; height: 170px; overflow: hidden; }
+.mess span { position: absolute; left: var(--l, auto); right: var(--rt, auto); bottom: var(--b); transform: rotate(var(--r));
+             padding: 6px 12px; border-radius: 999px; background: var(--tile-2); color: var(--ink-2); font-size: 13px;
+             white-space: nowrap; border: 1px solid rgba(23,19,19,.12); opacity: 0; }
+.mess.go span { opacity: 1; animation: fall .95s var(--d) both; }
+@keyframes fall {
+  0%   { transform: translateY(-240px) rotate(calc(var(--r) * -2)); animation-timing-function: cubic-bezier(.5, 0, .9, .4); }
+  70%  { transform: translateY(0) rotate(var(--r)); animation-timing-function: cubic-bezier(.2, .6, .4, 1); }
+  83%  { transform: translateY(-8px) rotate(calc(var(--r) * 1.2)); animation-timing-function: cubic-bezier(.6, 0, .9, .5); }
+  100% { transform: translateY(0) rotate(var(--r)); }
+}
+@media (prefers-reduced-motion: reduce) { .mess span { opacity: 1; animation: none !important; } }
+/* 2 · what Nu understood: tidy chips */
+.chips { display: grid; gap: 10px; width: 100%; }
+.chip { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 13px; }
+.chip b { font-weight: 600; color: var(--text); margin-right: 2px; }
+.chip span { padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--tile); color: var(--ink-2); font-size: 12px; }
+/* 3 · a living plan: a small path of dots */
+.mini-path { width: 100%; }
+.mini-path div { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); padding: 7px 0; position: relative; }
+.mini-path div::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--coral); background: var(--tile); z-index: 1; }
+.mini-path div.done { color: var(--sub); text-decoration: line-through; }
+.mini-path div.done::before { background: var(--coral); }
+.mini-path div.now { color: var(--text); font-weight: 600; }
+.mini-path div.now::before { background: var(--coral); box-shadow: 0 0 0 4px rgba(255,107,53,.18); }
+.mini-path div + div::after { content: ""; position: absolute; left: 4px; top: -8px; height: 16px; border-left: 2px dotted rgba(23,19,19,.2); }
+/* 4 · one move: Home's front card, small */
+.front { width: 100%; background: var(--coral); color: var(--on-coral); border-radius: 22px; padding: 16px 16px 14px; }
+.front small { display: block; font-size: 11.5px; font-weight: 600; opacity: .8; }
+.front b { display: block; font-size: 19px; letter-spacing: -0.04em; line-height: 1.1; margin: 6px 0 14px; font-weight: 600; }
+.front .row { display: flex; align-items: flex-end; justify-content: space-between; }
+.front .begin { width: 52px; height: 52px; border-radius: 50%; background: var(--ink-nu); color: var(--cream); display: grid; place-items: center; font-size: 12.5px; font-weight: 600; }
+.front .m { font-size: 40px; line-height: .9; letter-spacing: -0.06em; font-weight: 400; }
+.front .m small { display: inline; font-size: 12px; letter-spacing: 0; font-weight: 500; opacity: 1; }
+
+/* a feature: words on one side, the picture on the other */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 7vw, 96px); align-items: center; }
+.split.flip > :first-child { order: 2; }
+.split .stage .phone { max-width: 290px; }
+.points { list-style: none; margin: 30px 0 0; padding: 0; display: grid; max-width: 30em; }
+.points li { display: flex; gap: 14px; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--line); color: var(--sub); }
+.points li:last-child { border-bottom: 1px solid var(--line); }
+.points b { color: var(--text); font-weight: 600; }
+.points i { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--coral); transform: translateY(1px); }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } .split.flip > :first-child { order: 0; } }
+
+/* the whole project behind the one move */
+.behind { display: grid; grid-template-columns: minmax(0, 220px) 1fr; gap: clamp(16px, 3vw, 28px); align-items: center; }
+.roadmap { background: var(--tile); border: 1px solid var(--line); border-radius: 26px; padding: 22px 22px 18px; }
+.roadmap .t { font-size: 13px; color: var(--sub); }
+.roadmap .g { font-size: 19px; font-weight: 600; letter-spacing: -0.035em; margin: 2px 0 12px; }
+.roadmap ol { list-style: none; margin: 0; padding: 0; }
+.roadmap li { position: relative; display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: baseline; padding: 9px 0; font-size: 14.5px; line-height: 1.3; }
+.roadmap li + li::before { content: ""; position: absolute; left: 5px; top: -9px; height: 20px; border-left: 2px dotted rgba(23,19,19,.2); }
+.roadmap li i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--coral); transform: translateY(1px); }
+.roadmap li.done { color: var(--sub); }
+.roadmap li.done span { text-decoration: line-through; }
+.roadmap li.done i { background: var(--coral); }
+.roadmap li.now { font-weight: 600; }
+.roadmap li.now i { background: var(--coral); box-shadow: 0 0 0 4px rgba(255,107,53,.18); }
+.roadmap li em { font-style: normal; font-size: 12px; color: var(--sub); font-weight: 500; }
+.roadmap li.now em { color: var(--coral-deep); font-weight: 600; }
+.roadmap .fix { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--tile-2); font-size: 13px; color: var(--ink-2); }
+.roadmap .fix b { font-weight: 600; color: var(--text); }
+@media (max-width: 560px) { .behind { grid-template-columns: 1fr; } .behind .phone { max-width: 220px; margin: 0 auto; } }
+
+/* flat tiles; the six advantages are numbered */
+.tile { background: var(--tile); border: 1px solid var(--line); border-radius: 26px; padding: 26px; }
+.tile .ic { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; background: var(--tile-2); color: var(--text); margin-bottom: 18px; }
+.tile p { margin-top: 8px; color: var(--sub); font-size: 15.5px; }
+.six { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(36px, 5vw, 56px); counter-reset: adv; }
+.six .tile { counter-increment: adv; }
+.six .tile::before { content: counter(adv, decimal-leading-zero); display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--coral-deep); font-variant-numeric: tabular-nums; }
+@media (max-width: 960px) { .six { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .six { grid-template-columns: 1fr; } }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(36px, 5vw, 56px); }
+@media (max-width: 900px) { .tiles { grid-template-columns: 1fr; } }
+
+/* a suggestion, as the app shows it */
+.stack-cards { display: grid; gap: 12px; margin-top: 30px; }
+.suggest { background: var(--tile); border: 1px solid var(--line); border-radius: 22px; padding: 16px; display: grid; grid-template-columns: 52px 1fr; gap: 12px; max-width: 440px; }
+.suggest img { width: 52px; height: 52px; }
+.suggest p { font-size: 15px; color: var(--text); line-height: 1.45; }
+.suggest small { display: block; margin-top: 8px; font-size: 12.5px; color: var(--sub); }
+.suggest .act { display: flex; gap: 16px; align-items: center; margin-top: 12px; }
+.suggest .yes { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--ink); background: rgba(23,19,19,.06); font-size: 13.5px; font-weight: 600; }
+.suggest .no { font-size: 13.5px; color: var(--sub); }
+
+/* the month of suns, drawn small */
+.suns { display: grid; grid-template-columns: repeat(7, 34px); gap: 8px; margin-top: 30px; }
+.suns span { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; }
+.suns span.lit { border: 0; background: rgba(255,107,53,.16); }
+.suns span.lit::after { content: ""; width: var(--s); height: var(--s); border-radius: 50%; background: var(--coral); }
+
+/* the water: Your Tasks' wave, as the edge between two sections */
+.wave { display: block; width: 100%; height: 34px; background: #FFFFFF; }
+.wave path.fill { fill: #FFF4EC; }
+.wave path.line { fill: none; stroke: rgba(23,19,19,.28); stroke-width: 1.6; }
+
+/* focus: two phones, the session and Done */
+.pair-phones { display: flex; gap: 16px; justify-content: center; align-items: flex-start; }
+.pair-phones .phone { max-width: 240px; }
+.pair-phones .phone + .phone { margin-top: 48px; }
+
+/* Nu and Ra, what each one does */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: clamp(36px, 5vw, 56px); }
+.who { background: var(--tile); border: 1px solid var(--line); border-radius: 30px; padding: clamp(24px, 3vw, 36px); display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.who img { width: clamp(96px, 12vw, 140px); }
+.who h3 { font-size: clamp(24px, 2.6vw, 30px); }
+.who p { margin-top: 10px; color: var(--sub); }
+.who ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; grid-column: 1 / -1; }
+.who li { display: flex; gap: 10px; align-items: baseline; font-size: 15px; color: var(--ink-2); }
+.who li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); transform: translateY(-1px); }
+.who.nu { --dot: #2F4BC9; }
+.who.ra { --dot: var(--coral); }
+@media (max-width: 800px) { .duo { grid-template-columns: 1fr; } }
+
+/* the origin: water → Nu → the Benben → Ra → action */
+.myth { display: grid; gap: 16px; margin-top: 26px; max-width: 32em; color: var(--sub); font-size: 17px; }
+.myth b { color: var(--text); font-weight: 600; }
+.origin { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 30px; font-size: 15px; color: var(--sub); }
+.origin b { color: var(--text); font-weight: 600; }
+.origin i { font-style: normal; opacity: .5; }
+.benben { width: min(280px, 64%); margin: 0 auto; }
+
+/* FAQ */
+.faq { max-width: 760px; margin-top: 40px; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 20px; padding: 22px 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-weight: 400; font-size: 24px; line-height: 1; color: var(--sub); transition: transform .3s var(--ease-pop); }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 0 22px; color: var(--sub); max-width: 40em; }
+
+/* the close: Done's ground, Ra holding up the pebble */
+.dawn { background: linear-gradient(180deg, #FFFDFA 0%, #FFF1E6 45%, #FFD6BD 100%); text-align: center; }
+.dawn .wrap { display: grid; justify-items: center; }
+.dawn .ra { width: 220px; height: 220px; object-fit: contain; }
+.dawn .lead { margin-inline: auto; }
+.badge { display: inline-flex; align-items: center; gap: 12px; height: 56px; padding: 0 22px; border-radius: 16px; background: var(--ink); color: #fff; margin-top: 30px; text-align: left; }
+.badge small { display: block; font-size: 11px; opacity: .8; font-weight: 500; letter-spacing: 0; }
+.badge span { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+footer { background: #FFD6BD; color: var(--on-coral); }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; padding-block: 28px 36px; font-size: 14px; }
+footer .wordmark { background: var(--on-coral); width: 63px; height: 18px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+footer nav a { text-decoration: none; opacity: .75; }
+footer nav a:hover { opacity: 1; }
+footer .c { margin-left: auto; opacity: .7; }
+
+/* sections ease in once; nothing moves for people who asked for less motion */
+.rv { opacity: 0; transform: translateY(14px); transition: opacity .7s var(--ease-pop), transform .7s var(--ease-pop); }
+.rv.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } }
+
+/* ─── shared by every page ─── */
+.bar nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.kicker { display: block; margin-bottom: 16px; font-size: 11px; font-weight: 600; letter-spacing: 1.7px; text-transform: uppercase; color: var(--sub); }
+
+/* the story (about.html): the water, the mound, the light */
+.chapter { min-height: min(70vh, 720px); display: grid; align-items: center; }
+.chapter .wrap { max-width: 900px; }
+.chapter h1, .chapter h2 { max-width: 16em; }
+.story-p { font-size: clamp(19px, 2vw, 24px); line-height: 1.5; color: var(--sub); max-width: 30em; margin-top: 26px; text-wrap: pretty; }
+.story-p b { color: var(--text); font-weight: 600; }
+.deep { --bg: #070B20; }
+.dusk { --bg: var(--navy-2); }
+.water-lines { display: block; width: 100%; height: 60px; margin-top: 40px; }
+.water-lines path { fill: none; stroke: rgba(242,244,251,.22); stroke-width: 1.4; }
+.mound { width: min(260px, 60%); margin-top: 40px; }
+.forms { display: block; width: min(420px, 100%); height: auto; margin-top: 40px; }
+.forms .l { fill: none; stroke: rgba(242,244,251,.5); stroke-width: 1.6; stroke-linejoin: round; }
+.forms .cap { fill: var(--coral); }
+.light { background: linear-gradient(180deg, #FFFDFA 0%, #FFF1E6 50%, #FFD6BD 100%); }
+.light .ra-sun { width: min(260px, 60%); margin-top: 30px; }
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(36px, 5vw, 56px); }
+.trio .tile { display: grid; grid-template-rows: 150px auto auto; }
+.trio .tile img { height: 140px; width: auto; justify-self: start; object-fit: contain; }
+.trio .tile h3 { font-size: 22px; margin-top: 10px; }
+@media (max-width: 860px) { .trio { grid-template-columns: 1fr; } }
+.teaser { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; margin-top: 30px; }
+
+/* the tour (how-it-works.html): one part of the app per row */
+.tour { display: grid; gap: clamp(72px, 10vw, 128px); }
+.tour .split .stage .phone { max-width: 280px; }
+.part-n { font-size: 13px; font-weight: 600; color: var(--coral-deep); margin-bottom: 12px; font-variant-numeric: tabular-nums; }
+
+/* prose (privacy.html) */
+.prose { max-width: 720px; }
+.prose h2 { font-size: clamp(24px, 2.6vw, 30px); letter-spacing: -0.035em; margin-top: 48px; }
+.prose p, .prose li { color: var(--ink-2); font-size: 17px; line-height: 1.6; }
+.prose p { margin-top: 14px; }
+.prose ul { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 8px; }
+.prose b { color: var(--ink); font-weight: 600; }
+.prose .updated { margin-top: 18px; font-size: 14px; color: var(--ink-3); }
+.tour .learn { grid-template-columns: 1fr; }
+.tour .learn .stack-cards { grid-template-columns: repeat(2, minmax(0, 440px)); }
+@media (max-width: 860px) { .tour .learn .stack-cards { grid-template-columns: 1fr; } }
+
+/* very light orange accents on the white page */
+.glow { background-image:
+  radial-gradient(55% 60% at 88% 18%, rgba(255,150,100,.16), transparent 70%),
+  radial-gradient(45% 50% at 0% 100%, rgba(255,190,150,.16), transparent 70%); }
+.about-deep { background-image: linear-gradient(180deg, #060A1C 0%, #0B1029 100%) !important; }
+.about-blue { background-image: linear-gradient(180deg, #0B1029 0%, #10214F 100%) !important; }
+.about-dusk { background-image: linear-gradient(180deg, #10214F 0%, #1A3470 100%) !important; }
+
+/* the moving characters: real clips, cut out; they play when they arrive */
+.mover { display: block; height: auto; pointer-events: none; }
+.hero .stage .mover { position: absolute; left: -2%; bottom: -4%; width: 38%; max-width: 170px; z-index: 2; }
+.behind { position: relative; }
+.behind .mover { position: absolute; right: -10px; top: -130px; width: 150px; }
+.rest-ra { width: 150px; margin: 22px 0 -10px; }
+.scene { width: 100%; max-width: 460px; aspect-ratio: 1; border-radius: 30px; object-fit: cover; background: #000; justify-self: center; }
+@media (max-width: 860px) { .hero .stage .mover { width: 30%; left: 4%; } .behind .mover { display: none; } }
+
+/* nothing may widen the page on a phone: the dotted sun and the moving
+   characters are clipped at the screen's edge instead */
+html, body { overflow-x: clip; }
+section { overflow-x: clip; }
+h1 { font-size: clamp(36px, 4.6vw, 58px); }
+.chip b { font-size: 12.5px; }
+/* the story continues the night section's blue instead of starting over */
+.night-on { background-image: linear-gradient(180deg, #10214F 0%, #0B1029 100%); }
+@media (max-width: 560px) { .pair-phones .phone { max-width: 46%; } .pair-phones .phone + .phone { margin-top: 32px; } }
+
+/* ─── cards: bordered and lifted off the white page (the site only; the app stays flat) ─── */
+.tile, .stagebox, .roadmap, .suggest, .who {
+  border: 1px solid rgba(23,19,19,.1);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FCFAF7 100%);
+  box-shadow: 0 1px 1px rgba(23,19,19,.03), 0 3px 8px rgba(23,19,19,.04), 0 18px 36px -14px rgba(60,35,15,.16);
+  transition: opacity .7s var(--ease-pop), transform .5s var(--ease-pop), box-shadow .5s var(--ease-pop);
+}
+@media (hover: hover) {
+  .tile:hover, .stagebox:hover, .who:hover, .suggest:hover, .roadmap:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 1px 1px rgba(23,19,19,.03), 0 6px 14px rgba(23,19,19,.05), 0 28px 48px -16px rgba(60,35,15,.22);
+  }
+}
+.night .tile, .night .who {
+  border-color: rgba(242,244,251,.14);
+  background: linear-gradient(180deg, #18214A 0%, #121A3D 100%);
+  box-shadow: 0 1px 0 rgba(242,244,251,.06) inset, 0 20px 40px -16px rgba(0,0,0,.55);
+}
+
+/* ─── light between dark and light: only in a few places ─── */
+/* a faint wash, Nu's blue at the top to Ra's orange at the bottom */
+.wash { background-image: linear-gradient(180deg, #FFFFFF 0%, #EFF4FC 20%, #FFFFFF 52%, #FFF3EA 82%, #FFFFFF 100%); }
+/* dusk: the day fading into Nu's navy, before the night */
+.to-night { height: clamp(120px, 16vw, 220px); background: linear-gradient(180deg, #FFFFFF 0%, #EDF2FB 30%, #9FB0D8 68%, #0B1029 100%); }
+/* sunrise: the navy warming through light blue into a slight orange */
+.to-dawn { height: clamp(140px, 18vw, 240px); background: linear-gradient(180deg, #0B1029 0%, #1F3268 28%, #9DB1DC 60%, #F3EEF2 82%, #FFFDFA 100%); }
+.to-dawn.from-dusk { background: linear-gradient(180deg, #1A3470 0%, #5C75B3 30%, #BFCDEB 60%, #F6F0F0 82%, #FFFDFA 100%); }
+
+/* ─── the early-access form, in the close ─── */
+.signup { display: flex; gap: 10px; width: 100%; max-width: 480px; margin: 30px auto 0; }
+.signup input[type="email"] { flex: 1; min-width: 0; height: 52px; padding: 0 22px; border-radius: 26px; border: 1px solid rgba(59,18,4,.18);
+  background: #FFFFFF; color: var(--ink); font: 500 16px var(--font); letter-spacing: -0.01em; }
+.signup input[type="email"]::placeholder { color: #A89E8C; }
+.signup input[type="email"]:focus { outline: 2px solid var(--coral-deep); outline-offset: 2px; }
+.signup button { flex: none; border: 0; cursor: pointer; }
+.signup button[disabled] { opacity: .6; cursor: default; }
+.form-state { min-height: 22px; margin-top: 12px; font-size: 14.5px; color: var(--sub); }
+.form-state.ok { color: var(--on-coral); font-weight: 600; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hp { position: absolute; left: -9999px; }
+@media (max-width: 520px) { .signup { flex-direction: column; } .signup button { width: 100%; } }
+/* what each one does, in the story page's trio */
+.does { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.does li { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; color: var(--ink-2); }
+.does li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; transform: translateY(-1px); background: var(--coral); }
+.does.nu li::before { background: #2F4BC9; }
+.does.bb li::before { background: #1E6FD9; }
+.trio .tile { grid-template-rows: 150px auto auto 1fr; }

@@ -7,10 +7,11 @@ to tokens, styles and components. The reference board is
 
 The short version, for when you're in a hurry:
 
-- Clean and flat: no glows, gradients, glass or shadows.
+- Clean and flat: no glows, gradients, glass or shadows (one exception: Done's
+  soft white-to-orange ground, `doneGround`).
 - Inter Tight only — never Poppins.
 - Appearance: By the sun (default) / Light / Dark. Nu's rooms follow it; Ra's
-  screens are cream; Done is coral. Never follow the phone's light/dark.
+  screens are cream; Done is warm white into light orange. Never follow the phone's light/dark.
 - One thing at full size; simple first, the rest in More options.
 - One way out, top left. A running session lives in the pill above the tabs.
 - Plain words ("3 done, 2 to go"); no filler lines; no number goes down.

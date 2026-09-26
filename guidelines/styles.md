@@ -45,7 +45,7 @@ Stored as a setting: `sun` (default), `light`, `dark`.
   ends (Settings → Day ends), then `.navy`.
 - **Light** — rooms always `.light`. **Dark** — rooms always `.navy`.
 - Ra's screens (Focus, More options, In session) are cream in all three;
-  Done is coral in all three.
+  Done is warm white into light orange (`doneGround`) in all three.
 
 ## Motion
 

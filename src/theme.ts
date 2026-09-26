@@ -179,6 +179,13 @@ export const dark = nuTheme;
 export const light = raTheme;
 
 /** Radius scale — 4 controls, 8 large controls, 12 sheets, 20 hero surfaces. */
+/**
+ * Done's ground (and the moment just before it): warm white into a light
+ * orange, so Ra and Nu stand out. The one gradient in the app (guidelines, rule 1).
+ */
+export const doneGround = ['#FFFDFA', '#FFF1E6', '#FFD6BD'] as const;
+export const doneStops = [0, 0.45, 1] as const;
+
 export const radius = { sm: 6, md: 12, lg: 18, xl: 26, pill: 999 } as const;
 
 /**

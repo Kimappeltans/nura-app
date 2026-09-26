@@ -89,6 +89,8 @@ interface State {
   tab: Tab;
   /** Tell Nu is open — the tab bar's round button, on every screen that has it */
   telling: boolean;
+  /** what Tell Nu opens with, if anything (then cleared) */
+  tellDraft: string | null;
   /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
   dayEndMin: number;
   setDayEnd: (min: number) => Promise<void>;
@@ -126,7 +128,7 @@ export const useStore = create<State>((set, get) => ({
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '' },
-  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, dayEndMin: 21 * 60, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
+  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, tellDraft: null, dayEndMin: 21 * 60, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
   setAppearance: async (appearance) => {
     await db.setFlag('appearance', appearance);
     set({ appearance });

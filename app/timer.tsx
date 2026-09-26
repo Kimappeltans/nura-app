@@ -3,8 +3,9 @@ import { goBack } from '../src/nav';
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, Image, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
 import { complete, endSession, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
@@ -12,9 +13,10 @@ import { writeFocusBlock } from '../src/calendar';
 import { reconcileNudges } from '../src/notifications';
 import { stepForTask } from '../src/projects';
 import { Primary, Ghost, Mica, poseImage } from '../src/ui';
-import { type as T, copy, radius } from '../src/theme';
+import { type as T, copy, radius, doneGround, doneStops } from '../src/theme';
 import { DotMatrix } from '../src/components/DotMatrix';
 import { DotSun } from '../src/components/Handoff';
+import { Moving } from '../src/components/Moving';
 
 const CORAL = '#FF6B35';
 const ON_CORAL = '#3B1204';
@@ -47,7 +49,13 @@ function breakMinutesFor(sessionMins: number) {
 function Timer() {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  const { id, mins } = useLocalSearchParams<{ id?: string; mins?: string }>();
+  // the window's own insets: inside a full-screen modal the safe-area view can
+  // report none on iOS, and the top row slid under the status bar
+  const insets = useSafeAreaInsets();
+  const safe = { flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom } as const;
+  // `dev=done` (dev builds only) opens straight on Done, for screenshots
+  const { id, mins, dev } = useLocalSearchParams<{ id?: string; mins?: string; dev?: string }>();
+  const devDone = __DEV__ && dev === 'done';
   const refresh = useStore(s => s.refresh);
   const celebrate = useStore(s => s.celebrate);
   const next = useStore(s => s.now);          // what Nu has next, once this one is done
@@ -69,8 +77,8 @@ function Timer() {
   const [catching, setCatching] = useState(false);
   const [thought, setThought] = useState('');
   // 'work' is the task itself; 'breakOffer' is Done; 'break' is the pause running
-  const [phase, setPhase] = useState<'work' | 'breakOffer' | 'break'>('work');
-  const [spent, setSpent] = useState(0);      // minutes, for Done
+  const [phase, setPhase] = useState<'work' | 'breakOffer' | 'break'>(devDone ? 'breakOffer' : 'work');
+  const [spent, setSpent] = useState(devDone ? Number(mins ?? 0) : 0);      // minutes, for Done
   const [breakEnd, setBreakEnd] = useState(0);
   const [, setTick] = useState(0);
 
@@ -186,12 +194,14 @@ function Timer() {
 
   const breakMins = breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
 
-  /* ───────────── DONE — coral, together ───────────── */
+  /* ───────────── DONE — warm light, together ───────────── */
   if (phase === 'breakOffer') {
     const hasNext = !!next && next.id !== id;
     return (
-      <View style={{ flex: 1, backgroundColor: CORAL }}>
-        <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: doneGround[1] }}>
+        {/* white into a light orange, so Ra and Nu stand out (the one gradient — guidelines, rule 1) */}
+        <LinearGradient colors={doneGround} locations={doneStops} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={safe}>
           <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
             <Pressable onPress={async () => { await toNu(); goBack(); }} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
               <Text style={{ color: ON_CORAL, fontSize: 15, fontFamily: T.display }}>← Back to Nu</Text>
@@ -205,8 +215,8 @@ function Timer() {
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
             <View style={{ width: 300, height: 300 }}>
-              <View style={{ position: 'absolute', left: -24, top: -24 }}><DotSun size={340} color={CREAM} /></View>
-              <Image source={poseImage('ra-sun')} resizeMode="contain" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
+              <View style={{ position: 'absolute', left: -24, top: -24 }}><DotSun size={340} color="#FFCBAA" /></View>
+              <Moving name="ra-pebble" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
               <Image source={poseImage('nu-hello')} resizeMode="contain" style={{ position: 'absolute', left: 4, top: 140, width: 120, height: 120 }} />
             </View>
           </View>
@@ -230,7 +240,7 @@ function Timer() {
               </Pressable>
             )}
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     );
   }
@@ -246,7 +256,7 @@ function Timer() {
 
   /* ───────────── IN SESSION — cream, Ra on the ring ───────────── */
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <View style={[safe, { backgroundColor: t.base }]}>
       <Mica />
       {/* the way out, top left: it keeps running, as the pill above the tabs */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, height: 56 }}>
@@ -326,7 +336,7 @@ function Timer() {
           </>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -93,7 +93,8 @@
           "microphonePermission": "Nura listens only while you're speaking to Nu, so it can write down what you say.",
           "speechRecognitionPermission": "Nura turns what you say into text you can check and edit before anything happens with it."
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

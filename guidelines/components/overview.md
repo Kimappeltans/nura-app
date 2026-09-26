@@ -78,9 +78,12 @@ Stop · Pause · Done, "Stop here — it still counts", "+ a thought just arrive
 
 ## Done
 
-Coral ground. ← Back to Nu top left, "You did it / together." (two-tone),
-what and how long, Ra (ra-sun) over a cream sun made of dots with Nu beside
-it, then the Next circle and the next task.
+A soft ground: warm white at the top into a light orange at the bottom
+(`doneGround`, the one gradient), the dotted sun in pale orange. The reward
+moment just before it (+N light, a rank-up) sits on the same ground with dark
+text. ← Back to Nu top left, "You did it / together." (two-tone),
+what and how long, Ra holding up a tiny pebble (the moving clip, below) over a
+cream sun made of dots with Nu beside it, then the Next circle and the next task.
 
 ## Calendar: a month of suns
 
@@ -114,7 +117,7 @@ Nu and Ra only, from `assets/story/` and `assets/characters/` (see POSES in
 | Tell Nu | nu-listen | — |
 | Focus | nu-hello handing over | ra-hello |
 | In session, the pill | — | ra-rest |
-| Done | nu-hello | ra-sun |
+| Done | nu-hello | ra-pebble (moving) |
 | Night | nu-rest (lying down) | ra-rest at the horizon |
 
 No glow, halo or drop shadow on a character.
@@ -125,6 +128,14 @@ corner tiles), 66pt on the path and on the water, 70pt on the front card,
 
 On a short phone (under 740pt tall, an SE) Home tightens so Begin stays on
 screen: a 30pt greeting, a lower path, one card behind the front one.
+
+**Moving characters** (`src/components/Moving.tsx`) are real clips from the
+Midjourney sources, cut out of their background, saved as animated WebP (360px,
+12 fps, under 1 MB) and shown with expo-image. A clip plays once when its moment
+arrives and rests on its last pose — never a loop; one per screen, only where
+the character is big enough for the motion to read (not on the path, the pill
+or the ring). With Reduce Motion on, only the last pose. No glowing water or
+sparkling clips (rule 1). Now: Done (Ra holding up a pebble).
 
 ## Rows, chips, labels, icons
 

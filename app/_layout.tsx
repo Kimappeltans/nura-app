@@ -10,7 +10,7 @@ import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
-import { useStore, useRoomsLight } from '../src/store';
+import { useStore, useRoomsLight, type Tab } from '../src/store';
 import { supabase } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
@@ -82,7 +82,9 @@ export default function Root() {
       // a simulator without tapping or the "Open in Nura?" prompt a link
       // brings — set the flag `dev.open` to a route and relaunch. Used once,
       // then cleared ("/" just clears it: the home screen, once it's ready).
-      // scripts/screens.sh uses it. Compiled out of release builds.
+      // Also `tab:tasks` / `tab:day` (a room) and `tell:<words>` (Tell Nu,
+      // open with those words). scripts/screens.sh and scripts/site-shots.sh
+      // use it. Compiled out of release builds.
       if (__DEV__) {
         // and on the web, where there's no sqlite3 to reach the database:
         // __nuraFlag('dev.planner', 'local') from the browser console
@@ -96,7 +98,9 @@ export default function Root() {
         const route = await getFlag('dev.open');
         if (route) {
           await setFlag('dev.open', '');
-          if (route !== '/') setTimeout(() => router.push(route as never), 300);
+          if (route.startsWith('tab:')) useStore.setState({ tab: route.slice(4) as Tab });
+          else if (route.startsWith('tell:')) setTimeout(() => useStore.setState({ telling: true, tellDraft: route.slice(5) }), 600);
+          else if (route !== '/') setTimeout(() => router.push(route as never), 300);
         }
       }
     })();

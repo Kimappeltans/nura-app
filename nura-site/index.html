@@ -1,458 +1,240 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nura — everything on your mind, one thing to begin</title>
-<meta name="description" content="Nura is a calm planner with an AI guide. Put everything down, and it hands you one small move you can start right now — even when the goal feels too big to touch.">
-<meta property="og:title" content="Nura — everything on your mind, one thing to begin">
-<meta property="og:description" content="A calm planner with an AI guide. Put everything down; begin with one small move.">
-<meta property="og:image" content="assets/mark.png">
-<meta name="theme-color" content="#0B1029">
+<title>Nura — the planner that learns how you work</title>
+<meta name="description" content="An intelligent planner that learns how you work, adjusts to change, and guides you toward the next best move. For iPhone.">
+<meta property="og:title" content="Nura — the planner that learns how you work">
+<meta property="og:description" content="An intelligent planner that learns how you work, adjusts to change, and guides you toward the next best move.">
+<meta property="og:image" content="assets/app-home.webp">
+<meta name="theme-color" content="#FFFFFF">
 <link rel="icon" href="assets/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --navy:#0B1029; --navy-2:#111838; --navy-3:#161D42;
-  --cream:#FAF7F0; --cream-2:#F3EEE2; --white:#FFFFFF;
-  --ink:#171313; --ink-2:#4A4340; --ink-3:#7B7360;
-  --pale:#F2F4FB; --pale-2:#AEB6D4; --pale-3:#8A93B8;
-  --nu:#5B6CF0; --nu-soft:#8C97F6; --nu-deep:#4338CA;
-  --ra:#FF6B35; --ra-soft:#FFA05C; --ra-deep:#C2410C; --gold:#FFB067;
-  --line-d:rgba(170,185,255,.14); --line-l:rgba(23,19,19,.09);
-  --max:1120px; --gut:clamp(20px,5vw,40px);
-  --sans:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-body{font-family:var(--sans);background:var(--navy);color:var(--pale);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-img{display:block;max-width:100%}
-a{color:inherit;text-decoration:none}
-picture{display:contents}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut)}
-
-/* type */
-h1,h2,h3{font-weight:600;letter-spacing:-.025em;text-wrap:balance}
-p{text-wrap:pretty}
-h1{font-size:clamp(40px,5.4vw,64px);line-height:1.05;letter-spacing:-.035em}
-h2{font-size:clamp(30px,3.8vw,44px);line-height:1.12}
-h3{font-size:19px;line-height:1.3;letter-spacing:-.01em}
-.lead{font-size:clamp(17px,1.5vw,19px);line-height:1.6}
-.kicker{display:inline-flex;align-items:center;gap:10px;font-size:12.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
-.kicker::before{content:"";width:22px;height:2px;border-radius:2px;background:currentColor}
-.sun-text{background:linear-gradient(95deg,var(--ra-soft),var(--ra) 55%,#FF8A5C);-webkit-background-clip:text;background-clip:text;color:transparent}
-
-/* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:52px;padding:0 24px;border-radius:999px;font-weight:500;font-size:16px;transition:transform .15s ease,box-shadow .2s ease,background .2s ease;white-space:nowrap}
-.btn:active{transform:scale(.98)}
-.btn-sun{background:linear-gradient(100deg,var(--ra),var(--ra-soft));color:#3B1204;box-shadow:0 10px 30px -8px rgba(255,107,53,.55)}
-.btn-sun:hover{box-shadow:0 14px 36px -8px rgba(255,107,53,.7)}
-.btn-ghost{border:1.5px solid var(--line-d);color:var(--pale)}
-.btn-ghost:hover{background:rgba(255,255,255,.05)}
-.btn-sm{height:40px;padding:0 18px;font-size:14.5px}
-
-/* header */
-header{position:sticky;top:0;z-index:50;transition:background .25s ease,border-color .25s ease;border-bottom:1px solid transparent}
-header.scrolled{background:rgba(11,16,41,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:var(--line-d)}
-.bar{display:flex;align-items:center;gap:28px;height:68px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:19px;letter-spacing:-.01em}
-.brand img{width:30px;height:auto}
-nav.links{display:flex;gap:26px;margin-left:auto;font-size:15px;color:var(--pale-2)}
-nav.links a:hover{color:var(--pale)}
-@media (max-width:820px){nav.links{display:none}.bar .btn{margin-left:auto}}
-
-/* hero */
-.hero{position:relative;margin-top:-68px;padding:calc(68px + clamp(32px,6vw,72px)) 0 clamp(32px,5vw,64px);overflow:hidden}
-.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(60% 55% at 78% 58%,rgba(255,138,92,.22),transparent 70%),
-             radial-gradient(55% 50% at 12% 0%,rgba(91,108,240,.22),transparent 70%)}
-.hero-grid{position:relative;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(32px,5vw,64px);align-items:center}
-.hero h1{margin-top:18px}
-.hero .lead{margin-top:22px;color:var(--pale-2);max-width:32rem}
-.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
-@media (max-width:520px){.hero .cta .btn{flex:1 1 100%}}
-.note{display:flex;align-items:center;gap:10px;margin-top:20px;font-size:14px;color:var(--pale-3)}
-.note .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold)}
-@media (max-width:900px){.hero-grid{grid-template-columns:1fr}.hero .lead{max-width:none}}
-
-/* phones */
-.phone{position:relative;border-radius:16% / 7.4%;padding:3.2%;background:linear-gradient(160deg,#2A2F52,#0A0D1F 60%);box-shadow:0 40px 80px -30px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08) inset}
-.phone img{width:100%;height:auto;border-radius:13.4% / 6.2%}
-.phones{position:relative;height:clamp(460px,52vw,600px);max-width:560px;margin:0 auto;width:100%}
-.phones .phone{position:absolute;top:50%;left:50%;width:clamp(200px,22vw,262px)}
-.phones .p-center{z-index:3;transform:translate(-50%,-50%)}
-.phones .p-left{z-index:2;transform:translate(-118%,-46%) rotate(-7deg) scale(.86)}
-.phones .p-right{z-index:1;transform:translate(18%,-46%) rotate(7deg) scale(.86)}
-@media (max-width:900px){.phones{height:clamp(420px,110vw,560px)}.phones .phone{width:clamp(190px,50vw,250px)}
-  .phones .p-left{transform:translate(-104%,-44%) rotate(-7deg) scale(.82)}.phones .p-right{transform:translate(4%,-44%) rotate(7deg) scale(.82)}}
-
-/* sections */
-section{position:relative}
-.pad{padding:clamp(64px,9vw,120px) 0}
-.center{text-align:center}
-.head{max-width:40rem}
-.center .head{margin:0 auto}
-.head p{margin-top:16px}
-.light{background:var(--cream);color:var(--ink)}
-.light .lead,.light p{color:var(--ink-2)}
-.light .kicker{color:var(--ra-deep)}
-.dark .kicker{color:var(--nu-soft)}
-.dark p{color:var(--pale-2)}
-
-/* dawn: the page moves from Nu's water into Ra's light */
-.dawn{height:clamp(120px,14vw,200px);background:linear-gradient(180deg,var(--navy) 0%,#2A2352 30%,#8A5168 62%,#E9B79F 84%,var(--cream) 100%)}
-
-/* how it works */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px}
-.step{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line-d);border-radius:26px;padding:28px 26px 30px;text-align:left}
-.step img{width:104px;height:104px;object-fit:contain;margin:-6px 0 14px -8px}
-.step .n{font-size:12.5px;font-weight:500;letter-spacing:.14em;color:var(--pale-3)}
-.step h3{margin-top:6px;color:var(--pale)}
-.step p{margin-top:8px;font-size:15.5px}
-@media (max-width:900px){.steps{grid-template-columns:1fr;max-width:560px;margin-left:auto;margin-right:auto;gap:14px;margin-top:40px}
-  .step{display:grid;grid-template-columns:76px 1fr;column-gap:16px;align-items:start;padding:20px 20px 22px}
-  .step img{grid-row:span 3;width:76px;height:76px;margin:0}
-  .step p{font-size:15px}}
-
-/* split feature */
-.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center}
-.split .visual{display:flex;justify-content:center}
-.split .visual .phone{width:clamp(230px,26vw,300px)}
-.split.rev .visual{order:-1}
-.checks{list-style:none;margin-top:28px;display:grid;gap:16px}
-.checks li{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
-.checks b{font-weight:500;color:inherit}
-.checks .ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center}
-.dark .checks .ic{background:rgba(91,108,240,.18);color:var(--nu-soft)}
-.light .checks .ic{background:rgba(255,107,53,.12);color:var(--ra-deep)}
-.light .checks b{color:var(--ink)}
-@media (max-width:900px){.split{grid-template-columns:1fr}.split .visual,.split.rev .visual,.split .story-art{order:2}}
-
-/* cards */
-.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:52px}
-.card{background:var(--white);border:1px solid var(--line-l);border-radius:24px;padding:28px;box-shadow:0 1px 2px rgba(23,19,19,.04)}
-.card .ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(255,107,53,.1);color:var(--ra-deep);margin-bottom:18px}
-.card h3{color:var(--ink)}
-.card p{margin-top:8px;font-size:15.5px}
-@media (max-width:760px){.cards{grid-template-columns:1fr}}
-
-/* story */
-#story{overflow:hidden}
-.story-art{position:relative;display:flex;justify-content:center;padding:0 clamp(40px,8vw,90px)}
-.story-art::before{content:"";position:absolute;left:50%;top:10%;width:120%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,176,103,.28),rgba(255,107,53,.08) 55%,transparent)}
-.story-art .phone{position:relative;width:clamp(220px,24vw,280px)}
-.story-art .nu,.story-art .ra{position:absolute;width:clamp(96px,11vw,136px);filter:drop-shadow(0 16px 24px rgba(0,0,0,.35))}
-.story-art .nu{left:0;bottom:6%}
-.story-art .ra{right:0;top:8%}
-.myth{margin-top:24px;display:grid;gap:14px;font-size:16.5px}
-.myth span{color:var(--pale)}
-
-/* principles */
-.three{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(22px,4vw,48px);margin-top:52px}
-.three .ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(67,56,202,.09);color:var(--nu-deep);margin-bottom:16px}
-.three h3{color:var(--ink)}
-.three p{margin-top:8px;font-size:15.5px}
-@media (max-width:860px){.three{grid-template-columns:1fr;max-width:520px}}
-
-/* faq */
-.faq{max-width:760px;margin:44px auto 0}
-.faq details{border-bottom:1px solid var(--line-l)}
-.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 0;font-size:17.5px;font-weight:500;color:var(--ink)}
-.faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"";width:12px;height:12px;flex:none;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg) translate(-3px,-3px);transition:transform .2s ease}
-.faq details[open] summary::after{transform:rotate(225deg) translate(-3px,-3px)}
-.faq details p{padding:0 0 22px;max-width:44rem;font-size:16px}
-
-/* final */
-.final{overflow:hidden}
-.final::before{content:"";position:absolute;left:50%;bottom:-38%;width:min(900px,140vw);aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,176,103,.5),rgba(255,107,53,.18) 50%,transparent)}
-.final .wrap{position:relative;text-align:center}
-.final img.stone{width:88px;margin:0 auto 22px}
-.final p{margin:18px auto 0;max-width:30rem}
-.final .cta{justify-content:center}
-.badge{display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 22px;border-radius:14px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.2)}
-.badge small{display:block;font-size:11px;line-height:1.1;opacity:.75}
-.badge span{font-size:18px;font-weight:500;line-height:1.1}
-
-footer{border-top:1px solid var(--line-d);padding:36px 0 44px;color:var(--pale-3);font-size:14px}
-footer .row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px}
-footer nav{display:flex;gap:22px;flex-wrap:wrap}
-footer a:hover{color:var(--pale)}
-
-/* reveal on scroll */
-.rv{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
-.rv.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.rv{opacity:1;transform:none;transition:none}}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css?v=13">
 </head>
 <body>
 
-<header id="top">
+<header>
   <div class="wrap bar">
-    <a class="brand" href="#top"><picture><source srcset="assets/mark.avif" type="image/avif"><source srcset="assets/mark.webp" type="image/webp"><img src="assets/mark.png" alt=""></picture>Nura</a>
-    <nav class="links" aria-label="Sections">
-      <a href="#how">How it works</a>
-      <a href="#projects">Features</a>
-      <a href="#story">The story</a>
-      <a href="#faq">FAQ</a>
+    <a href="index.html" aria-label="Nura, home"><span class="wordmark"></span></a>
+    <nav aria-label="Pages">
+      <a href="how-it-works.html">How it works</a>
+      <a href="about.html">The story</a>
+      <a href="privacy.html">Privacy</a>
     </nav>
-    <a class="btn btn-sun btn-sm" href="#early-access">Get early access</a>
+    <a class="btn btn-coral btn-sm" href="#early-access">Get early access</a>
   </div>
 </header>
 
-<main>
+<main id="top">
 
-<!-- ============ HERO ============ -->
-<section class="hero dark">
+<!-- hero: the intelligence first -->
+<section class="day hero glow">
   <div class="wrap hero-grid">
     <div>
-      <span class="kicker">A calm planner with an AI guide</span>
-      <h1>Everything on your mind. <span class="sun-text">One thing to begin.</span></h1>
-      <p class="lead">Put it all down, and Nura hands you one small move you can start right now — even when the goal feels too big to touch.</p>
+      <h1>A planner that learns how you work. <span class="mh">And finds your next best move.</span></h1>
+      <p class="lead">Put down what's on your mind. Nura turns it into a plan that keeps up with you.</p>
       <div class="cta">
-        <a class="btn btn-sun" href="#early-access">Get early access</a>
-        <a class="btn btn-ghost" href="#how">See how it works</a>
+        <a class="btn btn-coral" href="#early-access">Get early access</a>
+        <a class="link" href="how-it-works.html">See how it works ›</a>
       </div>
-      <p class="note"><span class="dot"></span>Coming soon to iPhone</p>
+      <p class="note"><i></i>Coming soon to iPhone</p>
     </div>
-    <div class="phones" aria-label="Nura on iPhone">
-      <div class="phone p-left"><picture><source srcset="assets/shot-project.avif" type="image/avif"><img src="assets/shot-project.webp" alt="A project's path: the move now, then what might come later" width="640" height="1391" loading="eager"></picture></div>
-      <div class="phone p-right"><picture><source srcset="assets/shot-focus.avif" type="image/avif"><img src="assets/shot-focus.webp" alt="Focus: one move, with Begin · 5 minutes" width="640" height="1391" loading="eager"></picture></div>
-      <div class="phone p-center"><picture><source srcset="assets/shot-home.avif" type="image/avif"><img src="assets/shot-home.webp" alt="Home: one thing to begin, with Begin with Ra" width="640" height="1391" loading="eager"></picture></div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ HOW IT WORKS ============ -->
-<section class="dark pad" id="how">
-  <div class="wrap center">
-    <div class="head rv">
-      <span class="kicker">How it works</span>
-      <h2 style="margin-top:14px">From too much, to one move.</h2>
-      <p class="lead">Two companions do the work you shouldn’t have to: Nu holds everything, Ra shows you just one thing.</p>
-    </div>
-    <div class="steps">
-      <article class="step rv">
-        <img src="assets/nu-listen.webp" alt="" width="104" height="104" loading="lazy">
-        <div class="n">01 · NU</div>
-        <h3>Put it all down</h3>
-        <p>Type it or say it — tasks, worries, half-plans. Nu holds everything, so your head doesn’t have to.</p>
-      </article>
-      <article class="step rv">
-        <img src="assets/nu-ask.webp" alt="" width="104" height="104" loading="lazy">
-        <div class="n">02 · NU</div>
-        <h3>Find the first move</h3>
-        <p>For a goal that feels too big, Nu asks one question and sketches a short path. You can change any of it.</p>
-      </article>
-      <article class="step rv">
-        <img src="assets/ra-sun.webp" alt="" width="104" height="104" loading="lazy">
-        <div class="n">03 · RA</div>
-        <h3>Begin with one thing</h3>
-        <p>Ra shows one move, with a timer if you want it. Stop whenever you need to — the time still counts.</p>
-      </article>
+    <div class="stage">
+      <figure class="phone">
+        <picture><source type="image/avif" srcset="assets/app-home.avif"><img src="assets/app-home.webp" width="780" height="1696" alt="Nura's Home: the day's path with Ra and three things done, the stack Nu is holding, and the one in front — Draft the proposal outline, 25 minutes, with Begin." fetchpriority="high"></picture>
+      </figure>
+      <img class="mover" src="assets/nu-hug-still.webp" data-clip="assets/nu-hug.webp" data-loop width="294" height="360" alt="">
     </div>
   </div>
 </section>
 
-<!-- ============ PROJECTS ============ -->
-<section class="dark pad" id="projects" style="padding-top:0">
+<!-- how it works: the mess → understood → a living plan → one move -->
+<section class="day pad pt0" id="how">
+  <div class="wrap">
+    <div class="rv" style="max-width: 780px">
+      <h2>From the mess in your head <span class="mh">to the next achievable step.</span></h2>
+    </div>
+    <div class="flow">
+      <div class="stagebox rv">
+        <div class="art" aria-hidden="true">
+          <div class="mess">
+            <span style="--l: 0;   --b: 4px;  --r: -3deg; --d: 0s">slides for monday</span>
+            <span style="--rt: 0;  --b: 4px;  --r: 4deg;  --d: .14s">portfolio site??</span>
+            <span style="--l: 6%;  --b: 33px; --r: 7deg;  --d: .3s">call mum tmrw 6pm</span>
+            <span style="--rt: 4%; --b: 31px; --r: -9deg; --d: .44s">tax return</span>
+            <span style="--l: 16%; --b: 61px; --r: -4deg; --d: .6s">proposal outline!!</span>
+            <span style="--rt: 12%; --b: 89px; --r: 10deg; --d: .76s">passport</span>
+          </div>
+        </div>
+        <div class="k">01</div>
+        <h3>Say it however it comes</h3>
+        <p>Type or talk to Nu — tasks, worries, half-plans, all at once.</p>
+      </div>
+      <div class="stagebox rv">
+        <div class="art" aria-hidden="true">
+          <div class="chips">
+            <div class="chip"><b>Proposal outline</b><span>Today</span><span>25 min</span></div>
+            <div class="chip"><b>Slides</b><span>Monday</span><span>45 min</span></div>
+            <div class="chip"><b>Call mum</b><span>Tomorrow · 6:00 PM</span><span>People</span></div>
+            <div class="chip"><b>Portfolio site</b><span>A project</span></div>
+          </div>
+        </div>
+        <div class="k">02</div>
+        <h3>Nu understands it</h3>
+        <p>When, who, how long — and which things are really projects.</p>
+      </div>
+      <div class="stagebox rv">
+        <div class="art" aria-hidden="true">
+          <div class="mini-path">
+            <div class="done">Pick three projects</div>
+            <div class="done">Write the about page</div>
+            <div class="now">Ask Sam for a quote</div>
+            <div>Choose a template</div>
+            <div>Put it online</div>
+          </div>
+        </div>
+        <div class="k">03</div>
+        <h3>A living plan</h3>
+        <p>Your day, your week, and a short path for anything bigger — kept up to date.</p>
+      </div>
+      <div class="stagebox rv">
+        <div class="art" aria-hidden="true">
+          <div class="front">
+            <small>Nu found this one</small>
+            <b>Draft the proposal outline</b>
+            <div class="row"><span class="begin">Begin</span><span class="m">25<small>min</small></span></div>
+          </div>
+        </div>
+        <div class="k">04</div>
+        <h3>One move, now</h3>
+        <p>The right next thing, in front. Begin, and Ra stays with you until it's done — stop early and it still counts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- the hidden intelligence -->
+<section class="day pad pt0">
   <div class="wrap split">
     <div class="rv">
-      <span class="kicker">Big goals</span>
-      <h2 style="margin-top:14px">Big goals, small first moves.</h2>
-      <p class="lead" style="margin-top:16px">“Finish my website” can sit on a list for months. Nura turns it into a short path, and only ever asks you to take the next step.</p>
-      <ul class="checks">
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>Too big?</b> Nu makes the move smaller.</div></li>
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>Blocked?</b> Nu finds a way around what’s in the way.</div></li>
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>Done?</b> See the next move — or stop there, that’s allowed.</div></li>
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>Your words stay yours.</b> Anything you edit is kept exactly as you wrote it.</div></li>
+      <h2>You see one move. <span class="mh block">Nura sees the whole project.</span></h2>
+      <p class="lead">Tell Nu a goal that's too big to start. It asks one question, lays out a short path, and only the next move reaches your day. Behind it, Nura keeps the rest — what's done, what's next, what's in the way.</p>
+      <ul class="points">
+        <li><i></i><div><b>Too big?</b> Nu makes the move smaller.</div></li>
+        <li><i></i><div><b>Blocked?</b> Nu finds a way around what's in the way.</div></li>
+        <li><i></i><div><b>Done?</b> The next move is ready — or stop there.</div></li>
+        <li><i></i><div><b>Your words stay yours.</b> When the plan changes, what you wrote is kept as you wrote it.</div></li>
       </ul>
     </div>
-    <div class="visual rv">
-      <div class="phone"><picture><source srcset="assets/shot-project.avif" type="image/avif"><img src="assets/shot-project.webp" alt="The path for Finish my website, with the current move and the steps after it" width="640" height="1391" loading="lazy"></picture></div>
+    <div class="behind rv">
+      <figure class="phone"><picture><source type="image/avif" srcset="assets/app-focus.avif"><img src="assets/app-focus.webp" width="780" height="1696" loading="lazy" alt="Focus: Draft the proposal outline, about 25 minutes, Nu handing it to Ra, and one Begin button."></picture></figure>
+      <div class="roadmap" aria-label="An example project path">
+        <div class="t">Project</div>
+        <div class="g">Launch my portfolio site</div>
+        <ol>
+          <li class="done"><i></i><span>Pick the three projects to show</span><em>Mon</em></li>
+          <li class="done"><i></i><span>Write the about page</span><em>Tue</em></li>
+          <li class="now"><i></i><span>Ask Sam for a quote</span><em>Now</em></li>
+          <li><i></i><span>Choose a template</span><em>Then</em></li>
+          <li><i></i><span>Put it online</span><em>Later</em></li>
+        </ol>
+        <div class="fix"><b>Blocked:</b> “No photos yet.” Nu put a way around it in first, and kept the rest.</div>
+      </div>
+      <img class="mover" src="assets/ra-point-still.webp" data-clip="assets/ra-point.webp" width="360" height="324" alt="">
     </div>
   </div>
 </section>
 
-<div class="dawn" aria-hidden="true"></div>
-
-<!-- ============ FOCUS ============ -->
-<section class="light pad" style="padding-top:clamp(40px,5vw,72px)">
-  <div class="wrap split rev">
-    <div class="rv">
-      <span class="kicker">Focus</span>
-      <h2 style="margin-top:14px">One thing. Nothing else on the screen.</h2>
-      <p class="lead" style="margin-top:16px">Ra never shows the list. Just the move, its first physical action, and how long you want to give it.</p>
-      <ul class="checks">
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>The first physical move,</b> not a vague intention.</div></li>
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>A length you choose,</b> from five minutes up.</div></li>
-        <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>Stopping early still counts.</b> The task stays open for next time.</div></li>
-      </ul>
-    </div>
-    <div class="visual rv">
-      <div class="phone"><picture><source srcset="assets/shot-focus.avif" type="image/avif"><img src="assets/shot-focus.webp" alt="Ra's focus screen: one move, large, with Begin · 5 minutes" width="640" height="1391" loading="lazy"></picture></div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ BAD WEEK ============ -->
-<section class="light pad" style="padding-top:0">
-  <div class="wrap center">
-    <div class="head rv">
-      <span class="kicker">Built for the bad week</span>
-      <h2 style="margin-top:14px">People don’t quit on a good day.</h2>
-      <p class="lead">Most planners punish you for falling behind. Nura is designed for the day you come back.</p>
-    </div>
-    <div class="cards" style="text-align:left">
-      <div class="card rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div>
-        <h3>No overdue red, anywhere</h3>
-        <p>A late task isn’t a failure. Nothing turns red, and nothing counts what you didn’t do.</p>
-      </div>
-      <div class="card rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></div>
-        <h3>Reminders that get quieter</h3>
-        <p>Ignore a few and they soften, then stop for the day. They never pile up.</p>
-      </div>
-      <div class="card rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
-        <h3>Where you were</h3>
-        <p>Interrupted mid-task? Come back hours or days later and Nura shows you exactly where you left off.</p>
-      </div>
-      <div class="card rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></div>
-        <h3>“What did you actually do?”</h3>
-        <p>In the evening, log what got done — the small things too. They count, even if they were never on a list.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ STORY ============ -->
-<section class="dark pad" id="story">
+<!-- learning you -->
+<section class="day pad wash">
   <div class="wrap split">
-    <div class="story-art rv">
-      <div class="phone"><picture><source srcset="assets/shot-story.avif" type="image/avif"><img src="assets/shot-story.webp" alt="Nura's opening: Nu and the Benben stone in the dark water, with the story being typed out" width="640" height="1391" loading="lazy"></picture></div>
-      <img class="nu" src="assets/nu-hello.webp" alt="" width="136" height="136" loading="lazy">
-      <img class="ra" src="assets/ra-hello.webp" alt="" width="136" height="136" loading="lazy">
-    </div>
     <div class="rv">
-      <span class="kicker">The story</span>
-      <h2 style="margin-top:14px">Why Nu and Ra?</h2>
-      <div class="myth">
-        <p>In an old Egyptian story, the world began as dark water with everything in it at once. <span>They called it Nu.</span></p>
-        <p>Then one stone rose out of it — the Benben — and the first light, <span>Ra</span>, landed on it.</p>
-        <p>Nura works the same way: put everything down, and one thing rises. <span>Nu + Ra.</span></p>
+      <h2>It learns you, <span class="mh">not an average user.</span></h2>
+      <p class="lead">Nura notices your pace, your patterns and where things get stuck — and suggests, with the reason attached. You answer Yes or Not now, and it learns from that too.</p>
+      <div class="stack-cards">
+        <div class="suggest">
+          <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+          <div>
+            <p>Things tend to run a bit longer than planned for you. Give “Prepare slides for Monday” 60 minutes instead of 45?</p>
+            <small>Across your last 8 timed tasks, the time spent was 1.3× the guess.</small>
+            <div class="act"><span class="yes">Yes</span><span class="no">Not now</span></div>
+          </div>
+        </div>
+        <div class="suggest">
+          <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+          <div>
+            <p>“Renew passport” keeps getting moved. Make it smaller — just the first few minutes of it?</p>
+            <div class="act"><span class="yes">Yes</span><span class="no">Not now</span></div>
+          </div>
+        </div>
       </div>
+    </div>
+    <div class="stage rv">
+      <figure class="phone"><picture><source type="image/avif" srcset="assets/app-tasks.avif"><img src="assets/app-tasks.webp" width="780" height="1696" loading="lazy" alt="Your Tasks: one thing above the water, everything else held below it — today, this week, someday."></picture></figure>
     </div>
   </div>
 </section>
 
-<div class="dawn" aria-hidden="true"></div>
-
-<!-- ============ CALM BY DESIGN ============ -->
-<section class="light pad" style="padding-top:clamp(40px,5vw,72px)">
-  <div class="wrap">
-    <div class="head rv">
-      <span class="kicker">Calm by design</span>
-      <h2 style="margin-top:14px">Help that doesn’t add pressure.</h2>
+<!-- recovery, not guilt -->
+<section class="day pad pt0" id="bad-week">
+  <div class="wrap split flip">
+    <div class="rv">
+      <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
+      <h2>Recovery, <span class="mh">not guilt.</span></h2>
+      <p class="lead">Disappear for a week, miss something, watch a plan fall apart — Nura works out how to restart. There are no streaks to break and nothing turns red.</p>
+      <ul class="points">
+        <li><i></i><div><b>“Welcome back.</b> No catching up needed — just one small thing.”</div></li>
+        <li><i></i><div><b>Where you left off,</b> when something interrupted you.</div></li>
+        <li><i></i><div><b>Reminders that get quieter.</b> Let a few pass and they soften, then stop for the day.</div></li>
+        <li><i></i><div><b>A month of suns.</b> Days you did something get a sun. A quiet day is an empty circle — never a gap, never a warning.</div></li>
+        <li><i></i><div><b>Your day is done.</b> Once it ends, Nura turns dark and only tomorrow is waiting. Anything now is extra.</div></li>
+      </ul>
     </div>
-    <div class="three">
-      <div class="rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M11 18.5h2"/></svg></div>
-        <h3>Your list lives on your phone</h3>
-        <p>Everything works offline, with no account. Signing in is optional and only syncs your list.</p>
-      </div>
-      <div class="rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l1.8 4.4 4.4 1.8-4.4 1.8L12 15.6l-1.8-4.4L5.8 9.4l4.4-1.8z"/></svg></div>
-        <h3>AI only when you ask</h3>
-        <p>Nu plans only when you ask it to, and never changes your plan without showing you first.</p>
-      </div>
-      <div class="rv">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.3 5.7a5 5 0 00-7.1 0L12 6.9l-1.2-1.2a5 5 0 10-7.1 7.1l8.3 8.3 8.3-8.3a5 5 0 000-7.1z"/></svg></div>
-        <h3>No streaks to break</h3>
-        <p>Progress only goes up. A quiet day is a day, not a broken chain.</p>
-      </div>
+    <div class="stage rv">
+      <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
     </div>
   </div>
 </section>
 
-<!-- ============ FAQ ============ -->
-<section class="light pad" id="faq" style="padding-top:0">
+<!-- the close: Done's ground, Ra holding up the pebble, and the list -->
+<section class="dawn pad" id="early-access">
   <div class="wrap">
-    <div class="head center rv" style="margin:0 auto">
-      <span class="kicker">FAQ</span>
-      <h2 style="margin-top:14px">Questions, answered.</h2>
-    </div>
-    <div class="faq rv">
-      <details>
-        <summary>Who is Nura for?</summary>
-        <p>Anyone who knows what matters but finds it hard to start: too much at once, a goal too big to see the first step, or a week that got away. You don’t need a diagnosis, or a system.</p>
-      </details>
-      <details>
-        <summary>What does the AI actually do?</summary>
-        <p>When something is bigger than one task, Nu asks at most one question and sketches a short path with a small first move. If a move feels too big or you’re stuck, it suggests a smaller one or a way around. It only runs when you ask, and you see every change before it’s saved.</p>
-      </details>
-      <details>
-        <summary>What happens to my data?</summary>
-        <p>Your list is stored on your phone. When you ask Nu to plan something, that goal and the project’s steps are sent to Nura’s planner to work out the next move — Nura doesn’t keep them or sell them. If you sign in, your list syncs between your devices.</p>
-      </details>
-      <details>
-        <summary>Can I use it without the AI?</summary>
-        <p>Yes. Adding tasks, the focus timer, reminders and everything else work on your phone, even offline. The planner is there for when something is too big to start.</p>
-      </details>
-      <details>
-        <summary>Can I talk to it?</summary>
-        <p>Yes — speak a goal or an answer instead of typing, and Nu and Ra can read their replies aloud. You can pick the language they speak.</p>
-      </details>
-      <details>
-        <summary>When can I get it?</summary>
-        <p>Nura is in testing on iPhone now, and early access opens soon.</p>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- ============ FINAL ============ -->
-<section class="final dark pad" id="early-access">
-  <div class="wrap">
-    <picture><source srcset="assets/benben.webp" type="image/webp"><img class="stone rv" src="assets/benben.webp" alt="" width="88"></picture>
-    <h2 class="rv">Begin gently.</h2>
-    <p class="lead rv">Nura is in testing on iPhone. Early access opens soon.</p>
-    <div class="cta rv">
-      <span class="badge" aria-label="Coming soon to the App Store">
-        <svg width="22" height="26" viewBox="0 0 22 26" fill="#fff" aria-hidden="true"><path d="M18.2 13.8c0-3 2.5-4.5 2.6-4.6-1.4-2.1-3.6-2.3-4.4-2.4-1.9-.2-3.6 1.1-4.6 1.1-.9 0-2.4-1.1-3.9-1-2 0-3.9 1.2-5 3-2.1 3.7-.5 9.1 1.5 12.1 1 1.5 2.2 3.1 3.8 3 1.5-.1 2.1-1 3.9-1s2.3 1 3.9 1c1.6 0 2.7-1.5 3.7-3 1.2-1.7 1.6-3.3 1.7-3.4-.1 0-3.2-1.2-3.2-4.8zM15.2 4.7c.8-1 1.4-2.4 1.2-3.7-1.2 0-2.6.8-3.4 1.8-.8.9-1.4 2.3-1.2 3.6 1.3.1 2.6-.7 3.4-1.7z"/></svg>
-        <span><small>Coming soon to the</small>App Store</span>
-      </span>
-    </div>
+    <img class="ra mover" src="assets/ra-pebble-still.webp" data-clip="assets/ra-pebble.webp" width="349" height="360" alt="Ra holding up a tiny pebble">
+    <h2 class="rv" style="margin-top: 18px">Find clarity. <span class="mh block">Begin gently. Move forward.</span></h2>
+    <p class="lead rv">Nura is in testing on iPhone. Leave your email and we'll write when early access opens.</p>
+    <form class="signup rv" name="early-access" method="POST" action="/" data-netlify="true" netlify-honeypot="company">
+      <input type="hidden" name="form-name" value="early-access">
+      <p class="hp" aria-hidden="true"><label>Leave this empty <input name="company" tabindex="-1" autocomplete="off"></label></p>
+      <label class="sr" for="email">Your email</label>
+      <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@example.com">
+      <button class="btn btn-coral" type="submit">Get early access</button>
+    </form>
+    <p class="form-state" role="status" aria-live="polite"></p>
+    <span class="badge rv" aria-label="Coming soon to the App Store">
+      <svg width="22" height="26" viewBox="0 0 22 26" fill="#fff" aria-hidden="true"><path d="M18.2 13.8c0-3 2.5-4.5 2.6-4.6-1.4-2.1-3.6-2.3-4.4-2.4-1.9-.2-3.6 1.1-4.6 1.1-.9 0-2.4-1.1-3.9-1-2 0-3.9 1.2-5 3-2.1 3.7-.5 9.1 1.5 12.1 1 1.5 2.2 3.1 3.8 3 1.5-.1 2.1-1 3.9-1s2.3 1 3.9 1c1.6 0 2.7-1.5 3.7-3 1.2-1.7 1.6-3.3 1.7-3.4-.1 0-3.2-1.2-3.2-4.8zM15.2 4.7c.8-1 1.4-2.4 1.2-3.7-1.2 0-2.6.8-3.4 1.8-.8.9-1.4 2.3-1.2 3.6 1.3.1 2.6-.7 3.4-1.7z"/></svg>
+      <span><small>Coming soon to the</small>App Store</span>
+    </span>
   </div>
 </section>
 
 </main>
 
-<footer class="dark">
-  <div class="wrap row">
-    <a class="brand" href="#top" style="font-size:16px"><picture><source srcset="assets/mark.avif" type="image/avif"><source srcset="assets/mark.webp" type="image/webp"><img src="assets/mark.png" alt="" style="width:24px"></picture>Nura</a>
+<footer>
+  <div class="wrap">
+    <a href="index.html" aria-label="Nura, home"><span class="wordmark"></span></a>
     <nav aria-label="Footer">
-      <a href="#how">How it works</a>
-      <a href="#projects">Features</a>
-      <a href="#story">The story</a>
-      <a href="#faq">FAQ</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="about.html">The story</a>
+      <a href="privacy.html">Privacy</a>
     </nav>
-    <span>© 2026 Nura</span>
+    <span class="c">© 2026 Nura</span>
   </div>
 </footer>
 
-<script>
-  // the header gets a backdrop once the page moves
-  const header = document.querySelector('header');
-  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
-  // sections ease in as they arrive (skipped with reduced motion, via CSS)
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
-  document.querySelectorAll('.rv').forEach(el => io.observe(el));
-</script>
+<script src="site.js?v=14"></script>
 </body>
 </html>

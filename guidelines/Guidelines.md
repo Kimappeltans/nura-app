@@ -29,12 +29,14 @@ Focus, More options, In session, Done.
 
 1. **Clean and flat.** No glows, gradients, frosted glass, drop shadows on
    characters or glowing dots. Surfaces are a flat fill and a hairline. If it
-   shines, take it out — it fights the layout.
+   shines, take it out — it fights the layout. One exception: Done (and the
+   reward moment just before it) sits on a soft warm-white-to-light-orange
+   gradient (`doneGround` in `src/theme.ts`), so Ra and Nu stand out.
 2. **Inter Tight, only.** No Poppins anywhere (it was the old app font).
 3. **Appearance is By the sun, Light or Dark** (Settings). By the sun is the
    default: Nu's rooms are light while your day runs and navy after it ends.
    Ra's screens (Focus, More options, In session) are always cream; Done is
-   coral. Never tie colour to the phone's own light/dark setting.
+   warm white into light orange. Never tie colour to the phone's own light/dark setting.
 4. **One thing at full size.** The most important object on a screen is the
    biggest thing on it — the front card on Home, Begin on Focus, the timer
    ring in a session.

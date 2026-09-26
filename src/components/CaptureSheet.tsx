@@ -50,8 +50,14 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   // what the coach made of it, for the text it was read for (only messy text reaches the model)
   const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
   const input = useRef<TextInput>(null);
+  const [room, setRoom] = useState(999);   // the height left for Nu
 
-  useEffect(() => { if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); } }, [visible]);
+  useEffect(() => {
+    if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); return; }
+    // opened with words already (a dev link, later the share sheet)
+    const draft = useStore.getState().tellDraft;
+    if (draft) { setText(draft); useStore.setState({ tellDraft: null }); }
+  }, [visible]);
 
   // when you pause: read it properly. readInput decides on the phone first and
   // asks the model only when the phone isn't sure
@@ -152,6 +158,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const base = useRef('');
   const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
   const listening = dict.state === 'listening';
+  const nuSize = Math.min(listening ? 150 : 190, room + 18);
   // type or say it — both there from the start: the field is ready for the
   // keyboard, the mic is one tap away, and either one fills the same words
   useEffect(() => {
@@ -215,9 +222,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         {/* your voice, in dots */}
         {listening && <View style={{ marginTop: 28 }}><DotWave active width={width - 48} /></View>}
 
-        {/* Nu, listening */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none">
-          <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: listening ? 150 : 190, height: listening ? 150 : 190, marginBottom: -18 }} />
+        {/* Nu, listening — as big as the room above the buttons allows (the keyboard takes most of it) */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none"
+          onLayout={e => setRoom(e.nativeEvent.layout.height)}>
+          {nuSize >= 72 && <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: nuSize, height: nuSize, marginBottom: -18 }} />}
         </View>
 
         {/* Aa · ✓ · × */}
