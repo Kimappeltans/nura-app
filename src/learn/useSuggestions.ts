@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { getProfile } from './signals';
-import { localSuggestions, rank } from './suggest';
+import { rank } from './suggest';
+import { interventionsFrom } from '../interventions';
+import { dayProposal, plannerState } from '../nextActions';
+import { recordDecision, respondToDecision } from '../db';
 import { hiddenKeys, keyOf, kindWeights, markShown, recordOutcome } from './feedback';
 import type { Suggestion, SuggestionKind } from './types';
 
@@ -22,6 +25,8 @@ export function useSuggestions(limit = 2, extra?: () => Promise<Suggestion[]>) {
   const dayEndMin = useStore(s => s.dayEndMin);
   const wins = useStore(s => s.wins);
   const moveIds = useStore(s => s.moveIds);
+  const decisions = useStore(s => s.decisions);
+  const projects = useStore(s => s.projects);
 
   // held in a ref: an inline `extra` is a new function every render, and it
   // mustn't restart the whole computation each time
@@ -37,15 +42,17 @@ export function useSuggestions(limit = 2, extra?: () => Promise<Suggestion[]>) {
     let alive = true;
     (async () => {
       const nowMs = Date.now();
-      const [profile, w, hidden] = await Promise.all([
+      const [profile, w, hidden, day] = await Promise.all([
         getProfile().catch(() => null), kindWeights(nowMs), hiddenKeys(nowMs),
+        plannerState({ projects }).then(dayProposal).catch(() => null),
       ]);
       const seen = new Set<string>();
       const tasks = [...todayPicked, ...inbox].filter(t => !seen.has(t.id) && (seen.add(t.id), true));
       const dayStart = new Date(nowMs); dayStart.setHours(0, 0, 0, 0);
       const doneToday = wins.filter(t => (t.completed_at ?? 0) >= dayStart.getTime()).length;
 
-      let all = localSuggestions({ profile, tasks, now, dayEndMin, doneToday, nowMs, moveIds });
+      // the planner's interventions: the same evidence and order as the next action
+      let all = interventionsFrom({ profile, tasks, now, dayEndMin, doneToday, nowMs, moveIds, decisions, day });
       if (extraRef.current) {
         // the model is a bonus: slow or failing, the local ones still show
         try { all = all.concat(await extraRef.current()); } catch { /* keep the local ones */ }
@@ -55,7 +62,7 @@ export function useSuggestions(limit = 2, extra?: () => Promise<Suggestion[]>) {
       setPool(all.filter(s => !hidden.has(keyOf(s.id))));
     })().catch(() => { /* suggestions are optional — a failure shows none */ });
     return () => { alive = false; };
-  }, [inbox, todayPicked, now?.id, dayEndMin, wins, moveIds]);
+  }, [inbox, todayPicked, now?.id, dayEndMin, wins, moveIds, decisions]);
 
   const suggestions = useMemo(
     () => rank(pool.filter(s => !gone.has(keyOf(s.id))), weights, limit),
@@ -64,11 +71,16 @@ export function useSuggestions(limit = 2, extra?: () => Promise<Suggestion[]>) {
   const shownKey = suggestions.map(s => s.id).join('|');
   useEffect(() => {
     if (suggestions.length) markShown(suggestions).catch(() => {});
+    // each one is a decision the planner put in front of you, like the next action
+    for (const s of suggestions) {
+      if (s.taskId) recordDecision({ taskId: s.taskId, type: 'intervention', reason: s.why ?? null, score: s.confidence }).catch(() => {});
+    }
   }, [shownKey]);
 
   const answer = useCallback((s: Suggestion, outcome: 'accepted' | 'dismissed') => {
     setGone(g => new Set(g).add(keyOf(s.id)));
     recordOutcome(s, outcome).catch(() => {});
+    if (s.taskId) respondToDecision(s.taskId, outcome === 'accepted' ? 'accepted' : 'not_now', Date.now(), 'intervention').catch(() => {});
     return s;
   }, []);
 

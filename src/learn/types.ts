@@ -78,7 +78,17 @@ export type SuggestionKind =
   | 'plan_it'          // a task that's really a project — let Nu plan it
   | 'rest'             // a lot done / past your day's end — stop is allowed
   | 'batch'            // several small admin things — do them in one go
-  | 'model';           // written by the model from your notes
+  | 'model'            // written by the model from your notes
+  | 'reduce_day';      // today holds more than you finish — keep a few, leave the rest?
+
+/**
+ * What kind of change the planner proposes (target architecture,
+ * "Interventions"): suggestions are the planner's proposals, typed by what
+ * Yes would change, not by the rule that noticed.
+ */
+export type InterventionType =
+  | 'next_action' | 'resize_task' | 'reschedule' | 'replan_project' | 'reduce_day'
+  | 'return_after_gap' | 'increase_estimate' | 'rest';
 
 export interface Suggestion {
   id: string;                 // stable for the same advice about the same thing
@@ -89,7 +99,14 @@ export interface Suggestion {
   /** when it's about several tasks at once (batch): all of them, taskId unset */
   taskIds?: string[];
   /** what "Yes" does */
-  action?: { type: 'focus' | 'shrink' | 'plan' | 'set_minutes' | 'schedule' | 'none'; minutes?: number; at?: number };
+  action?: {
+    type: 'focus' | 'shrink' | 'plan' | 'set_minutes' | 'schedule' | 'reduce_day' | 'none';
+    minutes?: number; at?: number;
+    /** reduce_day: what stays on Today, and what's left for later */
+    keep?: string[]; defer?: string[];
+  };
+  /** the planner's kind of change (interventions.ts) */
+  type?: InterventionType;
   /** 0–1: how sure, from the data behind it */
   confidence: number;
   who: 'nu' | 'ra';

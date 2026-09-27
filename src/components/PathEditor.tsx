@@ -8,7 +8,11 @@ import type { StepDraft } from '../projects';
 
 /** A step being edited. `key` is stable across edits and reorders, even for
  *  a step that has no id yet. */
-export type EditStep = StepDraft & { key: string };
+export type EditStep = StepDraft & {
+  key: string;
+  /** the keys of the steps this one waits on (kept by key, so reordering can't point it at the wrong step) */
+  waits?: string[];
+};
 
 let n = 0;
 export const editKey = () => `e${Date.now().toString(36)}${n++}`;

@@ -81,8 +81,11 @@ function Screen() {
     setTitle(plan.title);
     setDoneMeans(plan.done_means);
     setGuesses(plan.assumptions);
-    setSteps(plan.steps.map(s => ({
-      key: editKey(), title: s.title, first_action: s.first_action, why: s.why, est_minutes: s.est_minutes, edited: false,
+    // what a step waits on, by the other step's key, so it survives reordering in the editor
+    const keys = plan.steps.map(() => editKey());
+    setSteps(plan.steps.map((s, i) => ({
+      key: keys[i], title: s.title, first_action: s.first_action, why: s.why, est_minutes: s.est_minutes, edited: false,
+      waits: s.after.map(k => keys[k]).filter(Boolean), optional: s.optional,
     })));
     setCurrent(plan.current);
     setWhole(!plan.steps.length);
@@ -130,7 +133,9 @@ function Screen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const { taskId } = await createProject({
       goal: goal.trim(), title, done_means: doneMeans, assumptions: guesses, notes,
-      steps, current: Math.max(0, current),
+      // back to positions, as the path stands now: only earlier steps count
+      steps: steps.map((s, i) => ({ ...s, after: (s.waits ?? []).map(k => steps.findIndex(x => x.key === k)).filter(j => j >= 0 && j < i) })),
+      current: Math.max(0, current),
     });
     await refresh();
     // Ra is already showing the move when this sheet slides away

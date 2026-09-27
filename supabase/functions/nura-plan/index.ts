@@ -86,6 +86,8 @@ const Request = z.discriminatedUnion('action', [
 
 const Move = z.object({
   ref: z.string(), title: z.string().min(1), first_action: z.string(), why: z.string(), est_minutes: z.number().int(),
+  // what the step waits on (indexes of earlier steps), and whether the goal needs it
+  after: z.array(z.number().int()).default([]), optional: z.boolean().default(false),
 });
 const Answers = {
   start: z.object({

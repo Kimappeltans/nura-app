@@ -67,7 +67,7 @@ export async function currentPatterns(now = Date.now()): Promise<PatternRow[]> {
 }
 
 /** One pattern's value, when it's trusted enough to act on. */
-export function patternValue(rows: PatternRow[], kind: string, scope = 'all', min = 0.5): number | null {
+export function patternValue(rows: Pick<PatternRow, 'kind' | 'scope' | 'value' | 'confidence'>[], kind: string, scope = 'all', min = 0.5): number | null {
   const r = rows.find(x => x.kind === kind && x.scope === scope);
   return r && r.confidence >= min ? r.value : null;
 }

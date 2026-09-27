@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../store';
+import { useStore, useTheme } from '../store';
+import { declineDay, undoDay } from '../nextActions';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
 import { useCoach, useApply } from '../learn/engine';
@@ -14,15 +16,34 @@ import { NuGlow } from './NuGlow';
  * wave off fade. Renders nothing when there's nothing worth saying.
  */
 export function Suggestions({ limit = 2 }: { limit?: number }) {
+  const t = useTheme();
+  const refresh = useStore(s => s.refresh);
   const { suggestions, accept, dismiss } = useCoach(limit);
   const apply = useApply();
-  if (!suggestions.length) return null;
+  // a smaller day, just taken: how many were left for later, and the way back
+  const [undo, setUndo] = useState<number | null>(null);
+  if (!suggestions.length && undo == null) return null;
   return (
     <View style={{ gap: 10 }}>
+      {undo != null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 4 }}>
+          <Text style={{ flex: 1, color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{undo} left for later.</Text>
+          <Pressable accessibilityRole="button" hitSlop={8}
+            onPress={async () => { Haptics.selectionAsync(); setUndo(null); await undoDay(); await refresh(); }}>
+            <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Undo</Text>
+          </Pressable>
+        </View>
+      )}
       {suggestions.map(s => (
         <SuggestionCard key={s.id} s={s}
-          onYes={() => { Haptics.selectionAsync(); accept(s); apply(s); }}
-          onNo={() => { Haptics.selectionAsync(); dismiss(s); }} />
+          onYes={() => {
+            Haptics.selectionAsync(); accept(s); apply(s);
+            if (s.action?.type === 'reduce_day') setUndo(s.action.defer?.length ?? 0);
+          }}
+          onNo={() => {
+            Haptics.selectionAsync(); dismiss(s);
+            if (s.action?.type === 'reduce_day') declineDay().catch(() => {});
+          }} />
       ))}
     </View>
   );
@@ -49,7 +70,7 @@ function SuggestionCard({ s, onYes, onNo }: { s: Suggestion; onYes: () => void; 
                 backgroundColor: ra ? t.raWash : t.nuWash, borderWidth: 1, borderColor: ra ? 'rgba(255,139,88,0.40)' : t.nu,
               })}>
               <Text style={{ color: ra ? (t.key === 'nu' ? t.raSoft : t.raDeep) : t.nu, fontSize: 13.5, fontFamily: T.brand }}>
-                {actionable ? 'Yes' : 'Good to know'}
+                {s.action?.type === 'reduce_day' ? 'Make today smaller' : actionable ? 'Yes' : 'Good to know'}
               </Text>
             </Pressable>
             <Pressable onPress={onNo} accessibilityRole="button" hitSlop={8}>

@@ -77,11 +77,23 @@ export function predictMinutes(task: Task, ctx: NextContext): number | null {
   return roundTo5(est * Math.min(3, ratio.value));
 }
 
+/**
+ * When the day you're in ends. A day can end after midnight (dayEndMin past
+ * 24 h, "1:30 AM" is 1530): after midnight, before that end, you are still in
+ * yesterday's day, so its end is counted from yesterday's midnight.
+ */
+export function dayEndAt(now: number, dayEndMin: number): number {
+  const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+  const into = (now - midnight.getTime()) / 60_000;
+  const start = dayEndMin > 24 * 60 && into < dayEndMin - 24 * 60
+    ? new Date(midnight.getFullYear(), midnight.getMonth(), midnight.getDate() - 1)
+    : midnight;
+  return new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, dayEndMin).getTime();
+}
+
 /** When today's room runs out: the end of the day you set. */
 function dayEnd(ctx: NextContext) {
-  const end = new Date(ctx.now);
-  end.setHours(0, ctx.dayEndMin, 0, 0);
-  return end.getTime();
+  return dayEndAt(ctx.now, ctx.dayEndMin);
 }
 
 /** One task, scored and explained. */

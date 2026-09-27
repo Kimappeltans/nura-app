@@ -57,6 +57,21 @@ export interface Step {
   created_at: number;
   updated_at: number;
   completed_at: number | null;
+  /* a living plan (target architecture) */
+  /** JSON array of step ids this one waits on */
+  depends_on?: string | null;
+  /** 1: helps, but the goal doesn't need it */
+  optional?: number | null;
+  /** why it can't happen right now, when you said it's blocked */
+  blocked_reason?: string | null;
+  /** minutes it really took, from the timer */
+  actual_minutes?: number | null;
+  /** how sure Nu is of it, when Nu says */
+  confidence?: number | null;
+  /** who made it: 'nu' or 'you' */
+  origin?: string | null;
+  /** why it last changed: too_big, blocked, replanned, edited */
+  change_reason?: string | null;
 }
 
 /** A step as the editor and the planner hand it over: no id = a new one. */
@@ -67,7 +82,21 @@ export interface StepDraft {
   why: string | null;
   est_minutes: number | null;
   edited: boolean;
+  /** positions of earlier drafts in the same list that this one waits on */
+  after?: number[];
+  optional?: boolean;
 }
+
+/** The step ids a step waits on. */
+export function dependsOn(s: Pick<Step, 'depends_on'>): string[] {
+  try { const v = JSON.parse(s.depends_on ?? '[]'); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
+}
+
+/** Positions → ids, for storing; only earlier steps count, so there is never a loop. */
+const depsJson = (after: number[] | undefined, ids: string[], self: number) => {
+  const deps = (after ?? []).filter(k => k >= 0 && k < self && ids[k]).map(k => ids[k]);
+  return deps.length ? JSON.stringify([...new Set(deps)]) : null;
+};
 
 export interface ProjectSummary {
   project: Project;
@@ -177,7 +206,11 @@ async function runReconcile() {
   for (const r of rows) {
     if (r.t_state === 'done') {
       const at = r.t_completed ?? now;
-      await db.runAsync(`UPDATE project_step SET state = 'done', completed_at = ?, updated_at = ? WHERE id = ?`, at, now, r.id);
+      // what it really took: the timer's minutes for its task, if it was timed
+      const spent = await db.getFirstAsync<{ m: number | null }>(
+        `SELECT SUM(CAST(json_extract(meta, '$.minutes') AS INTEGER)) AS m FROM event WHERE task_id = ? AND kind = 'session_end'`, r.task_id);
+      await db.runAsync(`UPDATE project_step SET state = 'done', completed_at = ?, actual_minutes = ?, updated_at = ? WHERE id = ?`,
+        at, spent?.m && spent.m > 0 ? spent.m : null, now, r.id);
       await logProjectEvent(r.project_id, 'done', r.id, null, at);
       await touch(r.project_id);
     } else if (r.t_state === 'dropped') {
@@ -218,14 +251,14 @@ export async function createProject(p: NewProject): Promise<{ id: string; taskId
      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
     id, p.goal.trim(), p.title.trim() || p.goal.trim(), clean(p.done_means),
     JSON.stringify(p.assumptions.map(s => s.trim()).filter(Boolean)), JSON.stringify(p.notes), now, now);
-  const ids: string[] = [];
+  const ids = p.steps.map(() => uid());
   for (const [i, s] of p.steps.entries()) {
-    const sid = uid();
-    ids.push(sid);
     await db.runAsync(
-      `INSERT INTO project_step (id, project_id, position, title, first_action, why, est_minutes, state, edited, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?)`,
-      sid, id, i, s.title.trim(), clean(s.first_action), clean(s.why), s.est_minutes ?? null, s.edited ? 1 : 0, now, now);
+      `INSERT INTO project_step (id, project_id, position, title, first_action, why, est_minutes, state, edited,
+         depends_on, optional, origin, change_reason, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?, ?, 'created', ?, ?)`,
+      ids[i], id, i, s.title.trim(), clean(s.first_action), clean(s.why), s.est_minutes ?? null, s.edited ? 1 : 0,
+      depsJson(s.after, ids, i), s.optional ? 1 : 0, s.edited ? 'you' : 'nu', now, now);
   }
   await logProjectEvent(id, 'created');
   await markActed('project');
@@ -298,7 +331,7 @@ export async function setCurrent(projectId: string, stepId: string | null): Prom
       taskId, st.title, st.first_action, st.est_minutes, now, now);
     await logEvent('captured', taskId, { project: projectId });
   }
-  await db.runAsync(`UPDATE project_step SET state = 'current', task_id = ?, updated_at = ? WHERE id = ?`, taskId, now, stepId);
+  await db.runAsync(`UPDATE project_step SET state = 'current', task_id = ?, blocked_reason = NULL, updated_at = ? WHERE id = ?`, taskId, now, stepId);
   if (oldTask && taskId) await handOverPin(oldTask, taskId);
   await touch(projectId);
   return taskId;
@@ -317,31 +350,38 @@ export async function savePath(projectId: string, drafts: StepDraft[], current?:
   const before = await stepsOf(projectId);
   const done = before.filter(s => s.state === 'done');
   const kept = new Set(drafts.map(d => d.id).filter(Boolean) as string[]);
-  const ids: string[] = [];
+  // every draft's id up front, so a step can say which earlier ones it waits on
+  const ids: string[] = drafts.map(d => {
+    const old = d.id ? before.find(s => s.id === d.id && s.state !== 'done') : undefined;
+    return old ? old.id : uid();
+  });
 
   for (const [i, d] of drafts.entries()) {
     const pos = done.length + i;
     const old = d.id ? before.find(s => s.id === d.id && s.state !== 'done') : undefined;
+    // a draft that says nothing about what it waits on keeps what it had
+    const deps = d.after !== undefined ? depsJson(d.after, ids, i) : old?.depends_on ?? null;
     if (old) {
       const changed = old.title !== d.title.trim() || (old.first_action ?? null) !== clean(d.first_action)
         || (old.est_minutes ?? null) !== (d.est_minutes ?? null);
       await db.runAsync(
-        `UPDATE project_step SET position = ?, title = ?, first_action = ?, why = ?, est_minutes = ?, edited = ?, updated_at = ? WHERE id = ?`,
+        `UPDATE project_step SET position = ?, title = ?, first_action = ?, why = ?, est_minutes = ?, edited = ?,
+           depends_on = ?, optional = ?, change_reason = CASE WHEN ? THEN ? ELSE change_reason END, updated_at = ? WHERE id = ?`,
         pos, d.title.trim(), clean(d.first_action), clean(d.why), d.est_minutes ?? null,
-        old.edited || (d.edited && changed) ? 1 : 0, now, old.id);
+        old.edited || (d.edited && changed) ? 1 : 0,
+        deps, d.optional !== undefined ? (d.optional ? 1 : 0) : old.optional ?? 0, changed ? 1 : 0, kind, now, old.id);
       // the move's task says what the step says
       if (old.state === 'current' && old.task_id && changed) {
         await db.runAsync(`UPDATE task SET title = ?, first_action = ?, est_minutes = ?, updated_at = ? WHERE id = ?`,
           d.title.trim(), clean(d.first_action), d.est_minutes ?? null, now, old.task_id);
       }
-      ids.push(old.id);
     } else {
-      const sid = uid();
       await db.runAsync(
-        `INSERT INTO project_step (id, project_id, position, title, first_action, why, est_minutes, state, edited, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?)`,
-        sid, projectId, pos, d.title.trim(), clean(d.first_action), clean(d.why), d.est_minutes ?? null, d.edited ? 1 : 0, now, now);
-      ids.push(sid);
+        `INSERT INTO project_step (id, project_id, position, title, first_action, why, est_minutes, state, edited,
+           depends_on, optional, origin, change_reason, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?, ?, ?, ?, ?)`,
+        ids[i], projectId, pos, d.title.trim(), clean(d.first_action), clean(d.why), d.est_minutes ?? null, d.edited ? 1 : 0,
+        deps, d.optional ? 1 : 0, d.edited ? 'you' : 'nu', kind, now, now);
     }
   }
 
@@ -368,8 +408,30 @@ export async function advance(projectId: string): Promise<string | null> {
   const steps = await stepsOf(projectId);
   const cur = steps.find(s => s.state === 'current');
   if (cur?.task_id) return cur.task_id;
-  const next = steps.find(s => s.state === 'todo');
+  const next = nextReady(steps);
   return next ? setCurrent(projectId, next.id) : null;
+}
+
+/**
+ * The next step that can start: everything it waits on is done (a step
+ * waiting on one that was let go isn't held up by it). Optional steps only
+ * when nothing else is left; failing all that, the first step still to do.
+ */
+export function nextReady(steps: Step[]): Step | null {
+  const done = new Set(steps.filter(s => s.state === 'done').map(s => s.id));
+  const live = new Set(steps.filter(s => s.state !== 'dropped').map(s => s.id));
+  const todo = steps.filter(s => s.state === 'todo');
+  const ready = todo.filter(s => dependsOn(s).every(d => done.has(d) || !live.has(d)));
+  return ready.find(s => !s.optional) ?? ready[0] ?? todo[0] ?? null;
+}
+
+/** "Blocked": what's in the way, kept on the move until it's replanned or moves on. */
+export async function markBlocked(projectId: string, reason: string | null) {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE project_step SET blocked_reason = ?, change_reason = 'blocked', updated_at = ? WHERE project_id = ? AND state = 'current'`,
+    (reason ?? '').trim() || 'blocked', Date.now(), projectId);
+  await touch(projectId);
 }
 
 /** You decided the project is finished. Nura never decides this for you. */

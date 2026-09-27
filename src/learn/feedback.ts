@@ -26,7 +26,7 @@ const IGNORED_AFTER_MS = 12 * 3600_000;
 /** an ignore is weaker evidence than a dismissal */
 const IGNORE_WEIGHT = 0.25;
 
-export const KINDS: SuggestionKind[] = ['best_time', 'shrink', 'estimate', 'comeback', 'plan_it', 'rest', 'batch', 'model'];
+export const KINDS: SuggestionKind[] = ['best_time', 'shrink', 'estimate', 'comeback', 'plan_it', 'rest', 'batch', 'model', 'reduce_day'];
 
 export interface LogRow { sid: string; kind: string; outcome: string; at: number }
 
@@ -121,7 +121,8 @@ export function hiddenFrom(rows: LogRow[], now = Date.now()): Set<string> {
   const out = new Set<string>();
   for (const r of rows) {
     const age = now - r.at;
-    const dismissFor = r.kind === 'rest' ? REST_DISMISS_COOLDOWN_MS : DISMISS_COOLDOWN_MS;
+    // rest and a smaller day are about one day, not a thing: a no today isn't a no all week
+    const dismissFor = r.kind === 'rest' || r.kind === 'reduce_day' ? REST_DISMISS_COOLDOWN_MS : DISMISS_COOLDOWN_MS;
     if ((r.outcome === 'dismissed' && age < dismissFor) || (r.outcome === 'accepted' && age < ACCEPT_COOLDOWN_MS)) {
       out.add(keyOf(r.sid));
     }

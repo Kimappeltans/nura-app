@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { getFlag, setFlag } from './db';
 import { aiAllowed, noDashes, signedIn } from './ai';
-import { getProject, planState, savePath, addNote, type PlanState, type Step, type StepDraft, type Note } from './projects';
+import { getProject, planState, savePath, addNote, markBlocked, type PlanState, type Step, type StepDraft, type Note } from './projects';
 
 /**
  * Nu's planner — the one part of Nura that runs on a server.
@@ -34,6 +34,10 @@ export interface MoveDraft {
   first_action: string | null;
   why: string | null;
   est_minutes: number | null;
+  /** indexes of earlier steps in the same list that this one waits on */
+  after: number[];
+  /** helps, but the goal doesn't need it */
+  optional: boolean;
 }
 
 export type StartResult =
@@ -119,11 +123,15 @@ function move(v: any): MoveDraft | null {
     first_action: str(v.first_action, 240) || null,
     why: str(v.why, 240) || null,
     est_minutes: mins(v.est_minutes),
+    after: Array.isArray(v.after) ? v.after.filter((n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0) : [],
+    optional: v.optional === true,
   };
 }
 
+/** The moves in order; a step can only wait on steps before it (anything else is dropped, so there's never a loop). */
 function moves(v: unknown): MoveDraft[] {
-  return Array.isArray(v) ? v.map(move).filter((m): m is MoveDraft => !!m).slice(0, 12) : [];
+  const list = Array.isArray(v) ? v.map(move).filter((m): m is MoveDraft => !!m).slice(0, 12) : [];
+  return list.map((m, i) => ({ ...m, after: [...new Set(m.after.filter(n => n < i))] }));
 }
 
 function plan(v: any, fallbackTitle: string): PlanResult | null {
@@ -185,19 +193,24 @@ export function mergePath(local: Step[], res: Pick<ReplanResult, 'steps' | 'curr
   const used = new Set<string>();
   const drafts: StepDraft[] = [];
   let current: number | null = null;
+  const at = new Map<number, number>();   // the planner's index → the draft's
 
   res.steps.forEach((m, i) => {
     const mine = m.ref ? byId.get(m.ref) : undefined;
     if (m.ref && !mine && local.some(s => s.id === m.ref)) return;   // a done step, sent back: ignore
     if (mine && used.has(mine.id)) return;                          // the same step twice: keep the first
     if (i === res.current) current = drafts.length;
+    // what it waits on, as positions in the drafts (a step skipped above can't be waited on)
+    const after = (m.after ?? []).map(k => at.get(k)).filter((k): k is number => k != null);
+    const plan = { after, optional: !!m.optional };
+    at.set(i, drafts.length);
     if (mine) {
       used.add(mine.id);
       drafts.push(mine.edited
-        ? { id: mine.id, title: mine.title, first_action: mine.first_action, why: mine.why, est_minutes: mine.est_minutes, edited: true }
-        : { id: mine.id, title: m.title, first_action: m.first_action, why: m.why, est_minutes: m.est_minutes, edited: false });
+        ? { id: mine.id, title: mine.title, first_action: mine.first_action, why: mine.why, est_minutes: mine.est_minutes, edited: true, ...plan }
+        : { id: mine.id, title: m.title, first_action: m.first_action, why: m.why, est_minutes: m.est_minutes, edited: false, ...plan });
     } else {
-      drafts.push({ title: m.title, first_action: m.first_action, why: m.why, est_minutes: m.est_minutes, edited: false });
+      drafts.push({ title: m.title, first_action: m.first_action, why: m.why, est_minutes: m.est_minutes, edited: false, ...plan });
     }
   });
 
@@ -219,6 +232,9 @@ export async function askAgain(projectId: string, event: ReplanEvent, note?: str
   Promise<{ res: ReplanResult; taskId: string | null }> {
   const state = await planState(projectId);
   if (!state) throw new PlannerError('That project is gone.');
+  // blocked: say so on the move first, so the planner lowers it even if
+  // the replan can't be had right now
+  if (event === 'blocked') await markBlocked(projectId, note ?? null);
   const res = await replan(state, event, note);
   if (note?.trim() && event !== 'replan') {
     await addNote(projectId, { q: event === 'done' ? 'What happened?' : event === 'blocked' ? 'What’s in the way?' : 'Too big', a: note.trim() });

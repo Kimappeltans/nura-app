@@ -6,6 +6,10 @@ Three things live here:
 - **`migrations/`**: changes for a project made before them, pasted into the
   SQL Editor by hand, oldest first. A new project doesn't need them:
   `schema.sql` and `ai-usage.sql` already end in the same state.
+- **`migrations/2026-09-27-planner-sync.sql`**: the adaptive planner's
+  tables (projects, steps, learned patterns, decision feedback, the day plan)
+  so they follow the account. Until it has run, the app syncs tasks and
+  habits as before and skips these.
 - **`functions/nura-plan`**: Nu's planner. When someone asks Nu to plan a
   project, the app sends the goal (and later the project's compact state) to
   this function, which calls Claude and returns a checked, structured answer.

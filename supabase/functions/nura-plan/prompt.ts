@@ -19,6 +19,8 @@ What makes a good move:
 - \`first_action\` is the very first physical motion, as a short sentence: "Open the draft on your laptop." "Find the email from Sam."
 - \`why\` is one short sentence about why this move comes now. Honest, not motivational.
 - \`est_minutes\` is your honest guess in whole minutes.
+- \`after\` lists the indexes (in the steps you return) of earlier steps this one can't start without. Leave it empty when a step could be done in any order; most steps have none.
+- \`optional\` is true for a step that would help but that the goal doesn't need.
 
 What makes a good path:
 - 3 to 6 steps, in order. The first is usually the current move. Later steps can be broader; they will be revised as the person goes.
@@ -55,13 +57,15 @@ Then, by event:
 const MOVE = {
   type: 'object',
   additionalProperties: false,
-  required: ['ref', 'title', 'first_action', 'why', 'est_minutes'],
+  required: ['ref', 'title', 'first_action', 'why', 'est_minutes', 'after', 'optional'],
   properties: {
     ref: { type: 'string' },
     title: { type: 'string' },
     first_action: { type: 'string' },
     why: { type: 'string' },
     est_minutes: { type: 'integer' },
+    after: { type: 'array', items: { type: 'integer' } },
+    optional: { type: 'boolean' },
   },
 } as const;
 

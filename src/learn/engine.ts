@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { getDb, updateTask } from '../db';
 import { modelSuggestions, maybeReflect, type OutcomeCount, type TodayTask } from '../coach';
 import { aiAllowed } from '../ai';
+import { acceptDay } from '../nextActions';
 import { getProfile, profileSummary } from './signals';
 import { useSuggestions } from './useSuggestions';
 import type { Suggestion, SuggestionKind } from './types';
@@ -82,10 +83,17 @@ export function useApply() {
   const refresh = useStore(s => s.refresh);
   const inbox = useStore(s => s.inbox);
   const todayPicked = useStore(s => s.todayPicked);
+  const showToast = useStore(s => s.showToast);
   return useCallback(async (s: Suggestion) => {
     const a = s.action;
     const id = s.taskId;
     if (!a || a.type === 'none') return;
+    // a smaller day: the rest leaves Today (still in Someday); Undo is on the card
+    if (a.type === 'reduce_day' && a.defer?.length) {
+      await acceptDay(a.keep ?? [], a.defer);
+      await refresh();
+      return showToast(`${a.defer.length} left for later`);
+    }
     if (a.type === 'focus' && id) return focusOn(id);
     if (a.type === 'set_minutes' && id && a.minutes) { await updateTask(id, { est_minutes: a.minutes }); return refresh(); }
     if (a.type === 'schedule' && id && a.at) { await updateTask(id, { due_at: a.at, has_time: 1 }); return refresh(); }
@@ -94,5 +102,5 @@ export function useApply() {
       return router.push({ pathname: '/project/new', params: { goal: title } });
     }
     if (a.type === 'shrink' && id) return router.push({ pathname: '/task/[id]', params: { id } });
-  }, [focusOn, refresh, inbox, todayPicked]);
+  }, [focusOn, refresh, inbox, todayPicked, showToast]);
 }

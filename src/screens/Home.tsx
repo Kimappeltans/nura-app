@@ -18,6 +18,7 @@ import { TaskPeek } from '../components/TaskPeek';
 import { RoomBar } from '../components/RoomBar';
 import { SlippingCheckIn } from '../components/SlippingCheckIn';
 import { HomeAsks } from '../components/HomeAsks';
+import { Suggestions } from '../components/Suggestions';
 import type { Tab } from '../components/TabBar';
 import { HeldRow } from '../components/HeldRow';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
@@ -220,6 +221,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} />
                 <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 28 }} />
+                {/* what the planner proposes to change, one at a time (src/interventions.ts) */}
+                <View style={{ marginTop: 20 }}><Suggestions limit={1} /></View>
               </View>
               <View style={{ width: side }}>
                 {!more.length && holding}
@@ -272,6 +275,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         </View>
 
         <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 22, marginHorizontal: 24 }} />
+        {/* what the planner proposes to change, one at a time (src/interventions.ts) */}
+        <View style={{ marginTop: 16, marginHorizontal: 24 }}><Suggestions limit={1} /></View>
       </ScrollView>
 
       {sheets}

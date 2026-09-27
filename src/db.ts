@@ -405,15 +405,65 @@ export async function recordDecision(d: { taskId: string; type: DecisionType; re
     uid(), d.taskId, d.type, d.reason, d.score, now, now);
 }
 
-/** What you did with the last open decision about a task, within a day of it being shown. */
-export async function respondToDecision(taskId: string, response: DecisionResponse, now = Date.now()) {
+/** What you did with the last open decision about a task (of one type, when given), within a day of it being shown. */
+export async function respondToDecision(taskId: string, response: DecisionResponse, now = Date.now(), type?: DecisionType) {
   const db = await getDb();
   const row = await db.getFirstAsync<{ decision_id: string }>(
     `SELECT decision_id FROM decision_feedback WHERE task_id = ? AND response IS NULL AND shown_at >= ?
-     ORDER BY shown_at DESC LIMIT 1`, taskId, now - 86_400_000);
+       ${type ? 'AND decision_type = ?' : ''}
+     ORDER BY shown_at DESC LIMIT 1`, ...(type ? [taskId, now - 86_400_000, type] : [taskId, now - 86_400_000]));
   if (!row) return;
   await db.runAsync('UPDATE decision_feedback SET response = ?, acted_at = ?, updated_at = ? WHERE decision_id = ?',
     response, now, now, row.decision_id);
+}
+
+export interface DayPlanRow {
+  day: string;
+  committed_ids: string | null;
+  flexible_ids: string | null;
+  deferred_ids: string | null;
+  planned_minutes: number | null;
+  capacity_minutes: number | null;
+  actual_minutes: number | null;
+  reason: string | null;
+  /** open: nothing asked · proposed · accepted · declined · undone */
+  state: 'open' | 'proposed' | 'accepted' | 'declined' | 'undone';
+  recalculated_at: number;
+  updated_at: number;
+}
+
+/** A calendar day as the day plan keys it: 2026-09-27, local. */
+export const planDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA');
+
+export async function getDayPlan(day = planDay()): Promise<DayPlanRow | null> {
+  const db = await getDb();
+  return db.getFirstAsync<DayPlanRow>('SELECT * FROM daily_plan WHERE day = ?', day);
+}
+
+export async function saveDayPlan(row: Omit<DayPlanRow, 'updated_at'>, now = Date.now()) {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO daily_plan (day, committed_ids, flexible_ids, deferred_ids, planned_minutes, capacity_minutes, actual_minutes, reason, state, recalculated_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(day) DO UPDATE SET committed_ids = excluded.committed_ids, flexible_ids = excluded.flexible_ids,
+       deferred_ids = excluded.deferred_ids, planned_minutes = excluded.planned_minutes, capacity_minutes = excluded.capacity_minutes,
+       actual_minutes = excluded.actual_minutes, reason = excluded.reason, state = excluded.state,
+       recalculated_at = excluded.recalculated_at, updated_at = excluded.updated_at`,
+    row.day, row.committed_ids, row.flexible_ids, row.deferred_ids, row.planned_minutes, row.capacity_minutes,
+    row.actual_minutes, row.reason, row.state, row.recalculated_at, now);
+}
+
+/** Minutes really done today: the timer's, plus 15 for each thing ticked off without it. */
+export async function minutesDoneToday(now = Date.now()): Promise<number> {
+  const db = await getDb();
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  const timed = await db.getFirstAsync<{ m: number | null }>(
+    `SELECT SUM(CAST(json_extract(meta, '$.minutes') AS INTEGER)) AS m FROM event WHERE kind = 'session_end' AND at >= ?`, start.getTime());
+  const loose = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM event e WHERE e.kind = 'completed' AND e.at >= ?
+       AND NOT EXISTS (SELECT 1 FROM event s WHERE s.kind = 'session_end' AND s.task_id = e.task_id AND s.at >= ?)`,
+    start.getTime(), start.getTime());
+  return (timed?.m ?? 0) + (loose?.n ?? 0) * 15;
 }
 
 /** How often each task was put off when the planner offered it, since a time. */
@@ -421,7 +471,8 @@ export async function putOffsSince(since: number): Promise<Map<string, number>> 
   const db = await getDb();
   const rows = await db.getAllAsync<{ task_id: string; n: number }>(
     `SELECT task_id, COUNT(*) AS n FROM decision_feedback
-      WHERE response IN ('not_now','something_else') AND shown_at >= ? AND task_id IS NOT NULL GROUP BY task_id`, since);
+      WHERE response IN ('not_now','something_else') AND decision_type IN ('next_action','option')
+        AND shown_at >= ? AND task_id IS NOT NULL GROUP BY task_id`, since);
   return new Map(rows.map(r => [r.task_id, r.n]));
 }
 

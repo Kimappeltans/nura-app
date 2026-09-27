@@ -17,7 +17,7 @@ function load(rel) {
   new Function('require', 'module', 'exports', js)(() => ({}), mod, mod.exports);
   return mod.exports;
 }
-const { decide, rankActions, predictMinutes, byPlan } = load('src/next.ts');
+const { decide, rankActions, predictMinutes, byPlan, dayEndAt } = load('src/next.ts');
 
 let passed = 0;
 const test = (name, fn) => { fn(); passed++; console.log(`  ✓ ${name}`); };
@@ -122,6 +122,18 @@ test('your real pace decides what fits', () => {
 test('your good hour lifts longer work', () => {
   const d = decide(task({ est_minutes: 45 }), ctx({ patterns: [pat('best_hour', '1', 9)] }));
   assert.ok(d.factors.energy_fit > 0);
+});
+
+console.log('\na day that ends after midnight');
+test('at 2 AM, a day ending at 5 AM ends today, not tomorrow', () => {
+  const twoAm = new Date(2026, 8, 25, 2, 0).getTime();
+  assert.strictEqual(dayEndAt(twoAm, 29 * 60), new Date(2026, 8, 25, 5, 0).getTime());
+});
+test('at 9 PM, the same day ends at 5 AM tomorrow', () => {
+  assert.strictEqual(dayEndAt(at(21), 29 * 60), new Date(2026, 8, 25, 5, 0).getTime());
+});
+test('an ordinary 9 PM end is tonight', () => {
+  assert.strictEqual(dayEndAt(NOW, 21 * 60), at(21));
 });
 
 console.log('\nlists in the planner\'s order');
