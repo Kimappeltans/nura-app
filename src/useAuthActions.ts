@@ -65,10 +65,13 @@ export function plainAuthError(e: unknown): string {
     case 'otp_expired': return 'This link has expired. Ask for a new one.';
     case 'same_password': return 'That’s your current password. Pick a new one.';
     case 'signup_disabled': return 'New accounts are closed for now.';
+    // a sign-in link for an address with no account (signInWithOtp, shouldCreateUser: false)
+    case 'otp_disabled': return 'There’s no account with this email yet. Create one first.';
   }
   if (msg.includes('invalid login credentials')) return 'That email and password don’t match.';
   if (msg.includes('already registered')) return 'There’s already an account with this email. Sign in instead.';
   if (msg.includes('email not confirmed')) return 'Open the link in the email we sent to finish.';
+  if (msg.includes('signups not allowed for otp')) return 'There’s no account with this email yet. Create one first.';
   return 'Something went wrong. Try again in a moment.';
 }
 
@@ -184,8 +187,9 @@ export function useAuthActions(onDone: () => void, opts: {
   const withEmailLink = async (email: string) => {
     if (!email.includes('@')) return;
     setBusy('email'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // signs in only: an account is made on Create your profile, never by a link
     const { error } = await supabase.auth.signInWithOtp({
-      email, options: { emailRedirectTo: backTo('/') },
+      email, options: { emailRedirectTo: backTo('/'), shouldCreateUser: false },
     }).catch(e => ({ error: e }));
     setBusy(null);
     if (error) return fail('Couldn’t send the link', plainAuthError(error));

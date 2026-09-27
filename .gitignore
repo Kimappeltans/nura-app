@@ -22,3 +22,10 @@ expo-env.d.ts
 
 # the Supabase CLI keeps its link to the project here; local only
 supabase/.temp/
+
+# local only: Claude Code's settings, macOS folder files, and raw video and
+# image exports dropped in the project root
+.claude/
+.DS_Store
+/*.mp4
+/kimappel1_*

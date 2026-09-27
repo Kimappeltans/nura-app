@@ -35,7 +35,7 @@ const supabase = {
 };
 const db = { getFlag: async (k) => (flags.has(k) ? flags.get(k) : null), setFlag: async (k, v) => { flags.set(k, v); } };
 const ai = load('ai.ts', { './supabase': { supabase }, './db': db });
-const { mergePath, readReplan, readStart, readPlan, start, plannerError, SIGN_IN_AGAIN, NEEDS_OK } = load('planner.ts', {
+const { mergePath, readReplan, readStart, readPlan, start, plannerError, SIGN_IN_AGAIN, NEEDS_OK, NOT_OPEN } = load('planner.ts', {
   './supabase': { supabase }, './db': db, './ai': ai, './projects': {},
 });
 
@@ -123,7 +123,7 @@ test('each status says something different, in plain words', () => {
   assert.strictEqual(plannerError(undefined).kind, 'offline');
   // a 400 is not "check your connection"
   assert.notStrictEqual(plannerError(400).message, plannerError(undefined).message);
-  for (const s of [400, 401, 413, 422, 429, 500, 503, 504, undefined]) assert.ok(!/[\u2013\u2014]/.test(plannerError(s).message));
+  for (const s of [400, 401, 403, 413, 422, 429, 500, 503, 504, undefined]) assert.ok(!/[\u2013\u2014]/.test(plannerError(s).message));
 });
 test('without a yes to AI help, nothing is sent', async () => {
   let calls = 0;
@@ -142,6 +142,12 @@ test('signed out, nothing is sent and it says to sign in again', async () => {
   await assert.rejects(start('Finish my website'), e => e.kind === 'auth' && e.message === SIGN_IN_AGAIN);
   assert.strictEqual(calls, 0);
   session = { access_token: 'x' };
+});
+test('a 403 (ai_access) says AI help isn’t open yet, and to write the first move', async () => {
+  assert.strictEqual(plannerError(403).kind, 'access');
+  assert.strictEqual(plannerError(403).message, 'AI help isn’t open yet. You can write the first move yourself.');
+  invoke = async () => ({ data: null, error: { context: { status: 403 } } });
+  await assert.rejects(start('Finish my website'), e => e.kind === 'access' && e.message === NOT_OPEN);
 });
 test('a 401 from the function is "sign in again"; a 400 is not the connection', async () => {
   invoke = async () => ({ data: null, error: { context: { status: 401 } } });

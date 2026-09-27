@@ -1,22 +1,20 @@
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import { sessionStore } from './sessionStore';
 
 /**
  * One client, module-scoped — the same shape as getDb() in db.ts being one
  * connection. This is the ONLY place that talks to Supabase directly; every
  * screen and src/sync.ts go through this.
  *
- * PKCE + AsyncStorage session persistence is the standard native-app
- * pattern. detectSessionInUrl is on for the web only: a Google sign-in, a
+ * PKCE, with the session kept by sessionStore: on the phone encrypted, the
+ * AES key in the Keychain and the rest in AsyncStorage (a whole session is
+ * too big for the Keychain; sessionStore.native.ts), on the web in
+ * localStorage. detectSessionInUrl is on for the web only: a Google sign-in, a
  * magic link or a password reset comes back to the page with a code in the
  * address, and the client swaps it for the session. The phone has no address
- * bar; its links come back through the nura:// scheme instead. AsyncStorage over expo-secure-store
- * deliberately — SecureStore's ~2KB per-value iOS Keychain ceiling is a
- * known trap for a full session payload (access + refresh JWT + user
- * metadata), and everything else this app persists is already plaintext
- * local SQLite, so this introduces no new class of risk.
+ * bar; its links come back through the nura:// scheme instead.
  */
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -35,7 +33,7 @@ export const openedFromLink = Platform.OS === 'web' && typeof window !== 'undefi
 
 export const supabase = createClient(url, anonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: sessionStore,
     autoRefreshToken: true,
     persistSession: true,
     // on the web the client swaps a ?code= in the address for the session
@@ -45,6 +43,30 @@ export const supabase = createClient(url, anonKey, {
     flowType: 'pkce',
   },
 });
+
+/**
+ * A password reset link was opened in this visit: the client swapped a
+ * recovery code for the session and said PASSWORD_RECOVERY. Only then does
+ * app/reset.tsx offer a new password; a session alone isn't enough. Listened
+ * for from here, as the client starts, so the web's own swap isn't missed.
+ */
+let recovering = false;
+const recoveryWatchers = new Set<(on: boolean) => void>();
+const setRecovering = (on: boolean) => {
+  recovering = on;
+  recoveryWatchers.forEach(w => w(on));
+};
+supabase.auth.onAuthStateChange(event => {
+  if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+  else if (event === 'SIGNED_OUT') setRecovering(false);
+});
+export const inRecovery = () => recovering;
+/** The new password is set: the link has done its job. */
+export const endRecovery = () => setRecovering(false);
+export function onRecovery(watch: (on: boolean) => void): () => void {
+  recoveryWatchers.add(watch);
+  return () => { recoveryWatchers.delete(watch); };
+}
 
 /**
  * The session on this device at launch (app/_layout.tsx). Never throws.
@@ -73,7 +95,7 @@ const sessionKey = () => (supabase.auth as unknown as { storageKey: string }).st
 /** The saved session, read straight from storage, with no refresh. */
 async function savedSession(): Promise<Session | null> {
   try {
-    const saved = JSON.parse((await AsyncStorage.getItem(sessionKey())) ?? 'null') as Session | null;
+    const saved = JSON.parse((await sessionStore.getItem(sessionKey())) ?? 'null') as Session | null;
     return saved?.refresh_token && saved.user?.id ? saved : null;
   } catch { return null; }
 }
@@ -87,7 +109,7 @@ export async function signOutHere() {
   const { error } = await supabase.auth.signOut({ scope: 'local' }).catch(e => ({ error: e }));
   if (!error) return;
   const key = sessionKey();
-  await Promise.all([key, `${key}-code-verifier`, `${key}-user`].map(k => AsyncStorage.removeItem(k))).catch(() => {});
+  await Promise.all([key, `${key}-code-verifier`, `${key}-user`].map(k => sessionStore.removeItem(k))).catch(() => {});
 }
 
 /** Rejects if `p` hasn't settled within `ms`. */

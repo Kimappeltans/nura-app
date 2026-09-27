@@ -430,6 +430,17 @@ test('a 401 falls back to the phone’s read', async () => {
   invoke = async () => ({ data: null, error: { context: { status: 401 } } });
   assert.strictEqual((await readInput(`${UNSURE} today`)).source, 'local');
 });
+test('a 403 (AI not open to this account yet) is like signed out: the phone’s own, silently', async () => {
+  reset();
+  let calls = 0;
+  invoke = async () => { calls++; return { data: null, error: { context: { status: 403 } } }; };
+  assert.strictEqual((await readInput(`${UNSURE} tonight`)).source, 'local');
+  assert.deepStrictEqual(await modelSuggestions('7 days', { tasks: [{ id: 't1', title: 'Invoice', minutes: null, priority: 2 }], notes: null }), []);
+  assert.strictEqual(await maybeReflect(week, NOW), null);
+  assert.strictEqual(await getNotes(), null);
+  assert.ok(!flags.get('coach.reflect.batch'));
+  assert.strictEqual(calls, 3);
+});
 test('the same words are read by the model once', async () => {
   let calls = 0;
   invoke = async () => { calls++; return { data: { kind: 'tasks', items: ['finish the essay', 'email Sam'], load: 'low', reply: '' }, error: null }; };

@@ -3,16 +3,20 @@
 Three things live here:
 
 - **`schema.sql`**: sign-in and sync (tasks, habits). Run once in the SQL Editor.
+- **`migrations/`**: changes for a project made before them, pasted into the
+  SQL Editor by hand, oldest first. A new project doesn't need them:
+  `schema.sql` and `ai-usage.sql` already end in the same state.
 - **`functions/nura-plan`**: Nu's planner. When someone asks Nu to plan a
   project, the app sends the goal (and later the project's compact state) to
   this function, which calls Claude and returns a checked, structured answer.
 - **`functions/nura-account`**: deletes the signed-in person's account (Settings,
-  Delete account). Their synced rows go with it; nothing on their devices is touched.
+  Delete account). Their synced rows go with it, and the app clears the device
+  they deleted it from, as Log out does.
 - **`functions/nura-coach`**: the model half of the learning loop
   (`src/coach.ts`, `src/learn/`): reading a sentence the phone wasn't sure
   about, suggestions for today, and the weekly working notes.
 
-The app never holds a model key. Both functions hold it as a Supabase secret.
+The app never holds a model key. The AI functions hold it as a Supabase secret.
 
 ## Which model does what
 
@@ -44,6 +48,8 @@ brew install supabase/tap/supabase
 supabase login
 supabase link --project-ref <your-project-ref>      # the part before .supabase.co
 supabase secrets set ANTHROPIC_API_KEY=<your key>
+supabase secrets set NURA_AI_ALLOWLIST=<emails or user ids, comma-separated>
+supabase secrets set NURA_IP_SALT=<a long random string>   # e.g. openssl rand -hex 32
 supabase functions deploy nura-plan --use-api        # --use-api: no Docker needed
 supabase functions deploy nura-coach --use-api
 supabase functions deploy nura-account --use-api
@@ -84,12 +90,30 @@ anonymous. The app sends the session's access token
 (`supabase.functions.invoke` does that on its own) and never calls them
 signed out. `nura-account` checks the session with `auth.getUser()`.
 
-The limits count per account (`u:<user id>`, `read:u:<user id>`) and, as a
-second key, per IP (`ip:…`, `read-ip:…`). The IP is `cf-connecting-ip` when
-the request carries it, otherwise the first `x-forwarded-for` entry, which
-a client can set itself; the account limit is the one that holds. The
-`x-nura-device` header is no longer used for limits, only to tell a
-person's devices apart for the weekly batch.
+Until there's billing, AI is only for the accounts in `NURA_AI_ALLOWLIST`
+(emails and/or user ids, comma-separated, any case). Anyone else signed in
+gets a 403 `ai_access` from `nura-plan` and `nura-coach`, before anything is
+counted or sent to Claude. Unset or empty, nobody gets AI. The app says "AI
+help isn't open yet" on Plan a project (writing the first move yourself
+still works) and quietly uses the phone's own reads and suggestions.
+
+Browsers may only call the functions from `https://app.risewithnura.com`,
+`https://nura-app-811.netlify.app` and `http://localhost:8081` / `8120`:
+only those get an `Access-Control-Allow-Origin`, and it names the page
+itself. The phone sends no Origin, so it isn't affected. A request body over
+64 KB is refused with a 413 before it's read.
+
+The limits count per account (`u:<user id>`, `read:u:<user id>`), then per
+IP (`ip:…`, `read-ip:…`), then for everyone together (`global`,
+`read:global`), in that order, so someone over their own limit stops before
+they count against everyone's. The IP is `cf-connecting-ip` only;
+`x-forwarded-for` is whatever the client put there, so it isn't used, and
+without `cf-connecting-ip` only the account limit holds. Each function logs
+once per cold start which of `cf-connecting-ip`, `x-forwarded-for` and
+`x-real-ip` arrived (names only), to see what the edge really sends. The IP
+is stored as an HMAC under `NURA_IP_SALT` (the service role key when that
+isn't set), never as itself. The `x-nura-device` header is no longer used
+for limits, only to tell a person's devices apart for the weekly batch.
 
 Each Claude call has a 45 s timeout and one retry, and every job must be
 back before the app stops waiting: 50 s for planning, suggestions and the
@@ -107,9 +131,14 @@ a fraction of one. Instead there are two counters:
 - **Read counter**: `nura-coach` `read` and `reflect_collect` (which costs
   no tokens), so capture never eats into planning.
 
+Each counter also has a ceiling for everyone together, a cap on the day's
+bill: `NURA_GLOBAL_DAILY_LIMIT` and `NURA_READ_GLOBAL_DAILY_LIMIT`. Over it,
+every account gets the same 429 as its own limit until the next day (UTC).
+
 ### Secrets
 
-All optional except `ANTHROPIC_API_KEY`.
+All optional except `ANTHROPIC_API_KEY`, and `NURA_AI_ALLOWLIST` for anyone
+to get AI at all.
 
 | Secret | Default | What it does |
 |---|---|---|
@@ -126,6 +155,10 @@ All optional except `ANTHROPIC_API_KEY`.
 | `NURA_IP_DAILY_LIMIT` | `300` | Planning counter: calls per IP address per day |
 | `NURA_READ_DAILY_LIMIT` | `200` | Read counter: calls per account per day |
 | `NURA_READ_IP_DAILY_LIMIT` | `600` | Read counter: calls per IP address per day |
+| `NURA_GLOBAL_DAILY_LIMIT` | `3000` | Planning counter: calls per day for everyone together |
+| `NURA_READ_GLOBAL_DAILY_LIMIT` | `6000` | Read counter: calls per day for everyone together |
+| `NURA_AI_ALLOWLIST` | none: nobody | Who may use AI: emails and/or user ids, comma-separated. Everyone else gets a 403 `ai_access` |
+| `NURA_IP_SALT` | the service role key | The key the IP address is hashed with (HMAC-SHA-256) before it's counted |
 
 Haiku 4.5 doesn't take adaptive thinking or `effort`, so both functions
 leave them out for any `claude-haiku-*` model and use short answers

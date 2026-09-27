@@ -11,11 +11,12 @@
 //
 // Only a signed-in person gets through (the anon key ships inside the app,
 // so it proves nothing). Every request is size-checked, every answer is
-// schema-checked before it leaves, and there are daily limits per account
-// and per IP. If the limits can't be counted, nothing reaches the model.
+// schema-checked before it leaves, and there are daily limits per account,
+// per IP and for everyone together. If the limits can't be counted, nothing
+// reaches the model.
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.128.0';
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.109.0';
 import { z } from 'npm:zod@3.23.8';
 import { LANGUAGES, SCHEMAS, SYSTEM, userMessage, type Action, type Language } from './prompt.ts';
 
@@ -29,16 +30,22 @@ const thinks = (model: string) => !/^claude-haiku-/.test(model);
 const EFFORT = (Deno.env.get('NURA_EFFORT') ?? 'medium') as 'low' | 'medium' | 'high';
 const PER_PERSON_PER_DAY = Number(Deno.env.get('NURA_DAILY_LIMIT') ?? 80);
 const PER_IP_PER_DAY = Number(Deno.env.get('NURA_IP_DAILY_LIMIT') ?? 300);
+/** Everyone together, shared with nura-coach: a ceiling on the day's bill. */
+const GLOBAL_PER_DAY = Number(Deno.env.get('NURA_GLOBAL_DAILY_LIMIT') ?? 3000);
 // The app gives up after 60 s. Each try gets 45 s and there's one retry, but
 // the whole answer (a replan's second model too) has to be back by 50 s.
 const TRY_MS = 45_000;
 const DEADLINE_MS = 50_000;
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-nura-device',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+/** Browsers may call from these pages only; the phone sends no Origin at all. */
+const ORIGINS = new Set([
+  'https://app.risewithnura.com',
+  'https://nura-app-811.netlify.app',
+  'http://localhost:8081',
+  'http://localhost:8120',
+]);
+/** A request bigger than this is refused before it's read. */
+const MAX_BODY = 64 * 1024;
 
 /* ---------------- what the app may send ---------------- */
 
@@ -99,7 +106,36 @@ const Answers = {
 /* ---------------- plumbing ---------------- */
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+function withCors(req: Request, res: Response): Response {
+  const origin = req.headers.get('Origin');
+  if (origin && ORIGINS.has(origin)) res.headers.set('Access-Control-Allow-Origin', origin);
+  res.headers.set('Vary', 'Origin');
+  res.headers.set('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type, x-nura-device');
+  res.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  return res;
+}
+
+/** The body as JSON, never reading past MAX_BODY whatever Content-Length says. */
+async function bodyOf(req: Request): Promise<{ value: unknown } | { status: 400 | 413 }> {
+  if (Number(req.headers.get('content-length') ?? 0) > MAX_BODY) return { status: 413 };
+  const reader = req.body?.getReader();
+  if (!reader) return { status: 400 };
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY) { await reader.cancel().catch(() => {}); return { status: 413 }; }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) { bytes.set(c, at); at += c.byteLength; }
+  try { return { value: JSON.parse(new TextDecoder().decode(bytes)) }; } catch { return { status: 400 }; }
+}
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -111,7 +147,7 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
  *  against the project's signing keys, or with the Auth server for the
  *  older shared secret) and its expiry. Only a real, non-anonymous account
  *  counts. */
-async function userOf(req: Request): Promise<{ id: string } | { status: 401 | 503 }> {
+async function userOf(req: Request): Promise<{ id: string; email: string } | { status: 401 | 503 }> {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
   if (!token) return { status: 401 };
   try {
@@ -127,20 +163,46 @@ async function userOf(req: Request): Promise<{ id: string } | { status: 401 | 50
     }
     const c = data?.claims;
     if (!c || c.role !== 'authenticated' || typeof c.sub !== 'string' || !c.sub || c.is_anonymous === true) return { status: 401 };
-    return { id: c.sub };
+    return { id: c.sub, email: typeof c.email === 'string' ? c.email.trim().toLowerCase() : '' };
   } catch (e) {
     console.error('[nura-plan] could not check the session:', e);
     return { status: 503 };
   }
 }
 
+/** Until there's billing, AI is only for the accounts in NURA_AI_ALLOWLIST:
+ *  emails and/or user ids, comma-separated. Unset or empty, nobody gets it.
+ *  Read on every request, so a change to the secret holds at once. */
+function mayUseAi(user: { id: string; email: string }): boolean {
+  const allowed = (Deno.env.get('NURA_AI_ALLOWLIST') ?? '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  return allowed.includes(user.id.toLowerCase()) || (!!user.email && allowed.includes(user.email));
+}
+
 /** The caller's address, for the second limit. On Supabase's edge
  *  cf-connecting-ip is set by Cloudflare and can't be forged through it; the
- *  first x-forwarded-for entry is whatever the client put there, so it's
- *  only the fallback. The account limit is the one that holds. */
+ *  first x-forwarded-for entry is whatever the client put there, so it isn't
+ *  used. Without cf-connecting-ip it's 'unknown' and only the account limit
+ *  holds. Which of the address headers arrive is logged once per cold start
+ *  (names only), to see what the edge really sends. */
+let saidHeaders = false;
 function ipOf(req: Request): string {
-  const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0];
-  return ip?.trim().slice(0, 64) || 'unknown';
+  if (!saidHeaders) {
+    saidHeaders = true;
+    const present = ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'].filter(h => req.headers.has(h));
+    console.log('[nura-plan] address headers:', present.join(', ') || 'none');
+  }
+  return req.headers.get('cf-connecting-ip')?.trim().slice(0, 64) || 'unknown';
+}
+
+/** An address as it's counted: an HMAC under NURA_IP_SALT (or the service
+ *  role key), so ai_usage never holds a raw IP. */
+let ipKey: Promise<CryptoKey> | null = null;
+async function ipHash(ip: string): Promise<string> {
+  ipKey ??= crypto.subtle.importKey('raw',
+    new TextEncoder().encode(Deno.env.get('NURA_IP_SALT') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', await ipKey, new TextEncoder().encode(ip));
+  return Array.from(new Uint8Array(mac), b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** Counts older than 30 days are deleted (privacy.html promises it). Runs on
@@ -222,23 +284,33 @@ class Failure extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+async function serve(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') return new Response('ok');
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
+  if (Number(req.headers.get('content-length') ?? 0) > MAX_BODY) return json({ error: 'request' }, 413);
 
   // a signed-in person, or nothing: the anon key alone gets a 401
   const user = await userOf(req);
   if ('status' in user) return json({ error: user.status === 401 ? 'auth' : 'server' }, user.status);
+  // not on the list: refused before anything is counted or sent
+  if (!mayUseAi(user)) return json({ error: 'ai_access' }, 403);
 
   let body: z.infer<typeof Request>;
   try {
-    const parsed = Request.safeParse(await req.json());
+    const raw = await bodyOf(req);
+    if ('status' in raw) return json({ error: 'request' }, raw.status);
+    const parsed = Request.safeParse(raw.value);
     if (!parsed.success) return json({ error: 'request' }, 400);
     body = parsed.data;
   } catch { return json({ error: 'request' }, 400); }
 
-  // the account first; the address second. Uncounted is refused.
-  for (const [key, limit] of [[`u:${user.id}`, PER_PERSON_PER_DAY], [`ip:${ipOf(req)}`, PER_IP_PER_DAY]] as const) {
+  // the account first, the address second, everyone last: someone over their
+  // own limit stops before they count against everyone's. Uncounted is refused.
+  const ip = ipOf(req);
+  const limits: [string, number][] = [[`u:${user.id}`, PER_PERSON_PER_DAY]];
+  if (ip !== 'unknown') limits.push([`ip:${await ipHash(ip)}`, PER_IP_PER_DAY]);
+  limits.push(['global', GLOBAL_PER_DAY]);
+  for (const [key, limit] of limits) {
     const n = await hit(key, limit);
     if (n === 'off') return json({ error: 'limits' }, 503);
     if (n === 'over') return json({ error: 'limit' }, 429);
@@ -262,4 +334,6 @@ Deno.serve(async (req) => {
     console.error('[nura-plan]', e);
     return json({ error: 'server' }, 500);
   }
-});
+}
+
+Deno.serve(async req => withCors(req, await serve(req)));

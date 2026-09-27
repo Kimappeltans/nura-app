@@ -13,7 +13,8 @@ import { ask, notify } from './notify';
  * back at the sign-in screen by itself (app/index.tsx watches the session).
  *
  * This device holds one account's things at a time. Logging out clears it
- * (the tasks stay in the account, and come back on the next sign-in), and
+ * (the tasks stay in the account, and come back on the next sign-in), so
+ * does deleting the account, and
  * `sync.user` remembers whose they are, so a different account signing in
  * starts from a clean device instead of seeing, or syncing into, someone
  * else's (claimDevice, on SIGNED_IN in app/_layout.tsx).
@@ -60,6 +61,12 @@ export async function signOut(): Promise<boolean> {
     'Your latest changes haven’t reached your account yet. Logging out now loses them.', 'Log out', true))) {
     return false;
   }
+  await leaveDevice();
+  return true;
+}
+
+/** Logged out here, then a clear device (only its own settings kept), then the sign-in. */
+async function leaveDevice() {
   signInNext = true;
   // logged out first, and no sync pass left running, so nothing is pulled
   // back into the device once it's clear
@@ -76,20 +83,16 @@ export async function signOut(): Promise<boolean> {
   await useStore.getState().refresh().catch(() => {});
   if (router.canDismiss()) router.dismissAll();
   router.replace('/');
-  return true;
 }
 
-/** Asks, then deletes the account and what it synced (supabase/functions/nura-account).
- *  What's on this device stays, and a new account later adopts it afresh. */
+/** Asks, then deletes the account and what it synced (supabase/functions/nura-account),
+ *  then clears this device the way Log out does, so the next account starts clean. */
 export async function deleteAccount(): Promise<boolean> {
   const yes = await ask('Delete your account?',
-    'Your account and everything it synced are deleted for good.', 'Delete', true);
+    'Your account and everything it synced are deleted for good, and Nura clears this device.', 'Delete', true);
   if (!yes) return false;
   const { error } = await supabase.functions.invoke('nura-account', { method: 'POST' });
   if (error) { notify('Couldn’t delete your account', 'Try again in a moment.'); return false; }
-  await signOutHere();
-  useStore.getState().setSession(null);
-  await setFlag('sync.adopted', ''); await setFlag('sync.push_cursor', '0'); await setFlag('sync.pull_cursor', '0');
-  await setFlag('sync.user', '');
+  await leaveDevice();
   return true;
 }

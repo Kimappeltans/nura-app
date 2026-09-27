@@ -366,6 +366,8 @@ async function call(body: { op: keyof typeof TIMEOUT_MS } & Record<string, unkno
   if (res.error) {
     const status = (res.error as any)?.context?.status as number | undefined;
     if (status === 401) throw new CoachError('Not signed in.', 'auth');
+    // AI isn't open to this account yet: the same as signed out, the phone's own
+    if (status === 403) throw new CoachError('AI help isn’t open yet.', 'auth');
     if (status === 429) throw new CoachError('The coach is at today’s limit.', 'limit');
     if (status === 404 || status === 410) throw new CoachError('That reflection is gone.', 'gone');
     if (status && status >= 500) throw new CoachError('The coach is having a moment.', 'busy');

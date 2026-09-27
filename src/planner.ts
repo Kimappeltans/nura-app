@@ -62,7 +62,7 @@ export interface ReplanResult {
 }
 
 export class PlannerError extends Error {
-  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' | 'auth' | 'consent' = 'bad') { super(message); }
+  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' | 'auth' | 'consent' | 'access' = 'bad') { super(message); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -249,11 +249,14 @@ const TIMEOUT_MS = 60_000;
 const OFFLINE = 'Nu couldn’t reach the planner. Check your connection and try again.';
 export const SIGN_IN_AGAIN = 'Sign in again to plan with Nu.';
 export const NEEDS_OK = 'Turn on AI help in Settings to plan with Nu.';
+/** The function's 403 ai_access: this account isn't on the list for AI yet. */
+export const NOT_OPEN = 'AI help isn’t open yet. You can write the first move yourself.';
 
 /** What a failed call means, from the function's status. No status at all
  *  means the request never got an answer: the connection. */
 export function plannerError(status: number | undefined): PlannerError {
   if (status === 401) return new PlannerError(SIGN_IN_AGAIN, 'auth');
+  if (status === 403) return new PlannerError(NOT_OPEN, 'access');
   if (status === 429) return new PlannerError('That’s all the planning for today. Try again tomorrow.', 'limit');
   if (status === 422) return new PlannerError('Nu couldn’t use that. Try saying it another way.', 'bad');
   if (status === 400 || status === 413) return new PlannerError('Nu couldn’t use that. Try it in fewer words.', 'bad');

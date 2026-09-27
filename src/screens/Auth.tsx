@@ -81,7 +81,7 @@ type Mode = 'choose' | 'email';
  * redirect instead (opened in an in-app browser sheet, bounced back via the
  * app's own `nura://` scheme) rather than a second native SDK. Nothing
  * typed here is written to disk beyond what Supabase's client itself
- * persists (the session, via AsyncStorage — see src/supabase.ts) — the
+ * persists (the session, via src/sessionStore.ts) — the
  * password fields exist only in this screen's own state and are gone the
  * moment you navigate away.
  */

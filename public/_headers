@@ -4,7 +4,8 @@
 # The content security policy lets scripts, styles, fonts and images come
 # only from Nura itself, and lets the app talk only to Supabase:
 # wasm-unsafe-eval is for the SQLite WebAssembly, unsafe-inline styles for
-# react-native-web, which writes its styles into the page.
+# react-native-web, which writes its styles into the page. Images may also
+# come from Google, for the profile photo of an account made with Google.
 # X-Robots-Tag keeps search engines out until launch; remove it then.
 /*
   Cross-Origin-Opener-Policy: same-origin
@@ -15,7 +16,7 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), geolocation=(), payment=(), usb=(), microphone=(self)
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://ptxdctfrjytcmcuelwxw.supabase.co wss://ptxdctfrjytcmcuelwxw.supabase.co; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com; font-src 'self' data:; connect-src 'self' https://ptxdctfrjytcmcuelwxw.supabase.co wss://ptxdctfrjytcmcuelwxw.supabase.co; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
   X-Robots-Tag: noindex, nofollow
 
 # the bundles have a hash in their names, so they never change

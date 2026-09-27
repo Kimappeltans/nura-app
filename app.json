@@ -101,6 +101,12 @@
           "photosPermission": "Nura uses a photo you pick as your profile picture. It stays on this phone.",
           "cameraPermission": false
         }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
       ]
     ],
     "experiments": {

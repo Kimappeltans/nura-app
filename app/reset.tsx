@@ -4,40 +4,53 @@ import { View, Text, TextInput, Pressable, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../src/store';
-import { supabase } from '../src/supabase';
+import { supabase, openedFromLink, inRecovery, onRecovery, endRecovery } from '../src/supabase';
 import { notify } from '../src/notify';
 import { radius, type as T } from '../src/theme';
 import { Primary, Mica } from '../src/ui';
 import { plainAuthError } from '../src/useAuthActions';
+
+/** Codes already swapped, so a second mount doesn't swap one again and call it broken. */
+const swapped = new Set<string>();
 
 /**
  * A new password, from the link in the reset email (useAuthActions →
  * resetPassword). On the web the link comes back to this page with a code in
  * the address, which the Supabase client swaps for a session by itself
  * (src/supabase.ts); on the phone it opens nura://reset?code=…, and the code
- * is swapped here. Either way, once there's a session, the password is set.
+ * is swapped here. The form shows only once that swap says it was a
+ * recovery (inRecovery): a session on its own, from signing in, isn't enough.
  */
 function Reset() {
   const t = useTheme();
   const { code } = useLocalSearchParams<{ code?: string }>();
   const session = useStore(s => s.session);
+  const [recovering, setRecovering] = useState(inRecovery);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [broken, setBroken] = useState(false);
+  // came here from a link at all (an expired one comes back with an error instead of a code)
+  const [fromLink] = useState(() => Platform.OS === 'web'
+    ? openedFromLink || /[?&#]error(_code)?=/.test(`${window.location.search}${window.location.hash}`)
+    : !!code);
 
+  useEffect(() => onRecovery(setRecovering), []);
   useEffect(() => {
-    if (Platform.OS === 'web' || !code || session) return;
-    supabase.auth.exchangeCodeForSession(code).then(({ error: e }) => { if (e) setBroken(true); });
+    if (Platform.OS === 'web' || !code || swapped.has(code)) return;
+    swapped.add(code);
+    supabase.auth.exchangeCodeForSession(code)
+      .then(({ error: e }) => { if (e) setBroken(true); })
+      .catch(() => setBroken(true));
   }, [code]);
-  // on the web: no session a few seconds after landing means the link was used or has expired
+  // no recovery a few seconds after landing means the link was used or has expired
   useEffect(() => {
-    if (session) return;
+    if (recovering || !fromLink) return;
     const late = setTimeout(() => setBroken(true), 6000);
     return () => clearTimeout(late);
-  }, [session]);
+  }, [recovering, fromLink]);
 
   const save = async () => {
     setError(null);
@@ -47,6 +60,7 @@ function Reset() {
     const { error: e } = await supabase.auth.updateUser({ password }).catch(x => ({ error: x }));
     setBusy(false);
     if (e) return setError(plainAuthError(e));
+    endRecovery();
     notify('Password changed', 'You’re signed in with the new one.', () => router.replace('/'));
   };
 
@@ -67,9 +81,11 @@ function Reset() {
           A new password.
         </Text>
 
-        {!session ? (
+        {!(recovering && session) ? (
           <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22 }}>
-            {broken ? 'This link has been used or has expired. Ask for a new one from Sign in.' : 'Opening your link…'}
+            {!fromLink && !recovering ? 'Open the link in your reset email to choose a new password.'
+              : broken && !recovering ? 'This link has been used or has expired. Ask for a new one from Sign in.'
+                : 'Opening your link…'}
           </Text>
         ) : (
           <>
