@@ -252,22 +252,9 @@ footer .c { margin-left: auto; opacity: .7; }
 .bar nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 .kicker { display: block; margin-bottom: 16px; font-size: 11px; font-weight: 600; letter-spacing: 1.7px; text-transform: uppercase; color: var(--sub); }
 
-/* the story (about.html): the water, the mound, the light */
-.chapter { min-height: min(70vh, 720px); display: grid; align-items: center; }
-.chapter .wrap { max-width: 900px; }
-.chapter h1, .chapter h2 { max-width: 16em; }
+/* the story (about.html): the scene itself is story.css; this is what follows it */
 .story-p { font-size: clamp(19px, 2vw, 24px); line-height: 1.5; color: var(--sub); max-width: 30em; margin-top: 26px; text-wrap: pretty; }
 .story-p b { color: var(--text); font-weight: 600; }
-.deep { --bg: #070B20; }
-.dusk { --bg: var(--navy-2); }
-.water-lines { display: block; width: 100%; height: 60px; margin-top: 40px; }
-.water-lines path { fill: none; stroke: rgba(242,244,251,.22); stroke-width: 1.4; }
-.mound { width: min(260px, 60%); margin-top: 40px; }
-.forms { display: block; width: min(420px, 100%); height: auto; margin-top: 40px; }
-.forms .l { fill: none; stroke: rgba(242,244,251,.5); stroke-width: 1.6; stroke-linejoin: round; }
-.forms .cap { fill: var(--coral); }
-.light { background: linear-gradient(180deg, #FFFDFA 0%, #FFF1E6 50%, #FFD6BD 100%); }
-.light .ra-sun { width: min(260px, 60%); margin-top: 30px; }
 .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(36px, 5vw, 56px); }
 .trio .tile { display: grid; grid-template-rows: 150px auto auto; }
 .trio .tile img { height: 140px; width: auto; justify-self: start; object-fit: contain; }
@@ -296,9 +283,6 @@ footer .c { margin-left: auto; opacity: .7; }
 .glow { background-image:
   radial-gradient(55% 60% at 88% 18%, rgba(255,150,100,.16), transparent 70%),
   radial-gradient(45% 50% at 0% 100%, rgba(255,190,150,.16), transparent 70%); }
-.about-deep { background-image: linear-gradient(180deg, #060A1C 0%, #0B1029 100%) !important; }
-.about-blue { background-image: linear-gradient(180deg, #0B1029 0%, #10214F 100%) !important; }
-.about-dusk { background-image: linear-gradient(180deg, #10214F 0%, #1A3470 100%) !important; }
 
 /* the moving characters: real clips, cut out; they play when they arrive */
 .mover { display: block; height: auto; pointer-events: none; }
@@ -306,7 +290,6 @@ footer .c { margin-left: auto; opacity: .7; }
 .behind { position: relative; }
 .behind .mover { position: absolute; right: -10px; top: -130px; width: 150px; }
 .rest-ra { width: 150px; margin: 22px 0 -10px; }
-.scene { width: 100%; max-width: 460px; aspect-ratio: 1; border-radius: 30px; object-fit: cover; background: #000; justify-self: center; }
 @media (max-width: 860px) { .hero .stage .mover { width: 30%; left: 4%; } .behind .mover { display: none; } }
 
 /* nothing may widen the page on a phone: the dotted sun and the moving
@@ -343,9 +326,6 @@ h1 { font-size: clamp(36px, 4.6vw, 58px); }
 .wash { background-image: linear-gradient(180deg, #FFFFFF 0%, #EFF4FC 20%, #FFFFFF 52%, #FFF3EA 82%, #FFFFFF 100%); }
 /* dusk: the day fading into Nu's navy, before the night */
 .to-night { height: clamp(120px, 16vw, 220px); background: linear-gradient(180deg, #FFFFFF 0%, #EDF2FB 30%, #9FB0D8 68%, #0B1029 100%); }
-/* sunrise: the navy warming through light blue into a slight orange */
-.to-dawn { height: clamp(140px, 18vw, 240px); background: linear-gradient(180deg, #0B1029 0%, #1F3268 28%, #9DB1DC 60%, #F3EEF2 82%, #FFFDFA 100%); }
-.to-dawn.from-dusk { background: linear-gradient(180deg, #1A3470 0%, #5C75B3 30%, #BFCDEB 60%, #F6F0F0 82%, #FFFDFA 100%); }
 
 /* ─── the early-access form, in the close ─── */
 .signup { display: flex; gap: 10px; width: 100%; max-width: 480px; margin: 30px auto 0; }
