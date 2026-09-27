@@ -1,6 +1,6 @@
 # Nura — the site
 
-Static site, four pages. No build step, no dependencies: drop the folder on any
+Static site, six pages. No build step, no dependencies: drop the folder on any
 host. It follows the app's own design rules (`../guidelines/`): Inter Tight,
 flat surfaces, coral only for the one action — on a white page with light
 orange accents, and Nu's deep blue for the night and the story.
@@ -9,7 +9,9 @@ orange accents, and Nu's deep blue for the night and the story.
 index.html          the landing page: the intelligence first, then Nu and Ra
 how-it-works.html   a tour of the app, screen by screen
 about.html          the story behind Nura: Nun, the Benben, Heliopolis, Ra
-privacy.html        your data in plain words (a DRAFT — see the note at its top)
+privacy.html        your data in plain words
+terms.html          the terms, kept short
+support.html        contact, and answers to the common questions
 site.css / site.js  shared by every page; bump ?v= in the pages after a change
 
 assets/app-*.avif|webp     real screenshots of the app — made by scripts/site-shots.sh
@@ -63,6 +65,17 @@ honeypot against bots. Nothing else to configure. On another host, point the
 form's `action` at your own endpoint — `site.js` posts it urlencoded and shows
 "You're on the list" on any 2xx answer. (A local server rejects the post, so
 locally you'll see the retry message.)
+
+## The legal pages live twice
+
+`privacy.html`, `terms.html` and `support.html` also sit in the app's
+`../public/` folder, so the web app serves them next to itself
+(`/privacy.html`, which Settings opens through `src/links.ts`). Those copies
+share `public/legal.css` and Inter Tight from `public/fonts/`: the app host
+sends `Cross-Origin-Embedder-Policy: require-corp`, so nothing there may load
+from another origin (no Google Fonts, no images). The words are the same.
+Change them here first, then paste each page's `<main>` into its copy in
+`public/`.
 
 ## Viewing it locally
 

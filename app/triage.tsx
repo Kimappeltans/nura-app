@@ -11,26 +11,25 @@ import { notNow, dropTask, updateTask, pickForToday, type Task } from '../src/db
 import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Primary, Character } from '../src/ui';
 
-type Outcome = 'kept' | 'pushed' | 'shrunk' | 'waiting' | 'handed' | 'dropped';
+type Outcome = 'kept' | 'pushed' | 'shrunk' | 'waiting' | 'dropped';
 
 const ACTIONS: { key: Outcome; glyph: string; label: string; sub: string }[] = [
-  { key: 'kept',    glyph: '✓', label: 'Keep it today',        sub: 'stays right where it is' },
+  { key: 'kept',    glyph: '✓', label: 'Keep it today',        sub: 'on today’s plan' },
   { key: 'pushed',  glyph: '↓', label: 'Push to this evening',  sub: 'resurfaces after 7:30' },
   { key: 'shrunk',  glyph: '◊', label: 'Shrink it',             sub: 'just five minutes of it, for now' },
   { key: 'waiting', glyph: '⋯', label: 'Waiting on someone',    sub: 'stays in the water, stops being asked' },
-  { key: 'handed',  glyph: '↗', label: 'Give it to someone',    sub: 'off your day, still tracked' },
   { key: 'dropped', glyph: '×', label: 'Let it go',             sub: 'gone, no explanation needed' },
 ];
 
 const TALLY_LABEL: Record<Outcome, string> = {
-  kept: 'kept', pushed: 'moved', shrunk: 'shrunk', waiting: 'waiting', handed: 'handed off', dropped: 'let go',
+  kept: 'kept', pushed: 'moved', shrunk: 'shrunk', waiting: 'waiting', dropped: 'let go',
 };
 
 /**
  * One pass through everything, one decision each.
  *
  * Not a cleanup you're graded on — there's no "you should have done this
- * sooner" anywhere on this screen, just six honest things to do with a
+ * sooner" anywhere on this screen, just five honest things to do with a
  * task that's been sitting. The backlog isn't a queue to feel behind on,
  * it's a pile of decisions nobody's made yet; this makes each one small.
  */
@@ -41,7 +40,7 @@ function Triage() {
     [...todayPicked, ...inbox].filter(x => x.state !== 'done' && x.state !== 'dropped'));
   const [i, setI] = useState(0);
   const [tally, setTally] = useState<Record<Outcome, number>>({
-    kept: 0, pushed: 0, shrunk: 0, waiting: 0, handed: 0, dropped: 0,
+    kept: 0, pushed: 0, shrunk: 0, waiting: 0, dropped: 0,
   });
 
   const current = queue[i];
@@ -63,7 +62,6 @@ function Triage() {
       }
       case 'shrunk': await updateTask(current.id, { est_minutes: 5 }); break;
       case 'waiting': await notNow(current.id, 3 * 24 * 60); break;
-      case 'handed': await pickForToday(current.id, false); break;
       case 'dropped': await dropTask(current.id); break;
     }
     setTally(p => ({ ...p, [outcome]: p[outcome] + 1 }));

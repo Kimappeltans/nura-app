@@ -1,6 +1,6 @@
 import { useTheme } from '../store';
 import { useEffect, useState } from 'react';
-import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
@@ -9,17 +9,15 @@ import { getFlag, setFlag } from '../db';
 import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission } from '../calendar';
 import { Primary, Mica, Surface, IconCalendar, IconBell, IconCheck } from '../ui';
-import {
-  AsanaIcon, AsanaColor, NotionIcon, NotionColor, SlackIcon, SlackColor,
-  JiraIcon, JiraColor, LinearIcon, LinearColor, TodoistIcon, TodoistColor,
-  MsTodoIcon, MsTodoColor, AppleIcon, AppleColor,
-} from '../components/BrandIcons';
 
 // tight crop — the original has ~10% invisible margin, see Welcome.tsx
 const stone = require('../../assets/brand/nura-logo-tight.webp');
 
 export type SyncMode = 'read' | 'two';
-type Status = 'idle' | 'busy' | 'connected' | 'soon';
+type Status = 'idle' | 'busy' | 'connected' | 'phone';
+
+/** The calendar and reminders are the phone's: on the web they can only be pointed at. */
+const web = Platform.OS === 'web';
 
 interface Row {
   key: string;
@@ -30,19 +28,18 @@ interface Row {
   onPress?: () => void;
   /** calendars get a direction control once they're connected */
   syncable?: boolean;
-  /** the brand's own colour, used to tint the icon's tile */
-  tint?: string;
 }
 
 /**
- * Step two: connect what's already in your day.
+ * Connect what's already in your day: the phone's calendar and reminders,
+ * opened from Settings (app/integrations.tsx).
  *
  * Two honesty rules hold this screen together, and they matter more than the
  * layout:
  *
- *  1. Anything that doesn't work yet says SOON and cannot be tapped. Faking
- *     eight integrations to look established is the fastest way to lose someone
- *     on day two, and App Review takes a dim view of it too.
+ *  1. Only what works is listed. The work apps and Apple Health were cut
+ *     (SCOPE.md) rather than shown as SOON, and on the web the two rows say
+ *     iPhone only instead of offering a Connect that can't work there.
  *  2. Direction is explicit. A calendar is READ ONLY until you say otherwise —
  *     nothing gets written into someone's work calendar because a default was
  *     set that way.
@@ -98,51 +95,22 @@ export default function Connect(
     await setFlag('sync.calendar', m);
   };
 
-  const SECTIONS: { title: string; note?: string; rows: Row[] }[] = [
+  const SECTIONS: { title: string; rows: Row[] }[] = [
     {
-      title: 'On this phone',
+      title: web ? 'On iPhone' : 'On this phone',
       rows: [
         {
           key: 'calendar', title: 'Calendar', syncable: true,
           body: 'Your real day, next to your tasks. Covers whatever is already in iOS: iCloud, Google, Outlook.',
           icon: c => <IconCalendar size={21} color={c} />,
-          status: cal, onPress: connectCalendar,
+          status: web ? 'phone' : cal, onPress: connectCalendar,
         },
         {
           key: 'notifications', title: 'Reminders',
           body: 'A few a day, and they get quieter if you’re not answering.',
           icon: c => <IconBell size={21} color={c} />,
-          status: notif, onPress: connectNotifications,
+          status: web ? 'phone' : notif, onPress: connectNotifications,
         },
-      ],
-    },
-    // No Google Calendar or Outlook rows: the Calendar row above already reads
-    // every calendar on the phone, Google and Outlook accounts included.
-    {
-      title: 'Work apps',
-      note: 'Your assigned work turns up in Nura automatically, and finishing it here checks it off there.',
-      rows: [
-        { key: 'asana', title: 'Asana', body: 'Tasks assigned to you, with their due dates.',
-          icon: () => <AsanaIcon />, tint: AsanaColor, status: 'soon' },
-        { key: 'notion', title: 'Notion', body: 'Any database you use as a task list.',
-          icon: () => <NotionIcon />, tint: NotionColor, status: 'soon' },
-        { key: 'slack', title: 'Slack', body: 'Turn a saved message into a task without leaving the thread.',
-          icon: () => <SlackIcon />, tint: SlackColor, status: 'soon' },
-        { key: 'jira', title: 'Jira', body: 'Issues assigned to you, in the same list as everything else.',
-          icon: () => <JiraIcon />, tint: JiraColor, status: 'soon' },
-        { key: 'linear', title: 'Linear', body: 'Your assigned issues, with their cycle.',
-          icon: () => <LinearIcon />, tint: LinearColor, status: 'soon' },
-        { key: 'todoist', title: 'Todoist', body: 'Bring an existing list across, or keep both in step.',
-          icon: () => <TodoistIcon />, tint: TodoistColor, status: 'soon' },
-        { key: 'mstodo', title: 'Microsoft To Do', body: 'The same, for a Microsoft account.',
-          icon: () => <MsTodoIcon />, tint: MsTodoColor, status: 'soon' },
-      ],
-    },
-    {
-      title: 'Health',
-      rows: [
-        { key: 'health', title: 'Apple Health', body: 'Reads last night’s sleep to set your energy for you.',
-          icon: () => <AppleIcon />, tint: AppleColor, status: 'soon' },
       ],
     },
   ];
@@ -207,36 +175,28 @@ export default function Connect(
                   color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
                   marginBottom: 6, marginLeft: 3,
                 }}>{sec.title.toUpperCase()}</Text>
-                {!!sec.note && (
-                  <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginBottom: 8, marginLeft: 3 }}>
-                    {sec.note}
-                  </Text>
-                )}
 
                 <Surface>
                   {sec.rows.map((r, i) => {
-                    const soon = r.status === 'soon';
+                    const phone = r.status === 'phone';
                     const done = r.status === 'connected';
                     return (
                       <View key={r.key}>
                         {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
                         <Pressable
-                          disabled={soon || r.status === 'busy' || done}
+                          disabled={phone || r.status === 'busy' || done}
                           onPress={r.onPress}
                           style={({ pressed }) => ({
                             flexDirection: 'row', alignItems: 'center', gap: 12,
                             paddingHorizontal: 14, paddingVertical: 13,
                             backgroundColor: pressed ? t.subtle : 'transparent',
-                            opacity: soon ? 0.72 : 1,
+                            opacity: phone ? 0.72 : 1,
                           })}>
-                          {/* Each brand's own colour, at 12% for the tile. A row
-                              of identical coral squares made nine different
-                              services look like nine copies of one thing. */}
                           <View style={{
                             width: 34, height: 34, borderRadius: radius.md,
                             alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: r.tint ? `${r.tint}1F` : t.raWash,
-                          }}>{r.icon(r.tint ?? t.raDeep)}</View>
+                            backgroundColor: t.raWash,
+                          }}>{r.icon(t.raDeep)}</View>
 
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
@@ -249,8 +209,8 @@ export default function Connect(
                                 <IconCheck size={16} color={t.raDeep} />
                                 <Text style={{ color: t.raDeep, fontSize: 13, fontFamily: T.brand }}>On</Text>
                               </View>
-                            ) : soon ? (
-                              <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1, fontFamily: T.brand }}>SOON</Text>
+                            ) : phone ? (
+                              <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand }}>iPhone only</Text>
                             ) : (
                               <View style={{
                                 paddingHorizontal: 13, paddingVertical: 7, borderRadius: radius.pill,
@@ -284,8 +244,8 @@ export default function Connect(
           </ScrollView>
 
           <View style={{ gap: 11, marginTop: 10 }}>
-            <Primary label={anyConnected ? 'Done' : 'Continue'} tone="ra" onPress={finish} />
-            {!anyConnected && (
+            <Primary label={anyConnected || onBack ? 'Done' : 'Continue'} tone="ra" onPress={finish} />
+            {!anyConnected && !onBack && (
               <Pressable onPress={finish} hitSlop={10}>
                 <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Skip for now</Text>
               </Pressable>
