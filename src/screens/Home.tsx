@@ -141,9 +141,11 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
           <Mica sunProgress={sunUp} />
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: DESK_PAD, paddingTop: 48, paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
             <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center' }}>
-              <DotMatrix text={hhmm.padStart(5, '0')} dot={9} color={t.ink} muted={t.stroke} muteLeadingZeros />
-              <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, marginTop: 24 }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
-              <Text style={{ color: t.mute ?? t.ink3, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8 }}>Anything now is extra.</Text>
+              <View style={{ alignItems: 'center' }}>
+                <DotMatrix text={hhmm} dot={9} color={t.ink} />
+                <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, marginTop: 24, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
+                <Text style={{ color: t.mute ?? t.ink3, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, textAlign: 'center' }}>Anything now is extra.</Text>
+              </View>
               <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 36, alignItems: 'flex-start' }}>
                 <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} style={{ flex: 1, minWidth: 0 }} />
                 <View style={{ width: side }}>
@@ -161,10 +163,10 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
         <Mica sunProgress={sunUp} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
-          <View style={{ paddingHorizontal: 24, paddingTop: 22 }}>
-            <DotMatrix text={hhmm.padStart(5, '0')} dot={9} color={t.ink} muted={t.stroke} muteLeadingZeros />
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22 }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
-            <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Anything now is extra.</Text>
+          <View style={{ paddingHorizontal: 24, paddingTop: 22, alignItems: 'center' }}>
+            <DotMatrix text={hhmm} dot={9} color={t.ink} />
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
+            <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, textAlign: 'center' }}>Anything now is extra.</Text>
           </View>
           <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={120} style={{ marginHorizontal: 24, marginTop: 28 }} />
           {tomorrowRows}
