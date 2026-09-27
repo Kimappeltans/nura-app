@@ -21,6 +21,7 @@ import {
 } from './kit';
 import { DayArc } from './DayArc';
 import { useNow, useRange } from './useRange';
+import { backToSession } from '../nav';
 
 /**
  * HOME, ON THE DESKTOP. The day at full size on the left: the time, how much
@@ -35,6 +36,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const now = useNow();
   const { inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, toRa, profile, dayStartMin, dayEndMin } = useStore();
   const session = useStore(s => s.session);
+  const running = useStore(s => s.running);
   const { tick } = useTaskActions();
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
@@ -168,12 +170,14 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
                   <DeskCard style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, paddingHorizontal: 22 }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, marginBottom: 2 }}>Ready for one thing?</Text>
-                      <Text numberOfLines={2} style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, fontFamily: T.brand }}>
-                        {pick ? `“${pick.title}”` : 'Pick one task for today and give it your full attention.'}
-                      </Text>
+                      {!!pick && (
+                        <Text numberOfLines={2} style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, fontFamily: T.brand }}>{`“${pick.title}”`}</Text>
+                      )}
                       {!!fact && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 13.5, fontFamily: T.brand, marginTop: 3 }}>{fact}</Text>}
                     </View>
-                    <BeginButton label={pick ? `Begin ${pick.title}` : 'Begin'} onPress={() => (pick ? focusOn(pick.id) : toRa())} />
+                    {running && pick && running.id === pick.id
+                      ? <BeginButton text="Back to it" label={`Back to ${pick.title}`} onPress={() => backToSession(running)} />
+                      : <BeginButton label={pick ? `Begin ${pick.title}` : 'Begin'} onPress={() => (pick ? focusOn(pick.id) : toRa())} />}
                   </DeskCard>
                 ) : (
                   <DeskCard style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingVertical: 14, paddingHorizontal: 22 }}>
@@ -223,7 +227,7 @@ function Stat({ n, label }: { n: number; label: string }) {
 }
 
 /** Begin: the one coral thing on Home, with the sun's glow under it. */
-function BeginButton({ label, onPress }: { label: string; onPress: () => void }) {
+function BeginButton({ label, onPress, text = 'Begin' }: { label: string; onPress: () => void; text?: string }) {
   const [hover, setHover] = useState(false);
   return (
     <Pressable onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
@@ -234,7 +238,7 @@ function BeginButton({ label, onPress }: { label: string; onPress: () => void })
         transform: [{ scale: pressed ? 0.97 : 1 }], opacity: hover ? 0.94 : 1,
       })}>
       <LinearGradient pointerEvents="none" colors={['#FF6B35', '#FFA05C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', inset: 0 }} />
-      <Text style={{ color: ON_CORAL, fontSize: 17, fontFamily: T.display }}>Begin</Text>
+      <Text style={{ color: ON_CORAL, fontSize: 17, fontFamily: T.display }}>{text}</Text>
     </Pressable>
   );
 }
