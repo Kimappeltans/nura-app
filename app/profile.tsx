@@ -61,7 +61,7 @@ function Profile() {
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
         </Pressable>
       </View>
@@ -88,7 +88,7 @@ function Profile() {
 
         <Group title="About you">
           <Field inputRef={nameInput} label="Name" value={name} onChangeText={setName} onBlur={save}
-            maxLength={40} autoCapitalize="words" autoComplete="given-name" returnKeyType="done" />
+            maxLength={40} autoCapitalize="words" autoComplete="given-name" textContentType="givenName" returnKeyType="done" />
           <Line />
           <Field label="Pronouns" value={pronouns} onChangeText={setPronouns} onBlur={save}
             maxLength={24} autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
@@ -112,7 +112,7 @@ function Profile() {
 
       <Sheet visible={sheet === 'picture'} onClose={() => setSheet(null)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, marginBottom: 16 }}>
-          <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>Your picture</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>Your picture</Text>
           <Pressable onPress={() => setSheet(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"
             style={{ marginLeft: 'auto', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer }}>
             <Text style={{ color: t.ink2, fontSize: 18, lineHeight: 20 }}>×</Text>
@@ -132,7 +132,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   const t = useTheme();
   return (
     <View style={{ marginTop: 24 }}>
-      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8, marginLeft: 4 }}>
+      <Text accessibilityRole="header" accessibilityLabel={title} style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8, marginLeft: 4 }}>
         {title.toUpperCase()}
       </Text>
       {/* flat: a fill and a hairline */}
@@ -156,7 +156,7 @@ function Field({ label, stacked, inputRef, ...input }: TextInputProps & { label:
       ? { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }
       : { minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
       <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand, width: stacked ? undefined : 92 }}>{label}</Text>
-      <TextInput ref={inputRef} placeholder="Add" placeholderTextColor={t.ink3} {...input}
+      <TextInput ref={inputRef} placeholder="Add" placeholderTextColor={t.ink3} accessibilityLabel={label} {...input}
         style={stacked
           ? { color: t.ink, fontSize: 15.5, lineHeight: 21, paddingVertical: 6, minHeight: 44, textAlignVertical: 'top' }
           : { flex: 1, color: t.ink, fontSize: 15.5, textAlign: 'right', paddingVertical: 16 }} />

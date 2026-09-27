@@ -54,6 +54,7 @@ export default function BrainDump({ onNext, onBack }: { onNext: (ids: string[]) 
       }>
       <TextInput
         value={text} onChangeText={setText} multiline autoFocus
+        accessibilityLabel="What you need to get done, one per line"
         placeholder={'Pay the phone bill\nBook a haircut\nSend the report by friday'}
         placeholderTextColor={t.ink3}
         style={{

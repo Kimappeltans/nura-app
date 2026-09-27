@@ -1,7 +1,8 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { View, Image, Pressable, useWindowDimensions, type ViewStyle } from 'react-native';
+import { View, Image, Pressable, StyleSheet, useWindowDimensions, type ViewStyle } from 'react-native';
 import { useScreen } from '../screen';
+import { useReducedMotion, decorative } from '../a11y';
 
 /**
  * The intro animation, played as a frame sequence.
@@ -98,7 +99,8 @@ const FRAMES = [
 ];
 
 /**
- * Plays ONCE on arrival, then holds on its last frame. Tap to play it again.
+ * Plays ONCE on arrival, then holds on its last frame. Tap to skip to the end,
+ * tap again to play it again. With Reduce Motion on it's the last frame, still.
  *
  * A five-second clip on a loop is a five-second clip you have to actively
  * ignore while you read the screen it's on — the same reason the mascots stop
@@ -117,6 +119,9 @@ export function IntroClip({ fps = 12, style, maxWidth = 200, onStart, onEnd, ove
   cbs.current = { onStart, onEnd };
   const [run, setRun] = useState(0);      // bump to replay
   const ready = useRef(false);
+  const reduce = useReducedMotion();
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const last = FRAMES.length - 1;
 
   // A supporting beat under the slogan, not the hero — the slogan text is the
   // hero (see the doc comment on Welcome). `maxWidth` defaults to 200 so the
@@ -151,33 +156,45 @@ export function IntroClip({ fps = 12, style, maxWidth = 200, onStart, onEnd, ove
         });
       }
     }
-    setI(0);
     cbs.current.onStart?.();
+    if (reduce) { setI(last); return; }
+    setI(0);
     const id = setInterval(() => {
       setI(k => {
         if (k + 1 >= FRAMES.length) { clearInterval(id); return FRAMES.length - 1; }
         return k + 1;
       });
     }, 1000 / fps);
+    timer.current = id;
     return () => clearInterval(id);
-  }, [fps, run]);
+  }, [fps, run, reduce]);    // eslint-disable-line react-hooks/exhaustive-deps
+
+  const playing = !reduce && i < last;
+  const skip = () => { if (timer.current) clearInterval(timer.current); setI(last); };
 
   // the last frame is where the clip rests — tell whoever is waiting on it
   useEffect(() => { if (i === FRAMES.length - 1) cbs.current.onEnd?.(); }, [i]);
 
   return (
-    <Pressable onPress={() => setRun(r => r + 1)} style={[{ width: W, height: H }, style]}>
+    <View style={[{ width: W, height: H }, style]}>
       {/* Every frame is mounted and stacked, with only the current one
           visible. Swapping a single Image's `source` makes iOS drop the old
           texture and decode the next one inline, which shows up as a flash on
           the frames it can't decode in an 83ms budget. */}
-      {FRAMES.map((f, k) => (
-        <Image
-          key={k} source={f} resizeMode="contain"
-          style={{ position: 'absolute', width: W, height: H, opacity: k === i ? 1 : 0 }}
-        />
-      ))}
-      {overlay?.(W, H)}
-    </Pressable>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} {...decorative}>
+        {FRAMES.map((f, k) => (
+          <Image
+            key={k} source={f} resizeMode="contain"
+            style={{ position: 'absolute', width: W, height: H, opacity: k === i ? 1 : 0 }}
+          />
+        ))}
+      </View>
+      {/* the words stay readable; every tap still lands on the clip */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>{overlay?.(W, H)}</View>
+      {!reduce && (
+        <Pressable onPress={playing ? skip : () => setRun(r => r + 1)} style={StyleSheet.absoluteFill}
+          accessibilityRole="button" accessibilityLabel={playing ? 'Skip' : 'Play again'} />
+      )}
+    </View>
   );
 }

@@ -3,6 +3,7 @@ import { View, Image } from 'react-native';
 import Svg, { Circle, Path, Line, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { useTheme } from '../store';
 import { poseImage } from '../ui';
+import { decorative } from '../a11y';
 
 const CORAL = '#FF6B35';
 
@@ -15,7 +16,7 @@ export function Sun({ size, half, glow = '#FFB067' }: { size: number; half?: boo
   const r = size / 2, disc = size * 0.42;
   const rayIn = disc / 2 + size * 0.07, rayOut = r * 0.9;
   return (
-    <View style={{ width: size, height: half ? r + 2 : size, overflow: 'hidden' }}>
+    <View {...decorative} style={{ width: size, height: half ? r + 2 : size, overflow: 'hidden' }}>
       <Svg width={size} height={size}>
         <Defs>
           <RadialGradient id={`halo${id}`} cx="50%" cy="50%" r="50%">
@@ -53,7 +54,8 @@ export function Handoff({ height = 250 }: { height?: number }) {
   const t = useTheme();
   const [w, setW] = useState(342);
   return (
-    <View style={{ height, overflow: 'hidden' }} onLayout={e => setW(e.nativeEvent.layout.width)} pointerEvents="none">
+    <View style={{ height, overflow: 'hidden' }} onLayout={e => setW(e.nativeEvent.layout.width)} pointerEvents="none"
+      {...decorative}>
       <View style={{ position: 'absolute', left: (w - 348) / 2, bottom: 0 }}>
         <Sun size={340} half />
       </View>

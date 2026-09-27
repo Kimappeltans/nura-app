@@ -4,10 +4,11 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
 import { Check } from '../ui';
-import { AddToToday } from './TaskRow';
+import { AddToToday, RowPress } from './TaskRow';
 import { LabelTile } from './LabelIcon';
 import { formatDue } from './DatePicker';
 import { priorityOf } from '../priority';
+import { decorative } from '../a11y';
 import type { Task } from '../db';
 
 /**
@@ -38,24 +39,31 @@ export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore,
 }) {
   const t = useTheme();
   const parts = (meta ?? []).filter(Boolean) as string[];
+  const live = !!(onPress || onHold);
+  // the words, for a screen reader: said once by the row's own button, so the
+  // drawn text under it is hidden; a row with no tap of its own reads as text
+  const hide = live ? { pointerEvents: 'none' as const, ...decorative } : { pointerEvents: 'none' as const };
   return (
-    <Pressable onPress={onPress} disabled={!onPress && !onHold}
-      onLongPress={onHold ? () => { Haptics.selectionAsync(); onHold(); } : undefined}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-        borderBottomWidth: divider ? 1 : 0, borderBottomColor: t.stroke,
-        backgroundColor: pressed ? t.subtle : 'transparent', opacity: done ? 0.72 : dim ? 0.55 : 1,
-      })}>
-      {onTick && <Check tone="ra" onPress={onTick} />}
-      {!onTick && !done && label !== undefined && <LabelTile id={label} size={30} />}
+    // done and put off sit back in a quieter ink, not a fade: a faded caption can't be read
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+      borderBottomWidth: divider ? 1 : 0, borderBottomColor: t.stroke,
+    }}>
+      {live && (
+        <RowPress label={[title, done ? 'done' : null, ...parts].filter(Boolean).join(', ')}
+          onPress={onPress} onHold={onHold ? () => { Haptics.selectionAsync(); onHold(); } : undefined} />
+      )}
+      {onTick && <Check tone="ra" onPress={onTick} label={title} />}
+      {!onTick && !done && label !== undefined && <View pointerEvents="none" {...decorative}><LabelTile id={label} size={30} /></View>}
       {done && (
-        <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash }}>
+        <View {...hide} {...(live ? {} : { accessible: true, accessibilityRole: 'image' as const, accessibilityLabel: 'Done' })}
+          style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash }}>
           <Text style={{ color: t.nu, fontSize: 12, fontFamily: T.brand }}>✓</Text>
         </View>
       )}
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <View {...hide} style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{
-          color: t.ink, fontSize: 15,
+          color: done || dim ? t.ink2 : t.ink, fontSize: 15,
           textDecorationLine: done ? 'line-through' : 'none', textDecorationColor: t.ink3,
         }}>{title}</Text>
         {parts.length > 0 && (
@@ -83,7 +91,7 @@ export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore,
       ) : onAdd ? (
         <AddToToday title={title} onPress={onAdd} size={32} />
       ) : onMore ? (
-        <Pressable onPress={onMore} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More for ${title}`}
+        <Pressable onPress={onMore} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More options for ${title}`}
           style={({ pressed }) => ({
             width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
             borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
@@ -91,7 +99,7 @@ export function TaskLine({ title, meta, label, onPress, onHold, onStart, onMore,
           <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1, lineHeight: 14 }}>•••</Text>
         </Pressable>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 

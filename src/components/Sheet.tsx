@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
 import Svg, { Path } from 'react-native-svg';
 import { COLUMN, DIALOG, useDesk } from '../screen';
+import { decorative } from '../a11y';
 
 /**
  * The bottom sheet the redesign is built from: a dimmed room behind, a grab
@@ -30,8 +31,8 @@ export function Sheet({ visible, onClose, tall, onShow, children }: {
     return (
       <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose} onShow={onShow}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <Pressable onPress={onClose} accessibilityLabel="Close" style={{ position: 'absolute', inset: 0, backgroundColor: scrim }} />
-          <View style={{
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ position: 'absolute', inset: 0, backgroundColor: scrim }} />
+          <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={{
             width: '100%', maxWidth: DIALOG, height: tall ? Math.min(760, height - 64) : undefined, maxHeight: height - 64,
             borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: fill,
           }}>
@@ -54,15 +55,16 @@ export function Sheet({ visible, onClose, tall, onShow, children }: {
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose} onShow={onShow}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: scrim }} />
-        <View style={{
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, backgroundColor: scrim }} />
+        {/* no × on a phone: VoiceOver's escape (two-finger Z) closes it, and so does the scrim */}
+        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={{
           height: tall ? height - Math.max(insets.top, 20) - 18 : undefined, maxHeight: height * 0.94,
           width: '100%', maxWidth: COLUMN, alignSelf: 'center',   // a phone's width on a wide screen (src/screen.ts)
           borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden',
           borderWidth: 1, borderBottomWidth: 0, borderColor: t.strokeStrong,
         }}>
           <View style={{ position: 'absolute', inset: 0, backgroundColor: fill }} />
-          <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginTop: 10, marginBottom: 14 }} />
+          <View {...decorative} style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginTop: 10, marginBottom: 14 }} />
           <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: Math.max(insets.bottom, 18) + 6 }}>
             {children}

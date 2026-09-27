@@ -18,6 +18,7 @@ import { MicButton, HearIt } from '../../src/components/Voice';
 import { AiConsent } from '../../src/components/AiConsent';
 import { aiConsent, setAiConsent } from '../../src/ai';
 import { readable } from '../../src/components/Desk';
+import { announce, decorative } from '../../src/a11y';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
 const leave = () => (goBack());
@@ -73,6 +74,15 @@ function Screen() {
   const [steps, setSteps] = useState<EditStep[]>([]);
   const [current, setCurrent] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // each new step of the conversation is said as it appears: its heading, or Nu's question
+  useEffect(() => {
+    if (phase.at === 'thinking') announce(phase.line);
+    else if (phase.at === 'task') announce(`This sounds like one task. ${phase.title}`);
+    else if (phase.at === 'question') announce(phase.q.text);
+    else if (phase.at === 'path') announce(phase.plan.reply || phase.plan.steps[Math.max(0, phase.plan.current)]?.title || 'What’s the first move?');
+    else if (phase.at === 'error') announce(`Nu couldn’t plan this right now. ${phase.message}`);
+  }, [phase]);
 
   const fail = (e: unknown, retry: () => void) =>
     setPhase({ at: 'error', message: e instanceof PlannerError ? e.message : 'Something went wrong on the way to the planner.', retry });
@@ -167,13 +177,14 @@ function Screen() {
         <View style={{ gap: 18 }}>
           {/* Nu, listening, in her glow (room above so the glow isn't cut square) */}
           <View style={{ alignItems: 'center', marginTop: 34 }}>
-            <NuGlow size={124}><Moving name="nu-breathe" style={{ width: 124, height: 132 }} /></NuGlow>
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 12, textAlign: 'center' }}>
+            <View {...decorative}><NuGlow size={124}><Moving name="nu-breathe" style={{ width: 124, height: 132 }} /></NuGlow></View>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 12, textAlign: 'center' }}>
               Plan a project
             </Text>
           </View>
           <TextInput value={goal} onChangeText={setGoal} multiline autoFocus={!params.goal}
             placeholder="e.g. I need to finish my website" placeholderTextColor={t.ink3}
+            accessibilityLabel="What you want to move forward"
             style={{ ...field, borderColor: t.stroke, minHeight: 110, textAlignVertical: 'top' }} />
           <MicButton value={goal} onChange={setGoal} />
         </View>
@@ -182,14 +193,14 @@ function Screen() {
       case 'thinking': return (
         <View style={{ alignItems: 'center', gap: 16, paddingTop: 40 }}>
           <Character name="nu-thinking" size={120} motion="bob" />
-          <Text style={{ color: t.ink2, fontSize: 16 }}>{phase.line}</Text>
+          <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 16 }}>{phase.line}</Text>
         </View>
       );
 
       case 'task': return (
         <View style={{ gap: 14 }}>
           <Character name="nu-idle" size={86} motion="greet" />
-          <Text style={{ color: t.ink, fontSize: 24, lineHeight: 30, fontFamily: T.display }}>This sounds like one task.</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 24, lineHeight: 30, fontFamily: T.display }}>This sounds like one task.</Text>
           {!!phase.reply && <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22 }}>{phase.reply}</Text>}
           <Surface><Text style={{ color: t.ink, fontSize: 17, padding: 16, fontFamily: T.brand }}>{phase.title}</Text></Surface>
         </View>
@@ -201,13 +212,14 @@ function Screen() {
             <Character name="nu-ask" size={72} motion="greet" />
             {!!phase.reply && <Text style={{ flex: 1, color: t.ink2, fontSize: 15, lineHeight: 21 }}>{phase.reply}</Text>}
           </View>
-          <Text style={{ color: t.ink, fontSize: 25, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.4 }}>{phase.q.text}</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 25, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.4 }}>{phase.q.text}</Text>
           <HearIt text={phase.q.text} label="Hear the question" auto />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <View accessibilityRole="radiogroup" accessibilityLabel={phase.q.text} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {phase.q.options.map(o => {
               const on = answer === o;
               return (
-                <Pressable key={o} onPress={() => { Haptics.selectionAsync(); setAnswer(on ? '' : o); }} style={{
+                <Pressable key={o} onPress={() => { Haptics.selectionAsync(); setAnswer(on ? '' : o); }}
+                  accessibilityRole="radio" aria-checked={on} style={{
                   paddingHorizontal: 15, paddingVertical: 10, borderRadius: radius.pill,
                   borderWidth: 1.5, borderColor: on ? t.nu : t.strokeStrong, backgroundColor: on ? t.nuWash : 'transparent',
                 }}>
@@ -217,7 +229,7 @@ function Screen() {
             })}
           </View>
           <TextInput value={phase.q.options.includes(answer) ? '' : answer} onChangeText={setAnswer} multiline
-            placeholder="Or say it in your own words" placeholderTextColor={t.ink3} style={{ ...field, minHeight: 70 }} />
+            placeholder="Or say it in your own words" placeholderTextColor={t.ink3} accessibilityLabel="Your answer" style={{ ...field, minHeight: 70 }} />
           <MicButton value={answer} onChange={setAnswer} label="Answer by voice" />
         </View>
       );
@@ -227,13 +239,13 @@ function Screen() {
         const move = steps[Math.max(0, current)];
         if (!whole && move) return (
           <View style={{ gap: 12, paddingTop: 28 }}>
-            <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>{title.toUpperCase()}</Text>
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.4 }}>{move.title}</Text>
+            <Text accessibilityLabel={title} style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>{title.toUpperCase()}</Text>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.4 }}>{move.title}</Text>
             {!!move.first_action && move.first_action !== move.title && (
               <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{move.first_action}</Text>
             )}
             {!!move.est_minutes && <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>About {move.est_minutes} min</Text>}
-            <Pressable onPress={() => { Haptics.selectionAsync(); setWhole(true); }} hitSlop={8} accessibilityRole="button"
+            <Pressable onPress={() => { Haptics.selectionAsync(); setWhole(true); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="See the whole plan"
               style={{ alignSelf: 'flex-start', marginTop: 10 }}>
               <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display }}>See the whole plan ›</Text>
             </Pressable>
@@ -241,30 +253,31 @@ function Screen() {
         );
         return (
         <View style={{ gap: 16 }}>
-          <TextInput value={title} onChangeText={setTitle} placeholder="Name it" placeholderTextColor={t.ink3} multiline
+          <TextInput value={title} onChangeText={setTitle} placeholder="Name it" placeholderTextColor={t.ink3} multiline accessibilityLabel="Project name"
             style={{ color: t.ink, fontSize: 26, lineHeight: 32, fontFamily: T.display, letterSpacing: -0.5, padding: 0 }} />
           {!!phase.plan.reply && (
             <View style={{ gap: 2 }}>
-              <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{phase.plan.reply}</Text>
+              <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{phase.plan.reply}</Text>
               <HearIt text={phase.plan.reply} auto />
             </View>
           )}
 
           <View style={{ gap: 6 }}>
-            <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>DONE MEANS</Text>
-            <TextInput value={doneMeans} onChangeText={setDoneMeans} multiline
+            <Text accessibilityRole="header" accessibilityLabel="Done means" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>DONE MEANS</Text>
+            <TextInput value={doneMeans} onChangeText={setDoneMeans} multiline accessibilityLabel="Done means"
               placeholder="What does finished look like? (optional)" placeholderTextColor={t.ink3}
               style={{ ...field, fontSize: 15, padding: 12 }} />
           </View>
 
           {!!guesses.length && (
             <View style={{ gap: 6 }}>
-              <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>NU’S GUESSES</Text>
+              <Text accessibilityRole="header" accessibilityLabel="Nu’s guesses" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>NU’S GUESSES</Text>
               {guesses.map((g, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Text style={{ flex: 1, color: t.ink2, fontSize: 14, lineHeight: 20 }}>I’m assuming: {g}</Text>
                   <Pressable onPress={() => setGuesses(guesses.filter((_, k) => k !== i))} hitSlop={10}
-                    accessibilityLabel="That's wrong, remove this guess">
+                    accessibilityRole="button" accessibilityLabel="That's wrong, remove this guess"
+                    style={{ paddingHorizontal: 7, paddingVertical: 2 }}>
                     <Text style={{ color: t.ink3, fontSize: 17 }}>×</Text>
                   </Pressable>
                 </View>
@@ -273,7 +286,8 @@ function Screen() {
           )}
 
           <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>
+            <Text accessibilityRole="header" accessibilityLabel={steps.length ? 'The move now, then later if needed' : 'What’s the first move?'}
+              style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>
               {steps.length ? 'THE MOVE NOW, THEN LATER IF NEEDED' : 'WHAT’S THE FIRST MOVE?'}
             </Text>
             <PathEditor steps={steps} current={current} onChange={(s, c) => { setSteps(s); setCurrent(c); }} />
@@ -286,7 +300,7 @@ function Screen() {
       case 'error': return (
         <View style={{ gap: 14, paddingTop: 20 }}>
           <Character name="nu-idle" size={86} motion="none" />
-          <Text style={{ color: t.ink, fontSize: 22, lineHeight: 28, fontFamily: T.display }}>Nu couldn’t plan this right now.</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 22, lineHeight: 28, fontFamily: T.display }}>Nu couldn’t plan this right now.</Text>
           <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22 }}>{phase.message}</Text>
         </View>
       );
@@ -315,7 +329,7 @@ function Screen() {
         <>
           <Primary label="See a possible path" tone="ra"
             onPress={() => plan(answer.trim() ? [{ q: phase.q.text, a: answer.trim() }] : [{ q: phase.q.text, a: '(skipped)' }])} />
-          <Pressable onPress={() => plan([{ q: phase.q.text, a: '(skipped)' }])} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 4 }}>
+          <Pressable onPress={() => plan([{ q: phase.q.text, a: '(skipped)' }])} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 4 }}>
             <Text style={{ color: t.ink3, fontSize: 14 }}>Skip this question</Text>
           </Pressable>
         </>
@@ -348,7 +362,7 @@ function Screen() {
             if (auto || phase.at === 'goal' || phase.at === 'thinking') return leave();
             setPhase({ at: 'goal' });
           }}
-            hitSlop={12} style={{ flex: 1, paddingVertical: 8 }}>
+            hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ flex: 1, paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
           </Pressable>
         </View>

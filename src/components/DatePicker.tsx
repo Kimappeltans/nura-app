@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
 import { useTheme } from '../store';
 import { Surface, IconChevron } from '../ui';
+import { decorative } from '../a11y';
 
 /**
  * A real month grid and a real clock.
@@ -20,6 +21,7 @@ import { Surface, IconChevron } from '../ui';
  */
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -68,6 +70,7 @@ export function WeekdayPicker(
         const sel = on.includes(d);
         return (
           <Pressable key={i} onPress={() => toggle(d)}
+            accessibilityRole="checkbox" accessibilityLabel={DAY_NAMES[d - 1]} aria-checked={sel}
             style={{
               flex: 1, aspectRatio: 1, maxWidth: 44, borderRadius: 22,
               alignItems: 'center', justifyContent: 'center',
@@ -96,6 +99,7 @@ export function TimePicker(
 
   const Cell = ({ label, sel, onPress }: { label: string; sel: boolean; onPress: () => void }) => (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
+      accessibilityRole="radio" aria-checked={sel}
       style={{
         paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
         backgroundColor: sel ? t.ra : 'transparent',
@@ -110,11 +114,13 @@ export function TimePicker(
   return (
     <View style={{ gap: 9 }}>
       <Text style={{ color: t.ink3, fontSize: 12.5 }}>Hour</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, paddingRight: 12 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, paddingRight: 12 }}
+        accessibilityRole="radiogroup" accessibilityLabel="Hour">
         {HOURS.map(x => <Cell key={x} label={pad(x)} sel={x === h} onPress={() => onChange(x, m)} />)}
       </ScrollView>
       <Text style={{ color: t.ink3, fontSize: 12.5, marginTop: 2 }}>Minute</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, paddingRight: 12 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, paddingRight: 12 }}
+        accessibilityRole="radiogroup" accessibilityLabel="Minute">
         {MINUTES.map(x => <Cell key={x} label={pad(x)} sel={x === m} onPress={() => onChange(h, x)} />)}
       </ScrollView>
     </View>
@@ -163,18 +169,22 @@ export function DatePicker(
       <View style={{ padding: 14 }}>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Pressable onPress={() => step(-1)} hitSlop={14} style={{ transform: [{ rotate: '180deg' }] }}>
+          <Pressable onPress={() => step(-1)} hitSlop={8}
+            accessibilityRole="button" accessibilityLabel="Previous month"
+            style={{ padding: 6, margin: -6, transform: [{ rotate: '180deg' }] }}>
             <IconChevron size={19} color={t.ink2} />
           </Pressable>
           <Text style={{ flex: 1, textAlign: 'center', color: t.ink, fontSize: 16.5, fontFamily: T.brand }}>
             {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
           </Text>
-          <Pressable onPress={() => step(1)} hitSlop={14}>
+          <Pressable onPress={() => step(1)} hitSlop={8}
+            accessibilityRole="button" accessibilityLabel="Next month"
+            style={{ padding: 6, margin: -6 }}>
             <IconChevron size={19} color={t.ink2} />
           </Pressable>
         </View>
 
-        <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+        <View style={{ flexDirection: 'row', marginBottom: 4 }} {...decorative}>
           {DOW.map((d, i) => (
             <Text key={i} style={{
               flex: 1, textAlign: 'center', color: t.ink3, fontSize: 12,
@@ -183,7 +193,8 @@ export function DatePicker(
           ))}
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={`${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}
+          style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {cells.map((d, i) => {
             if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, height: 40 }} />;
             const date = new Date(cursor.getFullYear(), cursor.getMonth(), d);
@@ -191,8 +202,12 @@ export function DatePicker(
             const isSel = !!sel && sameDay(date, sel);
             const past = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
             const busy = busyDays?.has(date.toLocaleDateString('en-CA'));
+            // the ring and the dot are colour only, so the words go in the label
+            const spoken = `${DAY_NAMES[(date.getDay() + 6) % 7]} ${d} ${MONTHS[cursor.getMonth()]}`
+              + (isToday ? ', today' : '') + (busy ? ', has plans' : '');
             return (
               <Pressable key={i} onPress={() => pickDay(d)}
+                accessibilityRole="radio" accessibilityLabel={spoken} aria-checked={isSel}
                 style={{ width: `${100 / 7}%`, height: 40, alignItems: 'center', justifyContent: 'center' }}>
                 <View style={{
                   width: 34, height: 34, borderRadius: 17,
@@ -203,7 +218,6 @@ export function DatePicker(
                   <Text style={{
                     color: isSel ? t.onRa : past ? t.ink3 : t.ink,
                     fontSize: 14, fontFamily: isSel || isToday ? T.brand : undefined,
-                    opacity: past && !isSel ? 0.55 : 1,
                   }}>{d}</Text>
                 </View>
                 {/* a day that already carries something */}
@@ -221,16 +235,18 @@ export function DatePicker(
         <View style={{ height: 1, backgroundColor: t.stroke, marginVertical: 12 }} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: t.ink2, fontSize: 12.5, letterSpacing: 1.2, fontFamily: T.brand, flex: 1 }}>
+          <Text accessibilityRole="header" accessibilityLabel="Time"
+            style={{ color: t.ink2, fontSize: 12.5, letterSpacing: 1.2, fontFamily: T.brand, flex: 1 }}>
             TIME
           </Text>
           <Pressable onPress={() => { Haptics.selectionAsync(); onChange(value, !hasTime); }}
+            accessibilityRole="switch" accessibilityLabel="All day" aria-checked={!hasTime}
             style={{
               paddingHorizontal: 13, paddingVertical: 7, borderRadius: radius.pill,
               borderWidth: 1.5, borderColor: !hasTime ? t.ra : t.strokeStrong,
               backgroundColor: !hasTime ? t.raWash : 'transparent',
             }}>
-            <Text style={{ color: !hasTime ? t.ra : t.ink, fontSize: 13.5, fontFamily: !hasTime ? T.brand : undefined }}>
+            <Text style={{ color: !hasTime ? t.raDeep : t.ink, fontSize: 13.5, fontFamily: !hasTime ? T.brand : undefined }}>
               All day
             </Text>
           </Pressable>
@@ -240,7 +256,8 @@ export function DatePicker(
 
         {!!value && (
           <Pressable onPress={() => { Haptics.selectionAsync(); onChange(null, false); }}
-            style={{ marginTop: 12, alignSelf: 'flex-start' }}>
+            accessibilityRole="button"
+            style={{ marginTop: 8, paddingVertical: 4, alignSelf: 'flex-start' }}>
             <Text style={{ color: t.ink3, fontSize: 13 }}>Clear the date</Text>
           </Pressable>
         )}

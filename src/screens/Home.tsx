@@ -22,6 +22,7 @@ import { Suggestions } from '../components/Suggestions';
 import type { Tab } from '../components/TabBar';
 import { HeldRow } from '../components/HeldRow';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
+import { decorative } from '../a11y';
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
 export const byPriority = (a: Task, b: Task) =>
@@ -114,19 +115,23 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   }, [today, inbox]);
   if (night) {
     const hhmm = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s?[AP]M$/i, '');
+    // the clock drops AM/PM; said aloud, it keeps it
+    const saidTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    const timeOf = (x: Task) => x.has_time && x.due_at ? new Date(x.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : x.est_minutes ? `${x.est_minutes} min` : '';
     const tomorrowRows = tomorrow.length > 0 && (
       <>
-        <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display, marginHorizontal: desk ? 0 : 24, marginTop: desk ? 0 : 26, marginBottom: 10 }}>TOMORROW</Text>
+        <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display, marginHorizontal: desk ? 0 : 24, marginTop: desk ? 0 : 26, marginBottom: 10 }}>TOMORROW</Text>
         {tomorrow.map(x => {
           const l = labelById(x.label);
           return (
-            <View key={x.id} style={{ height: 56, marginHorizontal: desk ? 0 : 24, marginBottom: 6, borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 }}>
+            <View key={x.id} accessible accessibilityLabel={timeOf(x) ? `${x.title}, ${timeOf(x)}` : x.title}
+              style={{ minHeight: 56, paddingVertical: 8, marginHorizontal: desk ? 0 : 24, marginBottom: 6, borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 }}>
               <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: t.key === 'nu' ? 'rgba(170,185,255,0.09)' : 'rgba(23,19,19,0.06)' }}>
                 {l && <LabelGlyph id={l.id} size={17} color={t.key === 'nu' ? l.color : l.onLight} />}
               </View>
               <Text numberOfLines={1} style={{ flex: 1, color: t.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{x.title}</Text>
               <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand }}>
-                {x.has_time && x.due_at ? new Date(x.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : x.est_minutes ? `${x.est_minutes} min` : ''}
+                {timeOf(x)}
               </Text>
             </View>
           );
@@ -142,8 +147,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: DESK_PAD, paddingTop: 48, paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
             <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center' }}>
               <View style={{ alignItems: 'center' }}>
-                <DotMatrix text={hhmm} dot={9} color={t.ink} />
-                <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, marginTop: 24, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
+                <DotMatrix text={hhmm} dot={9} color={t.ink} label={saidTime} />
+                <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, marginTop: 24, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
                 <Text style={{ color: t.mute ?? t.ink3, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, textAlign: 'center' }}>Anything now is extra.</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 36, alignItems: 'flex-start' }}>
@@ -151,7 +156,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
                 <View style={{ width: side }}>
                   {tomorrowRows}
                   {/* Nu, resting */}
-                  <Image source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 200, height: 168, alignSelf: 'center', marginTop: tomorrow.length ? 16 : 36 }} />
+                  <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 200, height: 168, alignSelf: 'center', marginTop: tomorrow.length ? 16 : 36 }} />
                 </View>
               </View>
             </View>
@@ -164,21 +169,22 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         <Mica sunProgress={sunUp} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 24, paddingTop: 22, alignItems: 'center' }}>
-            <DotMatrix text={hhmm} dot={9} color={t.ink} />
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
+            <DotMatrix text={hhmm} dot={9} color={t.ink} label={saidTime} />
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22, textAlign: 'center' }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
             <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, textAlign: 'center' }}>Anything now is extra.</Text>
           </View>
           <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={120} style={{ marginHorizontal: 24, marginTop: 28 }} />
           {tomorrowRows}
           {/* Nu, resting */}
-          <Image source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 176, height: 148, alignSelf: 'center', marginTop: 10 }} />
+          <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 176, height: 148, alignSelf: 'center', marginTop: 10 }} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
   const holding = (
-    <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display, marginHorizontal: desk ? 0 : 24, marginTop: desk ? 0 : compact ? 10 : 14, marginBottom: 10 }}>
+    <Text accessibilityRole="header" accessibilityLabel={`Nu is holding, ${still.length + (held_ ? 1 : 0)}`}
+      style={{ color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display, marginHorizontal: desk ? 0 : 24, marginTop: desk ? 0 : compact ? 10 : 14, marginBottom: 10 }}>
       NU IS HOLDING · {still.length + (held_ ? 1 : 0)}
     </Text>
   );
@@ -216,7 +222,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: DESK_PAD, paddingTop: short ? 32 : 48, paddingBottom: short ? 48 : 72 }}
           showsVerticalScrollIndicator={false}>
           <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center' }}>
-            <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8 }}>
               {greeting}{firstName ? `, ${firstName}` : ''}.
             </Text>
             <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 32, alignItems: 'flex-start' }}>
@@ -239,7 +245,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
                   <View style={{ flex: 1, minWidth: 0 }}>{more.slice(half).map(row)}</View>
                 </View>
                 {still.length > 2 + STILL_MAX && (
-                  <Pressable onPress={() => onTab('tasks')} hitSlop={6} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 16 }}>
+                  <Pressable onPress={() => onTab('tasks')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Your Tasks" style={{ alignSelf: 'flex-start', marginTop: 16 }}>
                     <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Your Tasks ›</Text>
                   </Pressable>
                 )}
@@ -262,7 +268,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
 
         {/* the greeting, by name, centred over the day's path */}
         <View style={{ paddingHorizontal: 24, paddingTop: compact ? 6 : 16 }}>
-          <Text style={{ color: t.ink, fontSize: head, lineHeight: head + 2, fontFamily: T.display, letterSpacing: -1.5, textAlign: 'center' }}>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: head, lineHeight: head + 2, fontFamily: T.display, letterSpacing: -1.5, textAlign: 'center' }}>
             {greeting}{firstName ? `, ${firstName}` : ''}.
           </Text>
         </View>

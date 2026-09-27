@@ -119,8 +119,8 @@ export const raTheme: Palette = {
   subtle: '#EFE9DB',
   ink: '#171313',                    // 16.4:1
   ink2: '#4A4340',                   // 8.6:1
-  ink3: '#6E6654',                   // 5.3:1 on cream: small labels and captions stay readable (was #7B7360, 4.4:1)
-  mute: '#7F745F',                   // a headline's second line: 4.4:1 (was #958B77, 3.2:1)
+  ink3: '#6E6654',                   // 5.3:1 on cream, 4.9:1 on layer: small labels and captions (was #7B7360, 4.4:1)
+  mute: '#796E59',                   // a headline's second line: 4.7:1, so it passes at any size (was #7F745F, 4.3:1)
   stroke: 'rgba(23,19,19,0.08)',
   strokeStrong: 'rgba(23,19,19,0.16)',
 
@@ -132,7 +132,7 @@ export const raTheme: Palette = {
 
   ra: '#FF6B35',                     // the sunrise itself — fills and strokes
   raSoft: '#FFA05C',
-  raDeep: '#C2410C',                 // 5.3:1 on cream — this is the TEXT coral
+  raDeep: '#C2410C',                 // 4.8:1 on cream, the TEXT coral; `ra` and `raSoft` are fills only (2.7:1, 1.9:1)
   raWash: 'rgba(255,107,53,0.12)',
   raBtn: ['#FF6B35', '#FFA05C'],
   onRa: '#3B1204',

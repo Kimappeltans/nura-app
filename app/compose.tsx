@@ -20,6 +20,7 @@ import { Mica, Surface, Primary, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph } from '../src/components/LabelIcon';
 import { DatePicker, WeekdayPicker, formatDue } from '../src/components/DatePicker';
 import { readable } from '../src/components/Desk';
+import { announce } from '../src/a11y';
 
 const MINUTES = [2, 5, 10, 15, 30, 60, 120];
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -112,7 +113,7 @@ function Compose() {
   };
 
   const save = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) { announce('Add a title first'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await capture(title, {
       label, est_minutes: minutes, due_at: due, has_time: hasTime,
@@ -126,19 +127,24 @@ function Compose() {
 
   const Section = ({ label: l, children }: { label: string; children: React.ReactNode }) => (
     <View style={{ marginTop: 20 }}>
-      <Text style={{ color: t.ink2, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 9, marginLeft: 3 }}>
+      <Text accessibilityRole="header" accessibilityLabel={l} style={{ color: t.ink2, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 9, marginLeft: 3 }}>
         {l.toUpperCase()}
       </Text>
       {children}
     </View>
   );
 
-  const Chip = ({ on, children, onPress, tint }: {
-    on: boolean; children: React.ReactNode; onPress: () => void; tint?: string;
+  // a choice in its group (a radio); `expanded` for a chip that opens something
+  // (Pick a date) and `action` for one that does something (Use "…"): buttons
+  const Chip = ({ on, children, onPress, tint, expanded, action, label: name }: {
+    on: boolean; children: React.ReactNode; onPress: () => void; tint?: string; expanded?: boolean; action?: boolean; label?: string;
   }) => {
+    const button = action || expanded !== undefined;
     const c = tint ?? t.nu;
     return (
       <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
+        accessibilityRole={button ? 'button' : 'radio'} accessibilityLabel={name}
+        aria-checked={button ? undefined : on} aria-expanded={expanded}
         style={{
           flexDirection: 'row', alignItems: 'center', gap: 7,
           paddingHorizontal: 13, paddingVertical: 9, borderRadius: radius.pill,
@@ -161,7 +167,7 @@ function Compose() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 4 }}>
-            <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+            <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" style={{ flex: 1, paddingVertical: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 15 }}>Cancel</Text>
             </Pressable>
             <Text style={{ color: t.ink3, fontSize: 12.5 }}>Everything below is optional</Text>
@@ -183,6 +189,7 @@ function Compose() {
                   autoFocus value={title} onChangeText={setTitle}
                   onSubmitEditing={save} returnKeyType="done" blurOnSubmit={false}
                   placeholder="What needs doing?" placeholderTextColor={t.ink3}
+                  accessibilityLabel="What needs doing?"
                   multiline
                   style={{ flex: 1, paddingVertical: 17, color: t.ink, fontSize: 17, lineHeight: 23 }}
                 />
@@ -202,18 +209,20 @@ function Compose() {
                   <TextInput
                     value={actQuery} onChangeText={setActQuery}
                     placeholder="Search activities, or type your own"
+                    accessibilityLabel="Search activities"
                     placeholderTextColor={t.ink3}
                     style={{ flex: 1, paddingVertical: 11, paddingLeft: 9, color: t.ink, fontSize: 14.5 }}
                   />
                   {!!actQuery && (
-                    <Pressable onPress={() => setActQuery('')} hitSlop={10}>
+                    <Pressable onPress={() => setActQuery('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear"
+                      style={{ paddingHorizontal: 7, paddingVertical: 2 }}>
                       <Text style={{ color: t.ink3, fontSize: 17 }}>×</Text>
                     </Pressable>
                   )}
                 </View>
               </Surface>
 
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="Activity" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 <Chip on={!activity} onPress={() => chooseActivity(null)}>
                   <Text style={{ color: !activity ? t.nu : t.ink, fontSize: 13.5, fontFamily: !activity ? T.brand : undefined }}>
                     None
@@ -222,8 +231,8 @@ function Compose() {
 
                 {/* whatever you picked stays visible even when the search hides it */}
                 {!!activity && isCustom(activity) && (
-                  <Chip on tint={t.ra} onPress={() => chooseActivity(null)}>
-                    <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
+                  <Chip on tint={t.raDeep} onPress={() => chooseActivity(null)}>
+                    <Text style={{ color: t.raDeep, fontSize: 13.5, fontFamily: T.brand }}>
                       {customName(activity)}
                     </Text>
                   </Chip>
@@ -236,9 +245,9 @@ function Compose() {
 
                 {/* the escape hatch, offered the moment nothing matches */}
                 {!!actQuery.trim() && !matches.some(a => a.name.toLowerCase() === actQuery.trim().toLowerCase()) && (
-                  <Chip on={false} tint={t.ra}
+                  <Chip on={false} action tint={t.raDeep}
                     onPress={() => { chooseActivity(makeCustomId(actQuery) as ActivityId); setActQuery(''); }}>
-                    <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>
+                    <Text style={{ color: t.raDeep, fontSize: 13.5, fontFamily: T.brand }}>
                       + Use “{actQuery.trim()}”
                     </Text>
                   </Chip>
@@ -253,7 +262,7 @@ function Compose() {
             </Section>
 
             <Section label="Type">
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="Type" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {LABELS.map(l => {
                   const on = label === l.id;
                   const c = t.key === 'ra' ? l.onLight : l.color;
@@ -261,7 +270,7 @@ function Compose() {
                     <Chip key={l.id} on={on} tint={c}
                       onPress={() => { setTouchedLabel(true); setLabel(on ? null : l.id); }}>
                       <LabelGlyph id={l.id} size={15} color={on ? c : t.ink} />
-                      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+                      <Text style={{ color: on && t.key !== 'ra' ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
                         {l.name}
                       </Text>
                     </Chip>
@@ -276,9 +285,9 @@ function Compose() {
             </Section>
 
             <Section label="How long">
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="How long" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {MINUTES.map(m => (
-                  <Chip key={m} on={minutes === m} onPress={() => setMinutes(minutes === m ? null : m)}>
+                  <Chip key={m} on={minutes === m} label={m < 60 ? `${m} min` : `${m / 60} hour${m === 60 ? '' : 's'}`} onPress={() => setMinutes(minutes === m ? null : m)}>
                     <Text style={{ color: minutes === m ? t.nu : t.ink, fontSize: 13.5, fontFamily: minutes === m ? T.brand : undefined }}>
                       {m < 60 ? `${m}m` : `${m / 60}h`}
                     </Text>
@@ -288,7 +297,7 @@ function Compose() {
             </Section>
 
             <Section label="When">
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="When" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 <Chip on={!due} onPress={() => { setDue(null); setHasTime(false); setShowCal(false); }}>
                   <Text style={{ color: !due ? t.nu : t.ink, fontSize: 13.5, fontFamily: !due ? T.brand : undefined }}>Someday</Text>
                 </Chip>
@@ -296,22 +305,22 @@ function Compose() {
                   const target = quickDate(q.add, q.h);
                   const on = !!due && Math.abs(due - target) < 3600_000 * 6;
                   return (
-                    <Chip key={q.label} on={on} tint={t.ra}
+                    <Chip key={q.label} on={on} tint={t.raDeep}
                       onPress={() => { setDue(target); setHasTime(true); }}>
-                      <Text style={{ color: on ? t.ra : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{q.label}</Text>
+                      <Text style={{ color: on ? t.raDeep : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{q.label}</Text>
                     </Chip>
                   );
                 })}
-                <Chip on={showCal} tint={t.ra} onPress={() => setShowCal(v => !v)}>
-                  <Text style={{ color: showCal ? t.ra : t.ink, fontSize: 13.5, fontFamily: showCal ? T.brand : undefined }}>
+                <Chip on={showCal} tint={t.raDeep} expanded={showCal} onPress={() => setShowCal(v => !v)}>
+                  <Text style={{ color: showCal ? t.raDeep : t.ink, fontSize: 13.5, fontFamily: showCal ? T.brand : undefined }}>
                     Pick a date…
                   </Text>
-                  <IconChevron size={14} color={showCal ? t.ra : t.ink3} />
+                  <IconChevron size={14} color={showCal ? t.raDeep : t.ink3} />
                 </Chip>
               </View>
 
               {!!due && (
-                <Text style={{ color: t.ra, fontSize: 14, marginTop: 10, marginLeft: 3, fontFamily: T.brand }}>
+                <Text style={{ color: t.raDeep, fontSize: 14, marginTop: 10, marginLeft: 3, fontFamily: T.brand }}>
                   {formatDue(due, hasTime)}
                 </Text>
               )}
@@ -325,7 +334,7 @@ function Compose() {
             </Section>
 
             <Section label="Repeats">
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="Repeats" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {REPEATS.map(r => {
                   const on = repeat === r.rule;
                   return (
@@ -349,7 +358,7 @@ function Compose() {
             )}
 
             <Section label="Priority">
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="Priority" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 {PRIORITIES.map(x => {
                   const on = priority === x.n;
                   const c = t.key === 'ra' ? x.onLight : x.color;
@@ -358,7 +367,7 @@ function Compose() {
                       {x.n > 0 && (
                         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c : t.ink3 }} />
                       )}
-                      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+                      <Text style={{ color: on && t.key !== 'ra' ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
                         {x.name}
                       </Text>
                     </Chip>

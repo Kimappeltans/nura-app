@@ -20,7 +20,7 @@ export function AiConsent({ visible, onAnswer, onClose }: {
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={{ gap: 10, marginTop: 2 }}>
-        <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>Nu can use Claude</Text>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>Nu can use Claude</Text>
         <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, fontFamily: T.brand }}>
           To plan projects and read what you type when the phone isn’t sure, Nura sends that text to Claude, made by
           Anthropic. Suggestions send your open tasks’ titles too. Nura doesn’t keep any of it.

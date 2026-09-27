@@ -36,12 +36,13 @@ export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose
 
   return (
     <Sheet visible onClose={onClose}>
-      <Text style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4 }}>{task.title}</Text>
-      {!!sub && <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 5 }}>{sub}</Text>}
+      <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4 }}>{task.title}</Text>
+      {!!sub && <Text accessibilityLabel={sub.split(' · ').join(', ')} style={{ color: t.ink2, fontSize: 13.5, marginTop: 5 }}>{sub}</Text>}
 
       <View style={{ marginTop: 10 }}>
         {rows.map(([k, v]) => (
-          <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+          <View key={k} accessible accessibilityLabel={`${k}: ${v.split(' · ').join(', ')}`}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
             <Text style={{ color: t.ink, fontSize: 14.5 }}>{k}</Text>
             <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14.5, flexShrink: 1, textAlign: 'right' }}>{v}</Text>
           </View>

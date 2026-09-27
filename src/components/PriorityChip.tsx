@@ -15,13 +15,15 @@ export function PriorityChip({ n }: { n: number }) {
   const p = priorityOf(n);
   const c = t.key === 'ra' ? p.onLight : p.color;
   return (
-    <View style={{
+    <View accessible accessibilityLabel={`${p.name} priority`} style={{
       flexDirection: 'row', alignItems: 'center', gap: 5,
       paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill,
       borderWidth: 1, borderColor: `${c}66`, backgroundColor: `${c}1F`,
     }}>
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c }} />
-      <Text style={{ color: c, fontSize: 12, fontFamily: T.brand }}>{p.name}</Text>
+      {/* on the light grounds the priority's ink on its own tint is under 4.5:1
+          at this size: the dot and the ring carry the colour, the word is ink */}
+      <Text style={{ color: t.key === 'ra' ? t.ink2 : c, fontSize: 12, fontFamily: T.brand }}>{p.name}</Text>
     </View>
   );
 }

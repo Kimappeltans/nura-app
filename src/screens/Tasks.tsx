@@ -22,6 +22,7 @@ import type { LabelId } from '../labels';
 import { useScreen, useDesk, ROOM_MAX } from '../screen';
 import { Tide, Bubbles } from '../components/Tide';
 import { LinearGradient } from 'expo-linear-gradient';
+import { announce, decorative } from '../a11y';
 
 const CORAL = '#FF6B35';
 const ON_CORAL = '#3B1204';
@@ -62,6 +63,13 @@ export default function Tasks() {
     return () => { dead = true; };
   }, [q, inbox.length]);
 
+  // the match count, said once the typing settles (not on every key)
+  useEffect(() => {
+    if (!searching || !q.trim()) return;
+    const id = setTimeout(() => announce(`${hits.length} match${hits.length === 1 ? '' : 'es'}`), 900);
+    return () => clearTimeout(id);
+  }, [hits, q, searching]);
+
   const projectOf = useMemo(() => new Map(
     projects.filter(p => p.current?.task_id).map(p => [p.current!.task_id!, p.project.title])), [projects]);
 
@@ -87,9 +95,11 @@ export default function Tasks() {
 
   const label = (text: string, action?: { label: string; onPress: () => void }, p: Theme = t) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 2, minHeight: 20 }}>
-      <Text style={{ flex: 1, color: p.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display }}>{text}</Text>
+      <Text accessibilityRole="header" accessibilityLabel={text.replace(' · ', ', ')}
+        style={{ flex: 1, color: p.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display }}>{text}</Text>
       {action && (
-        <Pressable onPress={action.onPress} hitSlop={10} accessibilityRole="button">
+        <Pressable onPress={action.onPress} hitSlop={10} accessibilityRole="button"
+          accessibilityLabel={action.label.replace(/^\+ /, '').replace(/ ›$/, '')}>
           <Text style={{ color: p.nu, fontSize: 13, fontFamily: T.display }}>{action.label}</Text>
         </Pressable>
       )}
@@ -132,10 +142,10 @@ export default function Tasks() {
   );
   const project = (p: (typeof projects)[number]) => (
     <Pressable key={p.project.id} onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })}
-      accessibilityRole="button" accessibilityLabel={p.project.title}
+      accessibilityRole="button" accessibilityLabel={`${p.project.title}, ${p.total - p.done} left`}
       style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: sea.stroke, opacity: pressed ? 0.7 : 1 })}>
       {/* the path, as dots lit by the moves done */}
-      <View style={{ width: 30, flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+      <View {...decorative} style={{ width: 30, flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
         {Array.from({ length: Math.min(p.total, 6) }, (_, i) => (
           <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < p.done ? CORAL : 'transparent', borderWidth: 1.2, borderColor: i < p.done ? CORAL : sea.strokeStrong }} />
         ))}
@@ -169,7 +179,7 @@ export default function Tasks() {
         {/* the room, and search */}
         <View style={[{ flexDirection: 'row', alignItems: 'center', paddingTop: desk ? 40 : 14 }, lane]}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Your Tasks</Text>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Your Tasks</Text>
           </View>
           <Pressable onPress={() => { Haptics.selectionAsync(); setSearching(v => !v); setQ(''); }} hitSlop={8}
             accessibilityRole="button" accessibilityLabel={searching ? 'Close search' : 'Search tasks and projects'}
@@ -202,17 +212,17 @@ export default function Tasks() {
                     </View>
                     <Text style={{ color: ON_CORAL, fontSize: 13, fontFamily: T.display }}>{projectOf.get(water.pick.id) ?? 'Nu found this one'}</Text>
                   </View>
-                  <Pressable onPress={() => setPeek(water.pick!)} hitSlop={4}>
+                  <Pressable onPress={() => setPeek(water.pick!)} hitSlop={4} accessibilityRole="button" accessibilityLabel={water.pick.title}>
                     <Text style={{ color: ON_CORAL, fontSize: 21, lineHeight: 23, fontFamily: T.display, letterSpacing: -0.9, marginTop: 8, paddingRight: 30 }}>{water.pick.title}</Text>
                   </Pressable>
                   {(() => {
                     const fact = reasonFor(decisions, water.pick!.id, nowDecision);
-                    return fact ? <Text style={{ color: 'rgba(59,18,4,0.66)', fontSize: 12.5, fontFamily: T.brand, marginTop: 5 }}>{fact}</Text> : null;
+                    return fact ? <Text style={{ color: ON_CORAL, fontSize: 12.5, fontFamily: T.brand, marginTop: 5 }}>{fact}</Text> : null;
                   })()}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12 }}>
                     <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); focusOn(water.pick!.id); }}
                       accessibilityRole="button" accessibilityLabel={`Begin ${water.pick.title}`}
-                      style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
+                      style={({ pressed }) => ({ minWidth: 56, minHeight: 56, paddingHorizontal: 6, borderRadius: 28, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
                       <Text style={{ color: '#FAF7F0', fontSize: 13.5, fontFamily: T.display }}>Begin</Text>
                     </Pressable>
                     {(() => {
@@ -229,14 +239,14 @@ export default function Tasks() {
                 // tasks are waiting, none on Today: a pick (Focus's "What feels doable now?"), not the planner
                 <View style={{ borderRadius: 28, backgroundColor: t.card, borderWidth: 1, borderColor: t.stroke, padding: 20, gap: 10 }}>
                   <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>Nothing picked yet.</Text>
-                  <Pressable onPress={toRa} hitSlop={6} accessibilityRole="button">
+                  <Pressable onPress={toRa} hitSlop={6} style={{ paddingVertical: 6, marginVertical: -6 }} accessibilityRole="button" accessibilityLabel="Pick one for today">
                     <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Pick one for today ›</Text>
                   </Pressable>
                 </View>
               ) : (
                 <View style={{ borderRadius: 28, backgroundColor: t.card, borderWidth: 1, borderColor: t.stroke, padding: 20, gap: 10 }}>
                   <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>Nothing to begin yet.</Text>
-                  <Pressable onPress={() => router.push('/project/new')} hitSlop={6} accessibilityRole="button">
+                  <Pressable onPress={() => router.push('/project/new')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Plan something bigger">
                     <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Plan something bigger ›</Text>
                   </Pressable>
                 </View>
@@ -244,7 +254,7 @@ export default function Tasks() {
             </View>
 
             {/* the surface, the story's sea, just under the card */}
-            <View style={{ height: 28, marginTop: 72 }}>
+            <View {...decorative} style={{ height: 28, marginTop: 72 }}>
               <Tide width={width} fill="#1C4A78" line="rgba(184,229,248,0.9)" backFill="rgba(36,99,146,0.28)" />
             </View>
 

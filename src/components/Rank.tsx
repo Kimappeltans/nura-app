@@ -25,7 +25,7 @@ export function RankCard({ light, blurb = true }: { light: number; blurb?: boole
       <View style={{ padding: 16, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
           <Text style={{ color: t.ink, fontSize: 18, fontFamily: T.display, flex: 1 }}>{rank.name}</Text>
-          <Count value={light} style={{ color: t.ra, fontSize: 26, fontFamily: T.display }} />
+          <Count value={light} style={{ color: t.raDeep, fontSize: 26, fontFamily: T.display }} />
           <Text style={{ color: t.ink3, fontSize: 13, marginLeft: 5 }}>light</Text>
         </View>
         {blurb && (
@@ -48,9 +48,14 @@ export function ContributionGrid({ grid, months = 6 }: { grid: { n: number }[]; 
   const t = useTheme();
   const days = months * 30.5;
   const step = (n: number) => t.scale[Math.min(n, t.scale.length - 1)];
+  const shown = grid.slice(-Math.round(days));
+  // colour only, so a screen reader gets the count instead of the squares
+  const active = shown.filter(d => d.n > 0).length;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-      {grid.slice(-Math.round(days)).map((d, i) => (
+    <View accessible accessibilityRole="image"
+      accessibilityLabel={`Last ${months} months: ${active} ${active === 1 ? 'day' : 'days'} with something done`}
+      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+      {shown.map((d, i) => (
         <View key={i} style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: step(d.n) }} />
       ))}
     </View>
@@ -64,13 +69,19 @@ export function ContributionGrid({ grid, months = 6 }: { grid: { n: number }[]; 
  */
 export function SceneGallery({ unlocked }: { unlocked: Set<string> }) {
   const t = useTheme();
+  // one summary for a screen reader, not 36 tiles
+  const reached = ACTIVITIES.filter(a => unlocked.has(a.id));
+  const spoken = `${reached.length} of ${ACTIVITIES.length} reached`
+    + (reached.length ? `: ${reached.map(a => a.name).join(', ')}` : '');
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View accessible accessibilityRole="image" accessibilityLabel={spoken}
+      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {ACTIVITIES.map(a => {
         const got = unlocked.has(a.id);
         const c = t.key === 'ra' ? a.onLight : a.tint;
         return (
-          <Pressable key={a.id} onPress={() => Haptics.selectionAsync()} style={{ width: '31.5%' }}>
+          <Pressable key={a.id} onPress={() => Haptics.selectionAsync()} accessible={false} focusable={false}
+            style={{ width: '31.5%' }}>
             <View style={[{
               borderRadius: radius.lg, overflow: 'hidden',
               borderWidth: 1, borderColor: got ? `${c}44` : t.stroke,

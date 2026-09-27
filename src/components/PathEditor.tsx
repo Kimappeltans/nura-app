@@ -83,22 +83,26 @@ export function PathEditor({ steps, current, onChange, done = [] }: {
 
   const field = {
     color: t.ink, fontSize: 15.5, paddingVertical: 11, paddingHorizontal: 12,
-    backgroundColor: t.layer, borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
+    // the edge is what shows it's a field, so it's ink3 (3:1 and up), not a hairline
+    backgroundColor: t.layer, borderRadius: radius.md, borderWidth: 1, borderColor: t.ink3,
   } as const;
-  const small = (label: string, onPress: () => void, tone?: 'ra') => (
-    <Pressable key={label} onPress={onPress} hitSlop={6} style={({ pressed }) => ({
+  const small = (label: string, onPress: () => void, tone?: 'ra', spoken?: string) => (
+    <Pressable key={label} onPress={onPress} hitSlop={6}
+      accessibilityRole="button" accessibilityLabel={spoken ?? label}
+      style={({ pressed }) => ({
       paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill,
       borderWidth: 1, borderColor: tone ? t.ra : t.strokeStrong, backgroundColor: pressed ? t.subtle : 'transparent',
     })}>
-      <Text style={{ color: tone ? (t.key === 'ra' ? t.raDeep : t.ra) : t.ink2, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
+      <Text style={{ color: tone ? t.raDeep : t.ink2, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
     </Pressable>
   );
 
   return (
     <View style={{ gap: 8 }}>
       {done.map((title, i) => (
-        <View key={`done${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4, paddingVertical: 4 }}>
-          <Text style={{ width: 34, textAlign: 'center', color: t.ra, fontSize: 15 }}>✓</Text>
+        <View key={`done${i}`} accessible accessibilityLabel={`${title}, done`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4, paddingVertical: 4 }}>
+          <Text style={{ width: 34, textAlign: 'center', color: t.raDeep, fontSize: 15 }}>✓</Text>
           <Text style={{ flex: 1, color: t.ink3, fontSize: 14.5, textDecorationLine: 'line-through' }} numberOfLines={1}>{title}</Text>
         </View>
       ))}
@@ -106,24 +110,31 @@ export function PathEditor({ steps, current, onChange, done = [] }: {
       {steps.map((s, i) => {
         const now = i === current;
         const isOpen = open === s.key;
+        const meta = now ? s.first_action ?? s.why : s.why ?? s.first_action;
+        const spoken = [
+          `${now ? 'Now' : `Step ${i + 1}`}: ${s.title}`,
+          !isOpen && meta,
+          !isOpen && !!s.est_minutes && `${s.est_minutes} minutes`,
+        ].filter(Boolean).join(', ');
         return (
           <View key={s.key} style={{
             borderRadius: radius.lg, borderWidth: 1,
             borderColor: now ? t.ra : t.stroke, backgroundColor: now ? t.raWash : t.card,
           }}>
             <Pressable onPress={() => { Haptics.selectionAsync(); setOpen(isOpen ? null : s.key); }}
-              accessibilityHint="Edit this step"
+              accessibilityRole="button" accessibilityLabel={spoken} accessibilityHint="Edit this step"
+              aria-expanded={isOpen}
               style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 13 }}>
               <Text numberOfLines={1} style={{
                 width: 34, textAlign: 'center', marginTop: 2,
-                color: now ? (t.key === 'ra' ? t.raDeep : t.ra) : t.ink3, fontSize: now ? 11 : 12.5,
+                color: now ? t.raDeep : t.ink3, fontSize: now ? 11 : 12.5,
                 letterSpacing: now ? 1 : 0, fontFamily: T.brand,
               }}>{now ? 'NOW' : String(i + 1).padStart(2, '0')}</Text>
               <View style={{ flex: 1, gap: 3 }}>
                 <Text style={{ color: t.ink, fontSize: 15.5, lineHeight: 21, fontFamily: now ? T.brand : undefined }}>{s.title}</Text>
                 {!!(s.first_action || s.why) && !isOpen && (
                   <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18 }} numberOfLines={2}>
-                    {now ? s.first_action ?? s.why : s.why ?? s.first_action}
+                    {meta}
                   </Text>
                 )}
               </View>
@@ -132,17 +143,18 @@ export function PathEditor({ steps, current, onChange, done = [] }: {
 
             {isOpen && (
               <View style={{ paddingHorizontal: 13, paddingBottom: 13, gap: 9 }}>
-                <TextInput value={s.title} onChangeText={v => patch(s.key, { title: v })}
+                <TextInput value={s.title} onChangeText={v => patch(s.key, { title: v })} accessibilityLabel="Step"
                   placeholder="What’s the step?" placeholderTextColor={t.ink3} style={field} multiline />
                 <TextInput value={s.first_action ?? ''} onChangeText={v => patch(s.key, { first_action: v || null })}
+                  accessibilityLabel="First physical move"
                   placeholder="First physical move (optional)" placeholderTextColor={t.ink3} style={field} multiline />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Text style={{ color: t.ink3, fontSize: 13, flex: 1 }}>About how long?</Text>
-                  {small('−', () => stepMins(s, -1))}
+                  {small('−', () => stepMins(s, -1), undefined, `Shorter: ${s.title}`)}
                   <Text style={{ color: t.ink, fontSize: 14, minWidth: 52, textAlign: 'center' }}>
                     {s.est_minutes ? `${s.est_minutes} min` : 'Not set'}
                   </Text>
-                  {small('+', () => stepMins(s, 1))}
+                  {small('+', () => stepMins(s, 1), undefined, `Longer: ${s.title}`)}
                 </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
                   {!now && small('Make this the move now', () => { Haptics.selectionAsync(); onChange(steps, i); }, 'ra')}
@@ -159,6 +171,7 @@ export function PathEditor({ steps, current, onChange, done = [] }: {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
         <TextInput value={adding} onChangeText={setAdding} onSubmitEditing={add} returnKeyType="done"
+          accessibilityLabel="Add a step"
           placeholder="+ Add a step" placeholderTextColor={t.ink3}
           style={{ ...field, flex: 1, backgroundColor: 'transparent', borderStyle: 'dashed' }} />
         {!!adding.trim() && small('Add', add, 'ra')}

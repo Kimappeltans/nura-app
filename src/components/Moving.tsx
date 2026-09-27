@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { AccessibilityInfo, type ImageStyle, type StyleProp } from 'react-native';
+import { type ImageStyle, type StyleProp } from 'react-native';
 import { Image } from 'expo-image';
+import { useReducedMotion, decorative } from '../a11y';
 
 /**
  * THE MOVING CHARACTERS (guidelines/components/overview.md). A real clip,
@@ -29,15 +29,9 @@ const CLIPS = {
 export type ClipName = keyof typeof CLIPS;
 
 export function Moving({ name, style }: { name: ClipName; style: StyleProp<ImageStyle> }) {
-  const [still, setStill] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled().then(r => { if (alive) setStill(r); }, () => { if (alive) setStill(false); });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setStill);
-    return () => { alive = false; sub.remove(); };
-  }, []);
-  // until we know, nothing — so the clip never starts on its last pose
-  if (still === null) return null;
+  // known before the first frame on the web and early on a phone
+  const still = useReducedMotion();
   const c = CLIPS[name];
-  return <Image source={still ? c.still : c.clip} style={style} contentFit="contain" autoplay={!still} accessibilityIgnoresInvertColors />;
+  return <Image source={still ? c.still : c.clip} style={style} contentFit="contain" autoplay={!still}
+    accessibilityIgnoresInvertColors {...decorative} />;
 }

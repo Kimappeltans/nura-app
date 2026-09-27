@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, Image, Modal, Animated, Easing,
   LayoutAnimation, Platform, UIManager,
-  type ViewStyle, type ImageStyle,
+  type ViewStyle, type ImageStyle, type PressableProps,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import { radius, elevation, iconStroke, type as T, doneGround, doneStops } from 
 import { useStore, useTheme } from './store';
 import { sunHeight, skyLabel } from './reward';
 import { MicaHosted } from './screen';
+import { announce, decorative, reduceMotion, useReducedMotion } from './a11y';
 
 /* ------------------------------------------------------------------ *
  *  Icons — line-drawn, rounded caps, one stroke weight everywhere.
@@ -532,13 +533,20 @@ export function Character(
   { name, size = 120, motion = 'greet', onDone, style }:
   { name: CharacterName; size?: number; motion?: Motion; onDone?: () => void; style?: ImageStyle },
 ) {
+  // Reduce Motion: the last pose, standing still (guidelines/components/overview.md)
+  const still = useReducedMotion();
+  if (still) motion = 'none';
   const v = useRef(new Animated.Value(motion === 'none' ? 1 : 0)).current;
   const float = useRef(new Animated.Value(0)).current;
   const done = useRef(onDone);
   done.current = onDone;
 
   useEffect(() => {
-    if (motion === 'none') { v.setValue(1); return; }
+    if (motion === 'none') {
+      v.setValue(1); float.setValue(0);
+      if (still) done.current?.();
+      return;
+    }
 
     if (motion === 'bob') {
       v.setValue(1);
@@ -560,7 +568,7 @@ export function Character(
     });
     anim.start(({ finished }) => { if (finished) done.current?.(); });
     return () => anim.stop();
-  }, [name, motion, v, float]);
+  }, [name, motion, v, float, still]);
 
   // greet leans in from a slight tilt; celebrate arrives bigger and straighter
   const scale = v.interpolate({
@@ -575,7 +583,7 @@ export function Character(
 
   return (
     <Animated.Image
-      source={POSES[name]} resizeMode="contain"
+      source={POSES[name]} resizeMode="contain" {...decorative}
       style={[
         { width: size, height: size },
         style,
@@ -628,8 +636,9 @@ export function Enter(
   { index = 0, children, style }:
   { index?: number; children: React.ReactNode; style?: ViewStyle },
 ) {
-  const v = useRef(new Animated.Value(0)).current;
+  const v = useRef(new Animated.Value(reduceMotion() ? 1 : 0)).current;
   useEffect(() => {
+    if (reduceMotion()) { v.setValue(1); return; }
     Animated.timing(v, {
       toValue: 1, duration: 340, delay: Math.min(index, 8) * 42,
       easing: Easing.out(Easing.cubic), useNativeDriver: true,
@@ -648,8 +657,13 @@ export function Enter(
  * then the caller animates the row out from under it. The satisfying half
  * second is the entire reason anyone ticks anything off.
  */
-export function Check({ onPress, tone = 'ra' }: { onPress: () => void; tone?: Tone }) {
+export function Check({ onPress, tone = 'ra', label }: {
+  onPress: () => void; tone?: Tone;
+  /** what's being ticked off, for a screen reader: the task's title */
+  label?: string;
+}) {
   const t = useTheme();
+  const still = useReducedMotion();
   const { flat, onColor } = useTone(tone);
   const v = useRef(new Animated.Value(0)).current;
   const [on, setOn] = useState(false);
@@ -658,15 +672,17 @@ export function Check({ onPress, tone = 'ra' }: { onPress: () => void; tone?: To
     if (on) return;
     setOn(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Animated.sequence([
+    if (!still) Animated.sequence([
       Animated.spring(v, { toValue: 1.18, friction: 4, tension: 180, useNativeDriver: true }),
       Animated.spring(v, { toValue: 1, friction: 6, useNativeDriver: true }),
     ]).start();
-    setTimeout(onPress, 190);   // let the fill land before the row leaves
+    setTimeout(onPress, still ? 0 : 190);   // let the fill land before the row leaves
   };
 
   return (
-    <Pressable onPress={press} hitSlop={12} style={{ padding: 2 }}>
+    <Pressable onPress={press} hitSlop={12} style={{ padding: 2 }}
+      accessibilityRole="checkbox" aria-checked={on}
+      accessibilityLabel={label ? `Done: ${label}` : 'Done'}>
       <Animated.View style={{
         width: 22, height: 22, borderRadius: 11,
         borderWidth: 1.8, borderColor: on ? flat : t.ink3,
@@ -681,9 +697,13 @@ export function Check({ onPress, tone = 'ra' }: { onPress: () => void; tone?: To
 }
 
 /** A pressable that dips slightly under the finger. */
+type A11yProps = Pick<PressableProps,
+  'accessibilityLabel' | 'accessibilityHint' | 'accessibilityRole' | 'accessibilityActions' | 'onAccessibilityAction'
+  | 'aria-selected' | 'aria-checked' | 'aria-expanded' | 'aria-disabled' | 'disabled' | 'onLongPress'>;
+
 export function Press(
-  { onPress, children, style, scale = 0.975 }:
-  { onPress: () => void; children: React.ReactNode; style?: ViewStyle; scale?: number },
+  { onPress, children, style, scale = 0.975, accessibilityRole = 'button', ...a11y }:
+  { onPress: () => void; children: React.ReactNode; style?: ViewStyle; scale?: number } & A11yProps,
 ) {
   const v = useRef(new Animated.Value(1)).current;
   const to = (x: number) =>
@@ -692,7 +712,8 @@ export function Press(
     // style goes on the Pressable, not the inner view: layout props like flex
     // applied only to the child leave the touchable itself content-sized, which
     // is what stopped trailing chevrons from right-aligning.
-    <Pressable onPress={onPress} onPressIn={() => to(scale)} onPressOut={() => to(1)} style={style}>
+    <Pressable onPress={onPress} onPressIn={() => to(scale)} onPressOut={() => to(1)} style={style}
+      accessibilityRole={accessibilityRole} {...a11y}>
       <Animated.View style={{ transform: [{ scale: v }] }}>{children}</Animated.View>
     </Pressable>
   );
@@ -709,14 +730,17 @@ export function Bar(
   const t = useTheme();
   const grad = tone === 'ra' ? t.raBtn : t.nuBtn;
   const w = useRef(new Animated.Value(0)).current;
+  const now = Math.round(Math.max(0, Math.min(1, pct)) * 100);
   useEffect(() => {
+    if (reduceMotion()) { w.setValue(Math.max(0, Math.min(1, pct))); return; }
     Animated.timing(w, {
       toValue: Math.max(0, Math.min(1, pct)), duration: 620,
       easing: Easing.out(Easing.cubic), useNativeDriver: false,
     }).start();
   }, [pct, w]);
   return (
-    <View style={{ height, borderRadius: height / 2, backgroundColor: track ?? t.track, overflow: 'hidden' }}>
+    <View accessible accessibilityRole="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={now}
+      style={{ height, borderRadius: height / 2, backgroundColor: track ?? t.track, overflow: 'hidden' }}>
       <Animated.View style={{
         height: '100%', borderRadius: height / 2,
         width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
@@ -734,6 +758,7 @@ export function Count({ value, style }: { value: number; style?: any }) {
   useEffect(() => {
     const start = from.current, delta = value - start;
     if (!delta) return;
+    if (reduceMotion()) { setShown(value); from.current = value; return; }
     const t0 = Date.now(), dur = 520;
     const id = setInterval(() => {
       const p = Math.min(1, (Date.now() - t0) / dur);
@@ -799,7 +824,10 @@ export function SunArc({
 
   // ── Pulse animation ───────────────────────────────────────────────
   const pulse = useRef(new Animated.Value(0)).current;
+  const still = useReducedMotion();
   useEffect(() => {
+    // no ambient loops under Reduce Motion (guidelines/styles.md): the glow holds
+    if (still) { pulse.setValue(0.5); return; }
     const dur = Math.round(2400 - brightness * 900);
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulse, { toValue: 1, duration: dur, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -807,7 +835,7 @@ export function SunArc({
     ]));
     loop.start();
     return () => loop.stop();
-  }, [pulse, brightness]);
+  }, [pulse, brightness, still]);
 
   const glowOpacity = pulse.interpolate({
     inputRange: [0, 1],
@@ -820,9 +848,10 @@ export function SunArc({
     <Pressable
       onPress={() => { setLabelVisible(v => !v); onPress?.(); }}
       hitSlop={12}
+      accessibilityRole="button" accessibilityLabel={skyLabel(light)}
       style={{ alignItems: 'center' }}
     >
-      <View style={{ width: w, height: hh }}>
+      <View style={{ width: w, height: hh }} {...decorative}>
         {/* Radial glow as Animated.View — allows native-driver opacity pulse */}
         {h > 0 && (
           <Animated.View
@@ -908,8 +937,17 @@ export function Celebrate() {
 
   useEffect(() => {
     if (!c) { setDisplayNum(0); return; }
-    pop.setValue(0);
-    Animated.spring(pop, { toValue: 1, friction: 6, tension: 90, useNativeDriver: true }).start();
+    const still = reduceMotion();
+    announce([
+      `Plus ${c.award.total} light.`,
+      c.award.bonus.label ? (c.award.bonus.golden ? `${c.award.bonus.label}.` : `Plus ${c.award.bonus.n} ${c.award.bonus.label}.`) : '',
+      c.rankUp ? `Rank up: ${c.rankUp.name}. ${c.rankUp.blurb}` : c.line,
+    ].filter(Boolean).join(' '));
+    if (still) pop.setValue(1);
+    else {
+      pop.setValue(0);
+      Animated.spring(pop, { toValue: 1, friction: 6, tension: 90, useNativeDriver: true }).start();
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (c.award.bonus.golden || c.rankUp) {
       setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 260);
@@ -918,13 +956,14 @@ export function Celebrate() {
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 520);
     }
 
-    // Count up the number over ~700ms
+    // Count up the number over ~700ms (straight to it under Reduce Motion)
     const target = c.award.total;
+    if (still) setDisplayNum(target);
     const steps = Math.min(target, 22);
     const stepMs = Math.round(700 / steps);
     let current = 0;
     setDisplayNum(0);
-    const timer = setInterval(() => {
+    const timer = still ? undefined : setInterval(() => {
       current = Math.min(current + Math.ceil(target / steps), target);
       setDisplayNum(current);
       if (current >= target) clearInterval(timer);
@@ -941,7 +980,9 @@ export function Celebrate() {
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismiss}>
-      <Pressable onPress={dismiss} style={{ flex: 1 }}>
+      <Pressable onPress={dismiss} style={{ flex: 1 }} accessibilityViewIsModal
+        accessibilityRole="button" accessibilityLabel={`Plus ${c.award.total} light. Close`}
+        onAccessibilityEscape={dismiss}>
         {/* Done's light ground, so this reads as the start of the same moment */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6, backgroundColor: doneGround[1] }}>
           <LinearGradient colors={doneGround} locations={doneStops} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -954,7 +995,7 @@ export function Celebrate() {
             <Text style={{ color: '#3B1204', fontSize: 66, fontFamily: T.display, letterSpacing: -2 }}>
               +{displayNum}
             </Text>
-            <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
+            <Text style={{ color: 'rgba(59,18,4,0.72)', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
             {!!c.award.bonus.label && (
               <View style={{
                 marginTop: 10, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill,
@@ -973,7 +1014,7 @@ export function Celebrate() {
                 paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.xl,
                 backgroundColor: 'rgba(59,18,4,0.06)',
               }}>
-                <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
+                <Text style={{ color: 'rgba(59,18,4,0.72)', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
                   RANK UP
                 </Text>
                 <Text style={{ color: '#3B1204', fontSize: 32, fontFamily: T.display, letterSpacing: -0.8 }}>
@@ -1005,6 +1046,7 @@ export function Toast() {
 
   useEffect(() => {
     if (!toast) return;
+    announce(toast.text);
     fade.setValue(0); slide.setValue(6);
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }),
@@ -1012,7 +1054,7 @@ export function Toast() {
     ]).start();
     const id = setTimeout(() => {
       Animated.timing(fade, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => dismiss());
-    }, 1200);
+    }, Math.max(2600, toast.text.length * 70));
     return () => clearTimeout(id);
   }, [toast?.at]);
 
@@ -1024,10 +1066,11 @@ export function Toast() {
         position: 'absolute', bottom: 96, alignSelf: 'center',
         opacity: fade, transform: [{ translateY: slide }],
         paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20,
-        backgroundColor: 'rgba(255,138,92,0.15)',
+        // the in-progress pill's dark, so it reads on cream and on navy alike (9.7:1)
+        backgroundColor: '#1B1830',
         borderWidth: 1, borderColor: 'rgba(255,138,92,0.35)',
       }}>
-      <Text style={{ color: '#FF8A5C', fontSize: 14, fontFamily: T.brand }}>{toast.text}</Text>
+      <Text style={{ color: '#FFB183', fontSize: 14, fontFamily: T.brand }}>{toast.text}</Text>
     </Animated.View>
   );
 }
@@ -1036,7 +1079,9 @@ export function Toast() {
 export function LightPill({ light, onPress }: { light: number; onPress?: () => void }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={{
+    <Pressable onPress={onPress} hitSlop={10} disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : 'text'} accessibilityLabel={`${light} light`}
+      style={{
       flexDirection: 'row', alignItems: 'center', gap: 6,
       paddingHorizontal: 11, paddingVertical: 6, borderRadius: radius.pill,
       backgroundColor: t.raWash, borderWidth: 1, borderColor: t.strokeStrong,
@@ -1081,7 +1126,8 @@ export function RingStat(
   const r = (size - stroke) / 2, c = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(1, progress));
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View accessible accessibilityLabel={`${value} ${label}`}
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
         <Defs>
           <SvgGradient id="ringstat" x1="0" y1="0" x2="1" y2="1">
@@ -1105,7 +1151,8 @@ export function WeekBars({ data, height = 84, accent = 'ra' }: { data: { label: 
   const max = Math.max(1, ...data.map(d => d.value));
   const barArea = height - 20;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height }}>
+    <View accessible accessibilityLabel={data.map(d => `${d.label} ${d.value}`).join(', ')}
+      style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height }}>
       {data.map((d, i) => (
         <View key={i} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
           <View style={{
@@ -1139,6 +1186,7 @@ export function GradientText(
     font?: string; id?: string },
 ) {
   return (
+    <View accessible accessibilityRole="text" accessibilityLabel={children}>
     <Svg width="100%" height={lineHeight}>
       <Defs>
         <SvgGradient id={id} x1="0" y1="0" x2="1" y2="0.6">
@@ -1154,6 +1202,7 @@ export function GradientText(
         {children}
       </SvgText>
     </Svg>
+    </View>
   );
 }
 
@@ -1194,8 +1243,9 @@ export const BUTTON = {
 type ButtonSize = keyof typeof BUTTON;
 
 export function Primary(
-  { label, onPress, tone = 'nu', icon, sub, disabled, size = 'md', style }:
+  { label, onPress, tone = 'nu', icon, sub, disabled, size = 'md', style, accessibilityLabel, accessibilityHint }:
   { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string;
+    accessibilityLabel?: string; accessibilityHint?: string;
     /** stays in place, dimmed, until there's something to continue with */
     disabled?: boolean;
     size?: ButtonSize;
@@ -1211,7 +1261,8 @@ export function Primary(
   const fill = disabled ? t.subtle : colors[0];
   return (
     <Pressable
-      disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled} accessibilityRole="button" aria-disabled={!!disabled}
+      accessibilityLabel={accessibilityLabel ?? (sub ? `${label}, ${sub}` : undefined)} accessibilityHint={accessibilityHint}
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
       style={({ pressed }) => ({
         opacity: pressed ? 0.92 : 1, borderRadius: b.radius,
@@ -1228,7 +1279,7 @@ export function Primary(
           <Text numberOfLines={1} style={{ color: disabled ? t.ink2 : onColor, fontSize: b.font, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
           {icon}
         </View>
-        {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}
+        {!!sub && <Text style={{ color: disabled ? t.ink2 : onColor, fontSize: 12 }}>{sub}</Text>}
       </View>
     </Pressable>
   );
@@ -1239,27 +1290,27 @@ export function Primary(
  * `style={{ flex: 1 }}` itself (flex inside stacked it to its padding on iOS);
  * a square one (↻) passes a width.
  */
-export function Ghost({ label, onPress, style, size = 'md', accessibilityLabel }: {
-  label: string; onPress: () => void; style?: ViewStyle; size?: ButtonSize; accessibilityLabel?: string;
+export function Ghost({ label, onPress, style, size = 'md', accessibilityLabel, accessibilityHint }: {
+  label: string; onPress: () => void; style?: ViewStyle; size?: ButtonSize; accessibilityLabel?: string; accessibilityHint?: string;
 }) {
   const t = useTheme();
   const b = BUTTON[size];
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityHint={accessibilityHint}
       style={({ pressed }) => ({
         minHeight: b.height, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
         borderRadius: b.radius, borderWidth: 1, borderColor: t.strokeStrong,
         backgroundColor: pressed ? t.subtle : 'transparent',
         ...style,
       })}>
-      <Text numberOfLines={2} style={{ color: t.ink, fontSize: b.font - 0.5, lineHeight: b.font + 4, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
+      <Text style={{ color: t.ink, fontSize: b.font - 0.5, lineHeight: b.font + 4, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
 
 export function Title({ children }: { children: React.ReactNode }) {
   const t = useTheme();
-  return <Text style={{ color: t.ink, fontSize: 28, lineHeight: 34, fontFamily: T.display }}>{children}</Text>;
+  return <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 28, lineHeight: 34, fontFamily: T.display }}>{children}</Text>;
 }
 
 export function Body({ children, dim }: { children: React.ReactNode; dim?: boolean }) {

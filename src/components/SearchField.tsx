@@ -14,6 +14,7 @@ export function SearchField({ value, onChange, onCancel }: {
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
         <IconSearch size={18} color={t.ink2} />
         <TextInput autoFocus value={value} onChangeText={onChange} placeholder="Search everything" placeholderTextColor={t.ink3}
+          accessibilityLabel="Search" returnKeyType="search"
           style={{ flex: 1, paddingVertical: 12, paddingLeft: 9, color: t.ink, fontSize: 15.5 }} />
         <Pressable onPress={() => { onChange(''); onCancel(); }} hitSlop={10} accessibilityRole="button">
           <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.brand }}>Cancel</Text>
@@ -31,7 +32,7 @@ export function SearchBar({ value, onChange, placeholder = 'Search' }: {
   const [focused, setFocused] = useState(false);
   return (
     <View style={{
-      flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, borderRadius: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 42, borderRadius: 14,
       borderWidth: 1, borderColor: focused ? t.nu : t.stroke, backgroundColor: t.layer, paddingHorizontal: 12, marginBottom: 12,
     }}>
       <IconSearch size={16} color={t.ink3} />
@@ -40,7 +41,8 @@ export function SearchBar({ value, onChange, placeholder = 'Search' }: {
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 0 }} />
       {!!value && (
-        <Pressable onPress={() => onChange('')} hitSlop={10} accessibilityLabel="Clear search">
+        <Pressable onPress={() => onChange('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search"
+          style={{ padding: 5, marginRight: -5 }}>
           <Text style={{ color: t.ink3, fontSize: 14 }}>✕</Text>
         </Pressable>
       )}

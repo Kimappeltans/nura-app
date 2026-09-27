@@ -1,5 +1,5 @@
 import type React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
@@ -7,6 +7,8 @@ import { Check, IconChevron } from '../ui';
 import { LabelTile } from './LabelIcon';
 import { PriorityChip } from './PriorityChip';
 import { formatDue } from './DatePicker';
+import { priorityOf } from '../priority';
+import { decorative } from '../a11y';
 import type { Task } from '../db';
 
 /**
@@ -36,24 +38,51 @@ export function TaskRow({ task, onPress, onHold, onTick, onAdd, onMore, onStart,
   const due = task.due_at ? formatDue(task.due_at, !!task.has_time) : null;
   const mins = task.est_minutes ? `${task.est_minutes} min` : null;
   const sub = [caption, due, mins, later ? 'later' : null].filter(Boolean).join(' · ');
+  const prio = task.priority ? `${priorityOf(task.priority).name} priority` : null;
+  const hold = () => { Haptics.selectionAsync(); onHold(); };
   return (
-    <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onHold(); }}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13,
-        borderBottomWidth: divider ? 1 : 0, borderBottomColor: t.stroke,
-        backgroundColor: pressed ? t.subtle : 'transparent', opacity: later ? 0.55 : 1,
-      })}>
-      {onTick ? <Check tone="ra" onPress={onTick} /> : task.label ? <LabelTile id={task.label} size={30} /> : null}
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={2} style={{ color: t.ink, fontSize: 15 }}>{task.title}</Text>
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13,
+      borderBottomWidth: divider ? 1 : 0, borderBottomColor: t.stroke,
+    }}>
+      <RowPress label={[task.title, prio, sub.split(' · ').join(', ')].filter(Boolean).join(', ')}
+        onPress={onPress} onHold={hold} />
+      {onTick ? <Check tone="ra" onPress={onTick} label={task.title} />
+        : task.label ? <View pointerEvents="none" {...decorative}><LabelTile id={task.label} size={30} /></View> : null}
+      {/* later sits back in a quieter ink, not a fade: a faded caption can't be read */}
+      <View pointerEvents="none" {...decorative} style={{ flex: 1, gap: 2 }}>
+        <Text numberOfLines={2} style={{ color: later ? t.ink2 : t.ink, fontSize: 15 }}>{task.title}</Text>
         {!!sub && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12.5 }}>{sub}</Text>}
       </View>
-      <PriorityChip n={task.priority ?? 0} />
+      <View pointerEvents="none" {...decorative}><PriorityChip n={task.priority ?? 0} /></View>
       {onStart ? <StartButton title={task.title} onPress={onStart} />
         : onAdd ? <AddToToday title={task.title} onPress={onAdd} />
         : onMore ? <MoreButton title={task.title} onPress={onMore} />
-        : <IconChevron size={15} color={t.ink3} />}
-    </Pressable>
+        : <View pointerEvents="none" {...decorative}><IconChevron size={15} color={t.ink3} /></View>}
+    </View>
+  );
+}
+
+/**
+ * A row's own tap, laid under its content as the row's first child. The
+ * buttons in the row (tick, Start, •••, +) sit beside it rather than inside
+ * it, since a screen reader can't reach a button inside a button. Hold, or
+ * the "More options" action, does `onHold`.
+ */
+export function RowPress({ label, onPress, onHold, disabled, style }: {
+  label: string;
+  onPress?: () => void;
+  onHold?: () => void;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} onLongPress={onHold} disabled={disabled}
+      accessibilityRole="button" accessibilityLabel={label}
+      accessibilityActions={onHold ? [{ name: 'more', label: 'More options' }] : undefined}
+      onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'more') onHold?.(); }}
+      style={({ pressed }) => [StyleSheet.absoluteFill, { backgroundColor: pressed ? t.subtle : 'transparent' }, style]} />
   );
 }
 
@@ -75,7 +104,7 @@ function StartButton({ title, onPress }: { title: string; onPress: () => void })
 function MoreButton({ title, onPress }: { title: string; onPress: () => void }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More for ${title}`}
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More options for ${title}`}
       style={({ pressed }) => ({
         width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
         borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
@@ -105,7 +134,7 @@ export function SectionRule({ title, count, children }: { title: string; count?:
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
       <View style={{ width: 18, height: 1.5, backgroundColor: t.strokeStrong }} />
-      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 2.2, fontFamily: T.brand }}>{title.toUpperCase()}</Text>
+      <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 12, letterSpacing: 2.2, fontFamily: T.brand }}>{title.toUpperCase()}</Text>
       <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
       {count ? <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>{count}</Text> : null}
       {children}

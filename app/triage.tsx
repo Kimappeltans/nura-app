@@ -1,7 +1,7 @@
 import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { useStore, useTheme } from '../src/store';
 import { notNow, dropTask, updateTask, pickForToday, type Task } from '../src/db';
 import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Primary, Character } from '../src/ui';
+import { announce, decorative } from '../src/a11y';
 
 type Outcome = 'kept' | 'pushed' | 'shrunk' | 'waiting' | 'dropped';
 
@@ -47,6 +48,13 @@ function Triage() {
   const finished = i >= queue.length;
 
   useEffect(() => { if (finished && queue.length) refresh(); }, [finished]);
+  // the next task, or the end of the pass, is said as it appears
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (current) announce(`${i + 1} of ${queue.length}: ${current.title}`);
+    else if (finished && queue.length) announce(`That's the whole backlog. ${summaryOf(tally)}.`);
+  }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const act = async (outcome: Outcome) => {
     if (!current) return;
@@ -68,15 +76,13 @@ function Triage() {
     setI(v => v + 1);
   };
 
-  const summary = (Object.keys(TALLY_LABEL) as Outcome[])
-    .map(k => `${tally[k]} ${TALLY_LABEL[k]}`)
-    .join(' · ');
+  const summary = summaryOf(tally);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>✕</Text>
         </Pressable>
       </View>
@@ -84,7 +90,7 @@ function Triage() {
       {!queue.length ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
           <Character name="nu-idle" size={104} motion="bob" />
-          <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, textAlign: 'center' }}>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 22, fontFamily: T.display, textAlign: 'center' }}>
             Nothing waiting on a decision.
           </Text>
           <Text style={{ color: t.ink3, fontSize: 14.5, textAlign: 'center', lineHeight: 20, maxWidth: 260 }}>
@@ -95,7 +101,7 @@ function Triage() {
       ) : finished ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
           <Character name="nu-idle" size={112} motion="bob" />
-          <Text style={{ color: t.ink, fontSize: 24, fontFamily: T.display, textAlign: 'center' }}>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 24, fontFamily: T.display, textAlign: 'center' }}>
             That's the whole backlog.
           </Text>
           <Text style={{ color: t.ink3, fontSize: 14.5, textAlign: 'center', lineHeight: 20, maxWidth: 280 }}>
@@ -106,7 +112,7 @@ function Triage() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, flexGrow: 1 }}>
-          <Text style={{ color: t.nu, fontSize: 11.5, letterSpacing: 2, fontFamily: T.brand }}>
+          <Text accessibilityRole="header" accessibilityLabel={`One pass, ${i + 1} of ${queue.length}`} style={{ color: t.nu, fontSize: 11.5, letterSpacing: 2, fontFamily: T.brand }}>
             ONE PASS · {i + 1} OF {queue.length}
           </Text>
           <Text style={{ color: t.ink3, fontSize: 14.5, marginTop: 4, marginBottom: 18 }}>
@@ -121,7 +127,7 @@ function Triage() {
               {current.title}
             </Text>
             {!!current.est_minutes && (
-              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 6 }}>≈ {current.est_minutes} min</Text>
+              <Text accessibilityLabel={`About ${current.est_minutes} min`} style={{ color: t.ink3, fontSize: 13, marginTop: 6 }}>≈ {current.est_minutes} min</Text>
             )}
           </View>
 
@@ -129,12 +135,12 @@ function Triage() {
             {ACTIONS.map((a, idx) => (
               <View key={a.key}>
                 {idx > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
-                <Pressable onPress={() => act(a.key)} style={({ pressed }) => ({
+                <Pressable onPress={() => act(a.key)} accessibilityRole="button" accessibilityLabel={`${a.label}, ${a.sub}`} style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', gap: 13,
                   paddingVertical: 13, paddingHorizontal: 14,
                   backgroundColor: pressed ? t.subtle : 'transparent',
                 })}>
-                  <View style={{
+                  <View {...decorative} style={{
                     width: 34, height: 34, borderRadius: radius.md,
                     alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash,
                   }}>
@@ -152,6 +158,10 @@ function Triage() {
       )}
     </SafeAreaView>
   );
+}
+
+function summaryOf(tally: Record<Outcome, number>) {
+  return (Object.keys(TALLY_LABEL) as Outcome[]).map(k => `${tally[k]} ${TALLY_LABEL[k]}`).join(' · ');
 }
 
 export default inWorld('nu', withTabs(Triage));

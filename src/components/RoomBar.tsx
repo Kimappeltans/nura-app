@@ -26,13 +26,13 @@ export function RoomBar({ title = 'Nura', who = 'nu' }: { title?: string; who?: 
     // v5: a 44px bar — the wordmark at 20, the companion in a 40px tile
     <View style={{
       flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 24, paddingRight: 20,
-      paddingTop: insets.top > 20 ? 8 : 16, height: (insets.top > 20 ? 8 : 16) + 44,
+      paddingTop: insets.top > 20 ? 8 : 16, minHeight: (insets.top > 20 ? 8 : 16) + 44,
     }}>
       {title === 'Nura'
         // the name as it is in the opening: the wordmark, not typed out
-        ? <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
+        ? <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura" accessibilityRole="header"
             style={{ height: 20, width: 20 * 799 / 222, tintColor: t.ink }} />
-        : <Text style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.3 }}>{title}</Text>}
+        : <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.3 }}>{title}</Text>}
     </View>
   );
 }

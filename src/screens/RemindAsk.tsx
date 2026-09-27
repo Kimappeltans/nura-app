@@ -34,7 +34,7 @@ export default function RemindAsk({ onDone }: { onDone: (yes: boolean) => void }
 
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 18 }}>
           <Character name="nu-thinking" size={120} motion="greet" />
-          <Text style={{
+          <Text accessibilityRole="header" style={{
             color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
             letterSpacing: -0.8, textAlign: 'center',
           }}>Want a nudge{'\n'}now and then?</Text>

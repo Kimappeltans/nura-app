@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Image, Pressable, ScrollView } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { activityById, SCENES, isCustom, customName, type ActivityId } from '../activities';
@@ -9,6 +9,7 @@ import { Check, IconChevron } from '../ui';
 import { formatDue } from './DatePicker';
 import type { Task } from '../db';
 import { screenSize } from '../screen';
+import { decorative } from '../a11y';
 
 /** Warm, specific, and never a grade. */
 const PRAISE = ['Great job!', 'Nicely done.', 'That one is gone.', 'Logged.', 'Done and dusted.'];
@@ -50,14 +51,15 @@ export function ActivityCard(
   const name = a?.name ?? (custom ? customName(task.activity!) : null);
   const headline = name ?? task.title;
   const sub = name && task.title.toLowerCase() !== name.toLowerCase() ? task.title : null;
+  const [down, setDown] = useState(false);
 
+  // the card's own tap lies under its content and the tick sits beside it, not
+  // inside it: a screen reader can't reach a button inside a button
   return (
-    <Pressable
-      onPress={() => { Haptics.selectionAsync(); onPress(); }}
-      style={({ pressed }) => ({
-        marginBottom: 11, opacity: pressed ? 0.94 : 1,
-        transform: [{ scale: pressed ? 0.99 : 1 }],
-      })}>
+    <View style={{
+      marginBottom: 11, opacity: down ? 0.94 : 1,
+      transform: [{ scale: down ? 0.99 : 1 }],
+    }}>
       <View style={[{
         borderRadius: radius.xl, overflow: 'hidden',
         borderWidth: 1, borderColor: `${c}38`,
@@ -67,7 +69,14 @@ export function ActivityCard(
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', minHeight: 124 }}>
 
-          <View style={{ flex: 1, paddingLeft: 16, paddingVertical: 15, paddingRight: 2 }}>
+          <Pressable
+            onPress={() => { Haptics.selectionAsync(); onPress(); }}
+            onPressIn={() => setDown(true)} onPressOut={() => setDown(false)}
+            accessibilityRole="button"
+            accessibilityLabel={[headline, sub, when, mins, task.repeat_rule ? 'repeats' : null, done ? 'done' : null].filter(Boolean).join(', ')}
+            style={StyleSheet.absoluteFill} />
+
+          <View pointerEvents="none" {...decorative} style={{ flex: 1, paddingLeft: 16, paddingVertical: 15, paddingRight: 2 }}>
             {(!!when || !!mins) && (
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
                 {!!when && (
@@ -101,16 +110,18 @@ export function ActivityCard(
           {/* the scene, bled past the right edge so the card reads as a window
               onto it rather than a box with a sticker in it */}
           {!!a && (
-            <Image
-              source={SCENES[a.id as ActivityId]}
-              style={{ width: 138, height: 118, marginRight: -10, opacity: done ? 0.5 : 1 }}
-              resizeMode="contain"
-            />
+            <View pointerEvents="none" {...decorative} style={{ marginRight: -10 }}>
+              <Image
+                source={SCENES[a.id as ActivityId]}
+                style={{ width: 138, height: 118, opacity: done ? 0.5 : 1 }}
+                resizeMode="contain"
+              />
+            </View>
           )}
 
-          <View style={{ paddingRight: 15, paddingLeft: 4 }}>
+          <View pointerEvents="box-none" style={{ paddingRight: 15, paddingLeft: 4 }}>
             {done ? (
-              <View style={{
+              <View pointerEvents="none" {...decorative} style={{
                 width: 26, height: 26, borderRadius: 13,
                 alignItems: 'center', justifyContent: 'center',
                 borderWidth: 1.8, borderColor: c, backgroundColor: `${c}2A`,
@@ -118,12 +129,12 @@ export function ActivityCard(
                 <Text style={{ color: c, fontSize: 14 }}>✓</Text>
               </View>
             ) : (
-              <Check tone="ra" onPress={onDone} />
+              <Check tone="ra" onPress={onDone} label={task.title} />
             )}
           </View>
         </LinearGradient>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -160,6 +171,8 @@ export function HeroCard(
   return (
     <Pressable
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onStart(); }}
+      accessibilityRole="button"
+      accessibilityLabel={[`Begin ${headline}`, sub, 'up next', when, mins, why ? `Why: ${why}` : null].filter(Boolean).join(', ')}
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.99 : 1 }] })}>
       <View style={[{
         borderRadius: radius.xl, overflow: 'hidden',
@@ -173,7 +186,8 @@ export function HeroCard(
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <View style={{ flex: 1, paddingRight: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-                <Text style={{ color: c, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand }}>
+                {/* a plain task's coral is a fill; as words it's the deeper coral */}
+                <Text style={{ color: a ? c : t.raDeep, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand }}>
                   UP NEXT
                 </Text>
                 {/* ink2, not ink3: the hero's tint can be any of 36 hues, and
@@ -265,13 +279,13 @@ export function HeroDeck(
       {/* the deck: two edges behind, so a stack is visible even on the last card */}
       {!single && (
         <>
-          <View style={{
+          <View {...decorative} style={{
             position: 'absolute', left: 16, right: PEEK + 16, top: 10, bottom: -10,
             borderRadius: radius.xl, backgroundColor: t.layer,
             borderWidth: 1, borderColor: t.stroke, opacity: 0.5,
             transform: [{ scaleX: 0.94 }],
           }} />
-          <View style={{
+          <View {...decorative} style={{
             position: 'absolute', left: 16, right: PEEK + 16, top: 5, bottom: -5,
             borderRadius: radius.xl, backgroundColor: t.layer,
             borderWidth: 1, borderColor: t.stroke, opacity: 0.75,
@@ -298,7 +312,8 @@ export function HeroDeck(
       </ScrollView>
 
       {!single && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: -2 }}>
+        <View accessible accessibilityLabel={`${i + 1} of ${tasks.length}`}
+          style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: -2 }}>
           {tasks.map((_, k) => (
             <View key={k} style={{
               width: k === i ? 18 : 6, height: 6, borderRadius: 3,
@@ -331,6 +346,7 @@ export function ActivityPick(
   const c = t.key === 'ra' ? a.onLight : a.tint;
   return (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
+      accessibilityRole="radio" aria-checked={on}
       style={{
         flexDirection: 'row', alignItems: 'center', gap: 8,
         paddingHorizontal: 13, paddingVertical: 9, borderRadius: radius.pill,
@@ -338,7 +354,7 @@ export function ActivityPick(
         borderWidth: 1.5, borderColor: on ? c : t.strokeStrong,
       }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c : `${c}88` }} />
-      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+      <Text style={{ color: on && t.key !== 'ra' ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
         {a.name}
       </Text>
     </Pressable>

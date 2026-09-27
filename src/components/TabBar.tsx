@@ -65,7 +65,7 @@ export function TabBar() {
 
   const Slot = ({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) => (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
-      accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}
+      accessibilityRole="tab" aria-selected={on} accessibilityLabel={label}
       style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 10 }}>
       {/* where you are: a small coral dot over the icon */}
       {on && <View style={{ position: 'absolute', top: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: CORAL }} />}

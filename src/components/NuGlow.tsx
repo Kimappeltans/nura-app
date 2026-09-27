@@ -2,6 +2,7 @@ import type React from 'react';
 import { View } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme } from '../store';
+import { decorative } from '../a11y';
 
 /** How big Nu is in each place — small enough to sit inside what he's on, as the design has him. */
 export const NU_SIZE = { bar: 46, card: 56, sheet: 60, glance: 84 } as const;
@@ -16,7 +17,8 @@ export function NuGlow({ size, children }: { size: number; children: React.React
   const g = size * 1.5;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={g} height={g} style={{ position: 'absolute', left: (size - g) / 2, top: (size - g) / 2 }}>
+      <View {...decorative} pointerEvents="none" style={{ position: 'absolute', left: (size - g) / 2, top: (size - g) / 2 }}>
+      <Svg width={g} height={g}>
         <Defs>
           <RadialGradient id="nuglow" cx="50%" cy="50%" r="50%">
             <Stop offset="0" stopColor={t.key === 'nu' ? '#B6C4FF' : '#8C97F6'} stopOpacity={t.key === 'nu' ? 0.75 : 0.35} />
@@ -26,6 +28,7 @@ export function NuGlow({ size, children }: { size: number; children: React.React
         </Defs>
         <Circle cx={g / 2} cy={g / 2} r={g / 2} fill="url(#nuglow)" />
       </Svg>
+      </View>
       {children}
     </View>
   );

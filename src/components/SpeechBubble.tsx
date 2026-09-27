@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Animated, AccessibilityInfo } from 'react-native';
+import { View, Text, Animated } from 'react-native';
 import { type as T } from '../theme';
+import { useReducedMotion } from '../a11y';
 
 /**
  * A character saying one line — how Nu and Ra introduce themselves on the
@@ -22,19 +23,17 @@ export function SpeechBubble({ text, tone, tailX, tipY, clipW, delay = 0 }: {
   clipW: number;
   delay?: number;
 }) {
-  const v = useRef(new Animated.Value(0)).current;
+  const reduce = useReducedMotion();
+  const v = useRef(new Animated.Value(reduce ? 1 : 0)).current;
   useEffect(() => {
-    let dead = false;
-    AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
-      if (dead) return;
-      if (reduce) return v.setValue(1);
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.spring(v, { toValue: 1, friction: 6, tension: 110, useNativeDriver: true }),
-      ]).start();
-    });
-    return () => { dead = true; };
-  }, [v, delay]);
+    if (reduce) { v.setValue(1); return; }
+    const a = Animated.sequence([
+      Animated.delay(delay),
+      Animated.spring(v, { toValue: 1, friction: 6, tension: 110, useNativeDriver: true }),
+    ]);
+    a.start();
+    return () => a.stop();
+  }, [v, delay, reduce]);
 
   // two bubbles share the clip, so each gets at most half of it; kept on the
   // clip, with the tail still pointing at the head

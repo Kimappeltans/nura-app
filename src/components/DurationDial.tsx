@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, PanResponder, type GestureResponderEvent } from 'react-native';
+import { View, Text, PanResponder, Platform, type GestureResponderEvent } from 'react-native';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
@@ -30,7 +30,7 @@ export function nearestStop(stops: readonly number[], v: number) {
 }
 
 export function DurationDial({
-  stops, value, onChange, onRelease, size = 156, label = 'min',
+  stops, value, onChange, onRelease, size = 156, label = 'min', accessibilityLabel = 'Length',
 }: {
   stops: readonly number[];
   value: number;
@@ -39,6 +39,8 @@ export function DurationDial({
   onRelease?: (minutes: number) => void;
   size?: number;
   label?: string;
+  /** what a screen reader calls the dial */
+  accessibilityLabel?: string;
 }) {
   const t = useTheme();
   const stroke = 10;
@@ -94,6 +96,17 @@ export function DurationDial({
     cb.current.onRelease?.(stops[n]);
   };
 
+  // react-native-web ignores accessibility actions, so on the web the arrow
+  // keys turn it
+  const keys = Platform.OS === 'web' ? {
+    tabIndex: 0 as const,
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+      const d = e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1
+        : e.key === 'ArrowDown' || e.key === 'ArrowLeft' ? -1 : 0;
+      if (d) { e.preventDefault(); step(d); }
+    },
+  } : {};
+
   const frac = stops.length > 1 ? i / (stops.length - 1) : 0;
   const start = GAP / 2;
   const end = start + frac * SWEEP;
@@ -113,8 +126,13 @@ export function DurationDial({
       {...pan.panHandlers}
       accessible
       accessibilityRole="adjustable"
-      accessibilityLabel="Length"
-      accessibilityValue={{ text: `${stops[i]} minutes` }}
+      accessibilityLabel={accessibilityLabel}
+      aria-valuemin={stops[0]}
+      aria-valuemax={stops[stops.length - 1]}
+      aria-valuenow={stops[i]}
+      aria-valuetext={`${stops[i]} minutes`}
+      focusable
+      {...keys}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={e => step(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
       style={{ width: size, height: size, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}>

@@ -7,6 +7,7 @@ import { Primary, Mica, GradientText } from '../ui';
 import { IntroClip } from '../components/IntroClip';
 import { SpeechBubble } from '../components/SpeechBubble';
 import { useScreen } from '../screen';
+import { decorative } from '../a11y';
 
 /**
  * Both marks are TIGHT crops (see assets/brand): the source artwork had ~10%
@@ -52,8 +53,8 @@ export default function Welcome(
         {/* the signature: the stone centred over the name — widths are the
             tight crops' true aspect ratios */}
         <View style={{ alignItems: 'center', gap: 8, marginTop: 14 }}>
-          <Image source={stone} style={{ width: 40, height: 45 }} resizeMode="contain" />
-          <Image source={wordmark} style={{ width: 72, height: 20, tintColor: t.ink }} resizeMode="contain" />
+          <Image {...decorative} source={stone} style={{ width: 40, height: 45 }} resizeMode="contain" />
+          <Image accessibilityRole="image" accessibilityLabel="Nura" source={wordmark} style={{ width: 72, height: 20, tintColor: t.ink }} resizeMode="contain" />
         </View>
 
         {/* Nu and Ra sit low, just above the words, so the slack collects
@@ -97,7 +98,7 @@ export default function Welcome(
 
         <View style={{ gap: 14 }}>
           <Primary label={copy.welcomeCta} tone="ra" onPress={onNext} />
-          <Pressable onPress={onSignIn} hitSlop={10}>
+          <Pressable onPress={onSignIn} hitSlop={10} accessibilityRole="button">
             <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>
               Already have an account? <Text style={{ color: t.raDeep, fontFamily: T.brand }}>Sign in</Text>
             </Text>

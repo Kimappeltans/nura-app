@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { radius, elevation, type as T } from '../theme';
 import { useTheme } from '../store';
 import { COLUMN, DIALOG, useDesk } from '../screen';
+import { decorative } from '../a11y';
 
 export interface SheetAction {
   key: string;
@@ -45,8 +46,12 @@ export function ActionSheet(
   const desk = useDesk();
   return (
     <Modal transparent visible={visible} animationType={desk ? 'fade' : 'slide'} onRequestClose={onDismiss}>
-      <Pressable onPress={onDismiss} style={{ flex: 1, backgroundColor: 'rgba(5,8,26,0.55)', justifyContent: desk ? 'center' : 'flex-end', padding: desk ? 32 : 0 }}>
-        <Pressable onPress={() => {}} style={[{
+      <View style={{ flex: 1, justifyContent: desk ? 'center' : 'flex-end', padding: desk ? 32 : 0 }}>
+        {/* the scrim sits behind the sheet, not around it: a sheet inside a
+            button would hide its actions from a screen reader */}
+        <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close"
+          style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(5,8,26,0.55)' }} />
+        <View accessibilityViewIsModal onAccessibilityEscape={onDismiss} style={[{
           backgroundColor: t.layer, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
           borderWidth: 1, borderColor: t.strokeStrong, borderBottomWidth: 0,
           paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, maxHeight: height * 0.88,
@@ -55,9 +60,9 @@ export function ActionSheet(
           borderRadius: radius.xl, borderBottomWidth: 1, maxWidth: DIALOG, maxHeight: height - 64,
           paddingTop: 24, paddingBottom: 16, paddingHorizontal: 24,
         }]}>
-          {!desk && <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />}
+          {!desk && <View {...decorative} style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />}
 
-          <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
           {!!subtitle && (
             <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14, marginTop: 3 }}>{subtitle}</Text>
           )}
@@ -69,12 +74,13 @@ export function ActionSheet(
             {actions.map(a => (
               <Pressable key={a.key}
                 onPress={() => { Haptics.selectionAsync(); onDismiss(); a.onPress(); }}
+                accessibilityRole="button" accessibilityLabel={a.sub ? `${a.label}, ${a.sub}` : a.label}
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', gap: 13,
                   paddingVertical: 12, paddingHorizontal: 10, borderRadius: radius.lg,
                   backgroundColor: pressed ? t.subtle : 'transparent',
                 })}>
-                <View style={{
+                <View {...decorative} style={{
                   width: 34, height: 34, borderRadius: radius.md,
                   alignItems: 'center', justifyContent: 'center',
                   backgroundColor: t.nuWash,
@@ -89,11 +95,11 @@ export function ActionSheet(
             ))}
           </ScrollView>
 
-          <Pressable onPress={onDismiss} hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 14, marginTop: 4 }}>
+          <Pressable onPress={onDismiss} hitSlop={10} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 14, marginTop: 4 }}>
             <Text style={{ color: t.ink3, fontSize: 14.5, fontFamily: T.brand }}>{dismissLabel}</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

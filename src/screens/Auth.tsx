@@ -12,6 +12,7 @@ import { radius, type as T } from '../theme';
 import { Primary, Ghost, Mica, Character } from '../ui';
 import { useAuthActions, useConfirmWait } from '../useAuthActions';
 import { openLink } from '../links';
+import { announce } from '../a11y';
 
 /* --- brand glyphs, drawn rather than shipped as logo files ---------------- */
 
@@ -116,12 +117,14 @@ export default function Auth(
     color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
     backgroundColor: t.card, borderRadius: radius.lg,
     borderWidth: 1, borderColor: t.strokeStrong,
-    borderBottomWidth: 2, borderBottomColor: focused === id ? t.ra : t.strokeStrong,
+    // the bottom edge is what marks it as a field: ink3 at rest (5.3:1), text coral on focus
+    borderBottomWidth: 2, borderBottomColor: focused === id ? t.raDeep : t.ink3,
   } as const);
   const onFieldFocus = (id: string) => () => setFocused(id);
   const onFieldBlur = () => setFocused(null);
 
   const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, resend } = useAuthActions(onClose, { beforeRedirect });
+  useEffect(() => { announce(formError); }, [formError]);
 
   // the link opened: signed in, so on (onboarding carries on; at the gate
   // app/index.tsx swaps this screen for the app by itself)
@@ -155,6 +158,7 @@ export default function Auth(
     <Pressable
       onPress={id === 'apple' ? withApple : withGoogle}
       disabled={!!busy}
+      accessibilityRole="button" accessibilityLabel={label} aria-disabled={!!busy} aria-busy={busy === id}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
         paddingVertical: 15, borderRadius: radius.lg,
@@ -181,11 +185,13 @@ export default function Auth(
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
           {/* back to the welcome screen in onboarding; as the gate there's nowhere to go back to */}
           {pending ? (
-            <Pressable onPress={() => { setPending(null); setFormError(null); }} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
+            <Pressable onPress={() => { setPending(null); setFormError(null); }} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}
+              accessibilityRole="button" accessibilityLabel="Back">
               <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
             </Pressable>
           ) : onBack ? (
-            <Pressable onPress={onBack} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
+            <Pressable onPress={onBack} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}
+              accessibilityRole="button" accessibilityLabel="Back">
               <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
             </Pressable>
           ) : <View style={{ height: 34 }} />}
@@ -194,7 +200,7 @@ export default function Auth(
             contentContainerStyle={{ flexGrow: 1 }}>
             <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
 
-            <Text style={{
+            <Text accessibilityRole="header" style={{
               color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
               letterSpacing: -0.9, marginTop: 14, textAlign: 'center',
             }}>
@@ -212,7 +218,7 @@ export default function Auth(
                   Open the link in the email to finish.
                 </Text>
                 {!!formError && (
-                  <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18, textAlign: 'center' }}>{formError}</Text>
+                  <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 13.5, lineHeight: 18, textAlign: 'center' }}>{formError}</Text>
                 )}
                 <Ghost label={busy === 'resend' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
                 <Pressable onPress={otherEmail} hitSlop={10} accessibilityRole="button">
@@ -233,7 +239,7 @@ export default function Auth(
                   <View style={{ flex: 1, height: 1, backgroundColor: t.stroke }} />
                 </View>
 
-                <Pressable onPress={() => setMode('email')} style={({ pressed }) => ({
+                <Pressable onPress={() => setMode('email')} accessibilityRole="button" style={({ pressed }) => ({
                   paddingVertical: 15, borderRadius: radius.lg, alignItems: 'center',
                   backgroundColor: pressed ? t.subtle : t.card,
                   borderWidth: 1, borderColor: t.strokeStrong,
@@ -249,6 +255,7 @@ export default function Auth(
                   <TextInput
                     autoFocus value={name} onChangeText={setName}
                     placeholder="Your name" placeholderTextColor={t.ink3}
+                    accessibilityLabel="Name" textContentType="name"
                     autoCapitalize="words" autoComplete="name" returnKeyType="next"
                     onFocus={onFieldFocus('name')} onBlur={onFieldBlur}
                     style={fieldStyle('name')}
@@ -257,6 +264,7 @@ export default function Auth(
                 <TextInput
                   autoFocus={!creating} value={email} onChangeText={setEmail}
                   placeholder="you@example.com" placeholderTextColor={t.ink3}
+                  accessibilityLabel="Email" textContentType="emailAddress"
                   keyboardType="email-address" autoCapitalize="none" autoComplete="email"
                   returnKeyType="next"
                   onFocus={onFieldFocus('email')} onBlur={onFieldBlur}
@@ -265,6 +273,7 @@ export default function Auth(
                 <TextInput
                   value={password} onChangeText={setPassword}
                   placeholder="Password" placeholderTextColor={t.ink3}
+                  accessibilityLabel="Password" textContentType={creating ? 'newPassword' : 'password'}
                   secureTextEntry autoCapitalize="none"
                   autoComplete={creating ? 'new-password' : 'current-password'}
                   returnKeyType={creating ? 'next' : 'go'}
@@ -277,6 +286,7 @@ export default function Auth(
                     value={confirm} onChangeText={setConfirm}
                     onSubmitEditing={submit} returnKeyType="go"
                     placeholder="Confirm password" placeholderTextColor={t.ink3}
+                    accessibilityLabel="Confirm password" textContentType="newPassword"
                     secureTextEntry autoCapitalize="none" autoComplete="new-password"
                     onFocus={onFieldFocus('confirm')} onBlur={onFieldBlur}
                     style={fieldStyle('confirm')}
@@ -284,7 +294,7 @@ export default function Auth(
                 )}
 
                 {!!formError && (
-                  <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18 }}>{formError}</Text>
+                  <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 13.5, lineHeight: 18 }}>{formError}</Text>
                 )}
 
                 <Primary
@@ -306,7 +316,7 @@ export default function Auth(
                   </View>
                 )}
 
-                <Pressable onPress={() => setMode('choose')} hitSlop={10}>
+                <Pressable onPress={() => setMode('choose')} hitSlop={10} accessibilityRole="button">
                   <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
                     {Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'}
                   </Text>
@@ -320,7 +330,7 @@ export default function Auth(
               <Pressable onPress={() => {
                 setCreating(c => !c); setMode('choose');
                 setFormError(null); setPassword(''); setConfirm('');
-              }} hitSlop={10}>
+              }} hitSlop={10} accessibilityRole="button">
                 <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
                   {creating ? 'Already have an account? ' : 'New to Nura? '}
                   <Text style={{ color: t.raDeep, fontFamily: T.brand }}>
@@ -335,7 +345,7 @@ export default function Auth(
             {/* development only, and only at the gate: in without an account
                 (remembered in the flag `dev.skipAuth`; compiled out of release builds) */}
             {__DEV__ && !onBack && (
-              <Pressable hitSlop={10} style={{ marginTop: 18 }} onPress={async () => {
+              <Pressable hitSlop={10} style={{ marginTop: 18 }} accessibilityRole="button" onPress={async () => {
                 await setFlag('dev.skipAuth', '1');
                 useStore.setState({ devSkipAuth: true });
               }}>

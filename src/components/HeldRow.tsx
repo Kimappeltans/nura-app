@@ -38,9 +38,13 @@ export function HeldRow({ task, onPress, onHold, faint, meta }: {
   const l = labelById(task.label);
   const v = taskValue(task);
   const dark = t.key === 'nu';
+  const hold = () => { Haptics.selectionAsync(); onHold(); };
   return (
-    <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onHold(); }}
-      accessibilityRole="button" accessibilityLabel={task.title}
+    <Pressable onPress={onPress} onLongPress={hold}
+      accessibilityRole="button"
+      accessibilityLabel={[task.title, l?.name, meta, v ? [v.big, v.small].filter(Boolean).join(' ') : null].filter(Boolean).join(', ')}
+      accessibilityActions={[{ name: 'more', label: 'More options' }]}
+      onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'more') hold(); }}
       style={({ pressed }) => ({
         minHeight: faint === 2 ? 48 : 54, flexDirection: 'row', alignItems: 'center', gap: 12,
         borderBottomWidth: 1, borderBottomColor: t.stroke,

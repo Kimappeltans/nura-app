@@ -12,6 +12,7 @@ import { radius, type as T } from '../src/theme';
 import { StatusBar } from 'expo-status-bar';
 import { Mica, Primary } from '../src/ui';
 import { Moving } from '../src/components/Moving';
+import { decorative } from '../src/a11y';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 
 /**
@@ -58,9 +59,9 @@ function HabitForm() {
   // 300: what the account keeps of each (supabase/schema.sql)
   const field = (label: string, value: string, onChange: (v: string) => void, placeholder: string) => (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginLeft: 4 }}>{label.toUpperCase()}</Text>
+      <Text accessible={false} importantForAccessibility="no" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginLeft: 4 }}>{label.toUpperCase()}</Text>
       <TextInput
-        value={value} onChangeText={onChange}
+        value={value} onChangeText={onChange} accessibilityLabel={label}
         placeholder={placeholder} placeholderTextColor={t.ink3}
         multiline maxLength={300}
         style={{
@@ -80,7 +81,7 @@ function HabitForm() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           {/* the header every inner screen has: back, then the title */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2, zIndex: 1 }}>
-            <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+            <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ paddingVertical: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
             </Pressable>
           </View>
@@ -89,7 +90,7 @@ function HabitForm() {
             {/* Ra in the opening's glow, his rays pulsing: a habit comes round every day, like the sun */}
             {/* room above for the glow: the scroll view would cut it off square */}
             <View style={{ alignItems: 'center', marginTop: 38 }}>
-              <View style={{ width: 128, height: 128, alignItems: 'center', justifyContent: 'center' }}>
+              <View {...decorative} style={{ width: 128, height: 128, alignItems: 'center', justifyContent: 'center' }}>
                 <Svg width={200} height={200} style={{ position: 'absolute', left: -36, top: -36 }}>
                   <Defs>
                     <RadialGradient id="habitglow" cx="50%" cy="50%" r="50%">
@@ -103,7 +104,7 @@ function HabitForm() {
                 </Svg>
                 <Moving name="ra-rays" style={{ width: 124, height: 132 }} />
               </View>
-              <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 10, textAlign: 'center' }}>
+              <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 10, textAlign: 'center' }}>
                 {id ? 'Edit habit' : 'New habit'}
               </Text>
             </View>

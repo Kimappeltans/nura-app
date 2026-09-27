@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
@@ -7,6 +7,7 @@ import { Character } from '../ui';
 import { ActionSheet } from './ActionSheet';
 import { askAgain, PlannerError, type Question, type ReplanResult } from '../planner';
 import { HearIt } from './Voice';
+import { announce } from '../a11y';
 
 const IN_THE_WAY = [
   'Waiting on someone',
@@ -58,9 +59,15 @@ export function MoveHelp({ projectId, onMoved }: {
     }
   };
 
-  const link = (label: string, onPress: () => void) => (
-    <Pressable onPress={onPress} disabled={!!busy} hitSlop={8} style={{ paddingVertical: 6 }}>
-      <Text style={{ color: t.key === 'ra' ? t.raDeep : t.ra, fontSize: 14.5, fontFamily: T.brand, opacity: busy ? 0.4 : 1 }}>{label}</Text>
+  // what's happening, said aloud as it changes: working on it, a question back, or what went wrong
+  useEffect(() => { announce(busy); }, [busy]);
+  useEffect(() => { if (question) announce([reply, question.text].filter(Boolean).join(' ')); }, [question]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { announce(error?.message); }, [error]);
+
+  const link = (label: string, onPress: () => void, spoken?: string) => (
+    <Pressable onPress={onPress} disabled={!!busy} aria-disabled={!!busy} hitSlop={8} style={{ paddingVertical: 6 }}
+      accessibilityRole="button" accessibilityLabel={spoken ?? label}>
+      <Text style={{ color: t.raDeep, fontSize: 14.5, fontFamily: T.brand, opacity: busy ? 0.4 : 1 }}>{label}</Text>
     </Pressable>
   );
 
@@ -69,18 +76,18 @@ export function MoveHelp({ projectId, onMoved }: {
       {busy ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
           <Character name="nu-thinking" size={40} motion="bob" />
-          <Text style={{ color: t.ink2, fontSize: 14.5 }}>{busy}</Text>
+          <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 14.5 }}>{busy}</Text>
         </View>
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 20 }}>
           {link('This feels too big', () => run('too_big'))}
-          {link('I’m blocked · another move', () => setAsking(true))}
+          {link('I’m blocked · another move', () => setAsking(true), 'I’m blocked, another move')}
         </View>
       )}
 
       {!!error && (
         <View style={{ gap: 6, padding: 12, borderRadius: radius.md, backgroundColor: t.subtle }}>
-          <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 20 }}>{error.message}</Text>
+          <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 14, lineHeight: 20 }}>{error.message}</Text>
           <View style={{ flexDirection: 'row', gap: 18 }}>
             {link('Try again', error.retry)}
             {link('Not now', () => setError(null))}
@@ -95,7 +102,7 @@ export function MoveHelp({ projectId, onMoved }: {
           <HearIt text={question.text} label="Hear the question" auto />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {question.options.map(o => (
-              <Pressable key={o} onPress={() => run('blocked', o)} style={{
+              <Pressable key={o} onPress={() => run('blocked', o)} accessibilityRole="button" style={{
                 paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: t.strokeStrong,
               }}>
                 <Text style={{ color: t.ink2, fontSize: 13.5 }}>{o}</Text>
@@ -115,11 +122,13 @@ export function MoveHelp({ projectId, onMoved }: {
         ]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
           <TextInput value={typed} onChangeText={setTyped} placeholder="Or in your own words"
+            accessibilityLabel="What’s in the way, in your own words"
             placeholderTextColor={t.ink3} returnKeyType="send"
             onSubmitEditing={() => { if (typed.trim()) { setAsking(false); run('blocked', typed.trim()); setTyped(''); } }}
             style={{
               flex: 1, color: t.ink, fontSize: 15, paddingVertical: 11, paddingHorizontal: 12,
-              backgroundColor: t.card, borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
+              // the edge is what shows it's a field: an ink strong enough to see (3:1 and up)
+              backgroundColor: t.card, borderRadius: radius.md, borderWidth: 1, borderColor: t.ink3,
             }} />
         </View>
       </ActionSheet>

@@ -51,13 +51,13 @@ function Retro() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24, gap: 14 }} keyboardShouldPersistTaps="handled">
         {/* a plain title, not a question to answer for yourself */}
-        <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
           Add what you did
         </Text>
         <Text style={{ color: t.ink3, fontSize: 14, lineHeight: 20 }}>One per line.</Text>
@@ -68,6 +68,7 @@ function Retro() {
             autoFocus multiline value={text} onChangeText={setText}
             placeholder={'emailed the registrar\nfound the bike pump\n10 min of reading'}
             placeholderTextColor={t.ink3}
+            accessibilityLabel="What you did, one per line"
             style={{
               minHeight: 190, textAlignVertical: 'top',
               color: t.ink, fontSize: 16.5, lineHeight: 27, padding: 16,

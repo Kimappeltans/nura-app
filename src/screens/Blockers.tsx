@@ -58,8 +58,8 @@ export default function Blockers({ onNext, onBack }: { onNext: (picked: Blocker[
           const on = picked.includes(o.key);
           return (
             <Pressable key={o.key} onPress={() => toggle(o.key)}
-              accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-              accessibilityLabel={`${o.name}. ${o.line}`}
+              accessibilityRole="checkbox" aria-checked={on}
+              accessibilityLabel={on ? `${o.name}. ${o.line} ${o.effect}` : `${o.name}. ${o.line}`}
               style={({ pressed }) => ({
                 borderRadius: radius.lg, paddingVertical: 15, paddingHorizontal: 16,
                 flexDirection: 'row', gap: 14,
@@ -69,7 +69,7 @@ export default function Blockers({ onNext, onBack }: { onNext: (picked: Blocker[
               })}>
               <View style={{
                 width: 24, height: 24, borderRadius: 7, marginTop: 1, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong, backgroundColor: on ? t.ra : 'transparent',
+                borderWidth: 1.5, borderColor: on ? t.ra : t.ink3, backgroundColor: on ? t.ra : 'transparent',
               }}>
                 {on && <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.brand, marginTop: -1 }}>✓</Text>}
               </View>
@@ -77,7 +77,7 @@ export default function Blockers({ onNext, onBack }: { onNext: (picked: Blocker[
                 <Text style={{ color: t.ink, fontSize: 17, lineHeight: 22, fontFamily: T.display }}>{o.name}</Text>
                 <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>{o.line}</Text>
                 {/* what changes, said the moment you pick it */}
-                {on && <Text style={{ color: t.raSoft, fontSize: 14, lineHeight: 19, marginTop: 5 }}>{o.effect}</Text>}
+                {on && <Text style={{ color: t.raDeep, fontSize: 14, lineHeight: 19, marginTop: 5 }}>{o.effect}</Text>}
               </View>
             </Pressable>
           );

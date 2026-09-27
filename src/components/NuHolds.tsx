@@ -1,9 +1,11 @@
-import { View, Text, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T, radius } from '../theme';
 import { Character, Primary, vary } from '../ui';
 import { NuGlow } from './NuGlow';
+import { decorative } from '../a11y';
 import type { Task } from '../db';
 
 const NU = 168;
@@ -37,7 +39,7 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
     <View>
       <View style={{ minHeight: NU + 24 }}>
         {/* Nu, with the pale light that lifts her off the water */}
-        <View pointerEvents="none" style={{ position: 'absolute', left: -12, top: 18 }}>
+        <View pointerEvents="none" {...decorative} style={{ position: 'absolute', left: -12, top: 18 }}>
           <NuGlow size={NU}><Character name={pose} size={NU} motion="bob" /></NuGlow>
         </View>
 
@@ -53,14 +55,14 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
                 {(!!from || !yours) && (
                   <Text style={{ color: t.nuSoft, fontSize: 12.5, fontFamily: T.brand }}>{from ?? 'Nu found this one'}</Text>
                 )}
-                <Pressable onPress={onOpen} hitSlop={4}>
+                <Pressable onPress={onOpen} hitSlop={4} accessibilityRole="button" accessibilityLabel={task.title}>
                   <Text style={{ color: t.ink, fontSize: 18.5, lineHeight: 23, fontFamily: T.display, letterSpacing: -0.3 }}>{task.title}</Text>
                 </Pressable>
-                {!!task.est_minutes && <Text style={{ color: t.ink3, fontSize: 12.5 }}>≈ {task.est_minutes} min</Text>}
+                {!!task.est_minutes && <Text accessibilityLabel={`About ${task.est_minutes} min`} style={{ color: t.ink3, fontSize: 12.5 }}>≈ {task.est_minutes} min</Text>}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 10, marginTop: 4 }}>
                   <Primary label="Begin" tone="ra" size="sm" onPress={onBegin} />
                   <Pressable onPress={() => { Haptics.selectionAsync(); onChoose(); }} hitSlop={8}
-                    accessibilityRole="button" accessibilityState={{ expanded: choosing }}>
+                    accessibilityRole="button" aria-expanded={choosing}>
                     <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>{choosing ? 'Keep this one' : 'Choose another'}</Text>
                   </Pressable>
                 </View>
@@ -68,7 +70,7 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
             ) : (
               <>
                 <Text style={{ color: t.ink, fontSize: 18.5, lineHeight: 23, fontFamily: T.display }}>Nothing to begin yet.</Text>
-                <Pressable onPress={onPlan} hitSlop={6}>
+                <Pressable onPress={onPlan} hitSlop={6} accessibilityRole="button" accessibilityLabel="Plan something bigger">
                   <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>Plan something bigger ›</Text>
                 </Pressable>
               </>
@@ -82,6 +84,7 @@ export function NuHolds({ task, from, yours, choosing, others, onBegin, onOpen, 
         <View style={{ gap: 8, marginTop: 4 }}>
           {others.map(o => (
             <Pressable key={o.id} onPress={() => { Haptics.selectionAsync(); onPick(o); }} accessibilityRole="button"
+              accessibilityLabel={[o.title, o.est_minutes ? `${o.est_minutes} min` : null].filter(Boolean).join(', ')}
               style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, paddingHorizontal: 14,
                 borderRadius: radius.md + 2, borderWidth: 1, borderColor: t.stroke,
@@ -126,13 +129,16 @@ export function Stones({ tasks, onPress, onHold, sunk, risen, meta }: {
   const t = useTheme();
   const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, opacity: sunk ? 0.62 : 1 }}>
+    // Later sits back in a quieter ink, not a fade: a faded caption can't be read
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {tasks.map((x, i) => {
         const sub = meta ? meta(x) : when(x);
         return (
           <Pressable key={x.id} onPress={onPress ? () => onPress(x) : undefined} disabled={!onPress && !onHold}
             onLongPress={onHold ? () => { Haptics.selectionAsync(); onHold(x); } : undefined}
-            accessibilityRole="button" accessibilityLabel={x.title}
+            accessibilityRole="button" accessibilityLabel={[x.title, risen ? 'done' : null, sub ? sub.split(' · ').join(', ') : null].filter(Boolean).join(', ')}
+            accessibilityActions={onHold ? [{ name: 'more', label: 'More options' }] : undefined}
+            onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'more') onHold?.(x); }}
             style={({ pressed }) => ({
               ...SHAPES[i % SHAPES.length], maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 9,
               paddingHorizontal: 14, paddingVertical: sunk ? 8 : 10, borderWidth: 1,
@@ -141,7 +147,7 @@ export function Stones({ tasks, onPress, onHold, sunk, risen, meta }: {
             })}>
             {risen && <Text style={{ color: warm, fontSize: 13, fontFamily: T.brand }}>✓</Text>}
             <View style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={{ color: t.ink, fontSize: sunk ? 13.5 : 14.5, maxWidth: 230 }}>{x.title}</Text>
+              <Text numberOfLines={1} style={{ color: sunk ? t.ink2 : t.ink, fontSize: sunk ? 13.5 : 14.5, maxWidth: 230 }}>{x.title}</Text>
               {!!sub && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 11.5, marginTop: 2 }}>{sub}</Text>}
             </View>
           </Pressable>
@@ -158,18 +164,23 @@ export function BigStone({ task, meta, index = 0, onPress, onHold, onStart }: {
 }) {
   const t = useTheme();
   const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
+  const [down, setDown] = useState(false);
+  const hold = () => { Haptics.selectionAsync(); onHold(); };
   return (
-    // not a button itself: the start button sits inside it, and a button
-    // can't hold a button (on the web that's <button> in <button>)
-    <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onHold(); }}
-      accessibilityLabel={task.title}
-      style={({ pressed }) => ({
-        ...SHAPES[index % SHAPES.length], borderTopLeftRadius: SHAPES[index % SHAPES.length].borderTopLeftRadius + 4,
-        overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,139,88,0.30)', opacity: pressed ? 0.9 : 1,
-      })}>
+    // the stone's own tap lies under its content and the start button sits
+    // beside it, not inside it: a screen reader can't reach a button in a button
+    <View style={{
+      ...SHAPES[index % SHAPES.length], borderTopLeftRadius: SHAPES[index % SHAPES.length].borderTopLeftRadius + 4,
+      overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,139,88,0.30)', opacity: down ? 0.9 : 1,
+    }}>
       <View style={{ position: 'absolute', inset: 0, backgroundColor: t.card }} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingLeft: 16, paddingRight: 12 }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
+      <Pressable onPress={onPress} onLongPress={hold} onPressIn={() => setDown(true)} onPressOut={() => setDown(false)}
+        accessibilityRole="button" accessibilityLabel={[task.title, meta].filter(Boolean).join(', ')}
+        accessibilityActions={[{ name: 'more', label: 'More options' }]}
+        onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'more') hold(); }}
+        style={StyleSheet.absoluteFill} />
+      <View pointerEvents="box-none" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingLeft: 16, paddingRight: 12 }}>
+        <View pointerEvents="none" {...decorative} style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={2} style={{ color: t.ink, fontSize: 16.5, lineHeight: 21, fontFamily: T.brand }}>{task.title}</Text>
           {!!meta && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12.5, marginTop: 3 }}>{meta}</Text>}
         </View>
@@ -182,7 +193,7 @@ export function BigStone({ task, meta, index = 0, onPress, onHold, onStart }: {
           <Text style={{ color: warm, fontSize: 13, marginLeft: 2 }}>▶</Text>
         </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -193,7 +204,8 @@ export function PathStone({ title, done, total, index = 0, onPress }: {
   const t = useTheme();
   const left = total - done;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
+    <Pressable onPress={onPress} accessibilityRole="button"
+      accessibilityLabel={`${title}, ${left} move${left === 1 ? '' : 's'} left, ${done} of ${total} done`}
       style={({ pressed }) => ({
         ...SHAPES[index % SHAPES.length], width: 188, padding: 14, gap: 4,
         borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,

@@ -38,7 +38,7 @@ function Companions() {
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
         </Pressable>
       </View>
@@ -58,7 +58,7 @@ function Companions() {
           <View style={{ padding: 16, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, flex: 1 }}>{stage.name}</Text>
-              <Count value={light} style={{ color: t.ra, fontSize: 24, fontFamily: T.display }} />
+              <Count value={light} style={{ color: t.raDeep, fontSize: 24, fontFamily: T.display }} />
               <Text style={{ color: t.ink3, fontSize: 13, marginLeft: 5 }}>light</Text>
             </View>
             <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20 }}>{stage.note}</Text>
@@ -72,7 +72,7 @@ function Companions() {
         </Surface>
 
         {/* ---- the ladder ahead ---- */}
-        <Text style={{
+        <Text accessibilityRole="header" accessibilityLabel="Stages" style={{
           color: t.ink2, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand,
           marginTop: 24, marginBottom: 10, marginLeft: 4,
         }}>STAGES</Text>
@@ -83,10 +83,12 @@ function Companions() {
             return (
               <View key={s.n}>
                 {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 54 }} />}
-                <View style={{
+                {/* a stage not reached yet is quieter: ink3, not dimmed, and said in words */}
+                <View accessible
+                  accessibilityLabel={`${s.n + 1}. ${s.name}, ${current ? 'now' : reached ? 'reached' : 'not yet'}, at ${s.at} light. ${s.note}`}
+                  style={{
                   flexDirection: 'row', alignItems: 'center', gap: 13,
                   paddingHorizontal: 15, paddingVertical: 13,
-                  opacity: reached ? 1 : 0.5,
                 }}>
                   <View style={{
                     width: 26, height: 26, borderRadius: 13,
@@ -100,7 +102,7 @@ function Companions() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{
-                      color: t.ink, fontSize: 15.5,
+                      color: reached ? t.ink : t.ink3, fontSize: 15.5,
                       fontFamily: current ? T.brand : undefined,
                     }}>
                       {s.name}{current ? '  ·  now' : ''}
@@ -115,11 +117,12 @@ function Companions() {
         </Surface>
 
         {/* ---- the collection ---- */}
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 26, marginBottom: 10, marginLeft: 4 }}>
+        <View accessible accessibilityRole="header" accessibilityLabel={`Scenes found, ${col.unlocked.size} of ${col.total}`}
+          style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 26, marginBottom: 10, marginLeft: 4 }}>
           <Text style={{ color: t.ink2, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, flex: 1 }}>
             SCENES FOUND
           </Text>
-          <Text style={{ color: t.ra, fontSize: 15, fontFamily: T.brand }}>
+          <Text style={{ color: t.raDeep, fontSize: 15, fontFamily: T.brand }}>
             {col.unlocked.size}
           </Text>
           <Text style={{ color: t.ink3, fontSize: 13 }}> / {col.total}</Text>

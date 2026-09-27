@@ -106,7 +106,7 @@ export function LabelChip(
       borderWidth: 1.5, borderColor: on ? c : t.strokeStrong,
     }}>
       <LabelGlyph id={l.id} size={15} color={on ? c : t.ink} />
-      <Text style={{ color: on ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
+      <Text style={{ color: on && t.key !== 'ra' ? c : t.ink, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>
         {l.name}
       </Text>
     </View>

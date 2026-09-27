@@ -18,6 +18,7 @@ import { getLanguage } from '../planner';
 import { aiConsent, setAiConsent } from '../ai';
 import { AiConsent } from './AiConsent';
 import { useScreen, useDesk, COLUMN, DIALOG } from '../screen';
+import { announce, decorative } from '../a11y';
 
 /**
  * TELL NU ANYTHING — the one way in. "Add a task" and "Say it" used to be
@@ -44,7 +45,6 @@ const WHEN = [
   { label: 'Next week', due: () => at(7, 9) },
 ];
 const HOW_LONG = [5, 15, 30, 60];
-const CORAL_ON = '#FF6B35';
 
 /** What Nu makes of the lines, given what the one line was understood as. */
 function readOf(lines: string[], u: Understood | null) {
@@ -180,16 +180,31 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
     }), 250);
   };
 
-  const Chip = ({ label, on, onPress, icon }: { label: string; on?: boolean; onPress: () => void; icon?: React.ReactNode }) => (
-    <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={({ pressed }) => ({
-        height: 34, borderRadius: 17, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 13,
-        borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
-      })}>
-      {icon}
-      <Text numberOfLines={1} style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
-    </Pressable>
-  );
+  // `open`: the chip shows or hides a row of choices; `on`: one of a row of
+  // choices (a radio); no onPress: it only says what Nu understood, so it isn't a button
+  const Chip = ({ label, on, open, onPress, icon, spoken }: {
+    label: string; on?: boolean; open?: boolean; onPress?: () => void; icon?: React.ReactNode; spoken?: string;
+  }) => {
+    const look = (pressed: boolean) => ({
+      minHeight: 34, borderRadius: 17, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 7, paddingHorizontal: 13,
+      borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
+    });
+    const inner = (
+      <>
+        {icon && <View {...decorative}>{icon}</View>}
+        <Text numberOfLines={1} style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>{label}</Text>
+      </>
+    );
+    if (!onPress) return <View accessible accessibilityLabel={spoken ?? label} style={look(false)}>{inner}</View>;
+    return (
+      <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} hitSlop={5}
+        accessibilityRole={on !== undefined ? 'radio' : 'button'} accessibilityLabel={spoken ?? label}
+        aria-checked={on} aria-expanded={open}
+        style={({ pressed }) => look(pressed)}>
+        {inner}
+      </Pressable>
+    );
+  };
 
   // Tell Nu listens as soon as it opens (v5, 7:14); Aa is for typing instead
   const insets = useSafeAreaInsets();
@@ -224,66 +239,78 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const words = text.trim().split(/\s+/).filter(Boolean);
   const tail = listening && words.length > 3 ? 2 : 0;
 
+  // what Nu says back, said aloud once it settles (not on every letter)
+  const reply = !!u?.read.reply && u.read.source === 'model' && read?.kind !== 'project' ? u.read.reply : null;
+  const question = read?.kind === 'task' && u?.type === 'unclear' && !!u.question ? u.question : null;
+  const note = read?.kind === 'project' ? 'A project. Tap ✓ and Nu plans it.' : null;
+  const says = reply ?? question ?? note;
+  useEffect(() => {
+    if (!visible || !says) return;
+    const id = setTimeout(() => announce(says.replace('✓', 'Plan it with Nu')), 900);
+    return () => clearTimeout(id);
+  }, [says, visible]);
+
   return (
     <Modal visible={visible} animationType={desk ? 'fade' : 'slide'} onRequestClose={onClose}
       transparent={desk} presentationStyle={desk ? undefined : 'fullScreen'}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={desk ? { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 } : { flex: 1, backgroundColor: t.base }}>
-      {desk && <Pressable onPress={onClose} accessibilityLabel="Close"
+      {desk && <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close"
         style={{ position: 'absolute', inset: 0, backgroundColor: t.key === 'nu' ? 'rgba(5,8,23,0.62)' : 'rgba(23,19,19,0.30)' }} />}
-      <View style={desk
+      <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={desk
         ? { width: '100%', maxWidth: DIALOG, height: Math.min(680, screen.height - 64), backgroundColor: t.base, borderRadius: 30, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden', paddingTop: 30, paddingBottom: 24, paddingHorizontal: 28 }
         : { flex: 1, width: '100%', maxWidth: COLUMN, alignSelf: 'center', backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
         {/* what you're saying or typing, as big as a headline */}
-        {/* an underline so it reads as a field before you've typed: coral while you're in it */}
-        <TextInput ref={input} value={text} onChangeText={setText} multiline
+        {/* an underline so it reads as a field before you've typed: coral while you're in it
+            (both inks strong enough to see the field by: 3:1 and up) */}
+        <TextInput ref={input} value={text} onChangeText={setText} multiline accessibilityLabel="Tell Nu"
           onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
           placeholder="Type it, or say it." placeholderTextColor={t.ink3}
           style={{ color: t.ink, fontSize: 36, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.6, maxHeight: 190, padding: 0, paddingBottom: 10 }} />
-        <View style={{ height: 2, borderRadius: 1, backgroundColor: typing ? CORAL_ON : t.strokeStrong }} />
+        <View style={{ height: 2, borderRadius: 1, backgroundColor: typing ? t.raDeep : t.ink3 }} />
 
         {/* what Nu understood */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 18 }}>
-          {!!whenText && <Chip label={whenText} on={open === 'when'} onPress={() => setOpen(o => (o === 'when' ? null : 'when'))}
+          {!!whenText && <Chip label={whenText} spoken={whenText.replace(' · ', ', ')} open={open === 'when'} onPress={() => setOpen(o => (o === 'when' ? null : 'when'))}
             icon={<Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={t.nu} strokeWidth={1.8} strokeLinecap="round"><Circle cx={12} cy={12} r={9} /><Path d="M12 7v5l3 2" /></Svg>} />}
           {!!label && <Chip label={label.name} onPress={details} icon={<LabelGlyph id={label.id} size={15} color={t.nu} />} />}
-          {!!d?.est_minutes && <Chip label={`${d.est_minutes} min`} on={open === 'long'} onPress={() => setOpen(o => (o === 'long' ? null : 'long'))} />}
-          {read?.kind === 'many' && <Chip label={`${read.drafts.length} separate things`} onPress={() => {}} />}
-          {!!words.length && !whenText && read?.kind !== 'many' && <Chip label="When?" onPress={() => setOpen(o => (o === 'when' ? null : 'when'))} />}
-          {!!words.length && <Chip label="+ Details" onPress={details} />}
+          {!!d?.est_minutes && <Chip label={`${d.est_minutes} min`} open={open === 'long'} onPress={() => setOpen(o => (o === 'long' ? null : 'long'))} />}
+          {read?.kind === 'many' && <Chip label={`${read.drafts.length} separate things`} />}
+          {!!words.length && !whenText && read?.kind !== 'many' && <Chip label="When?" open={open === 'when'} onPress={() => setOpen(o => (o === 'when' ? null : 'when'))} />}
+          {!!words.length && <Chip label="+ Details" spoken="Add details" onPress={details} />}
         </View>
         {open === 'when' && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
+          <View accessibilityRole="radiogroup" accessibilityLabel="When" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
             {WHEN.map((w, i) => <Chip key={w.label} label={w.label} on={when === i} onPress={() => { setWhen(when === i ? null : i); setOpen(null); }} />)}
           </View>
         )}
         {open === 'long' && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
+          <View accessibilityRole="radiogroup" accessibilityLabel="How long" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7 }}>
             {HOW_LONG.map(m => <Chip key={m} label={`${m} min`} on={mins === m} onPress={() => { setMins(mins === m ? null : m); setOpen(null); }} />)}
           </View>
         )}
-        {!!u?.read.reply && u.read.source === 'model' && read?.kind !== 'project' && (
-          <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 12, fontFamily: T.brand }}>{u.read.reply}</Text>
+        {!!reply && (
+          <Text accessibilityLiveRegion="polite" style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 12, fontFamily: T.brand }}>{reply}</Text>
         )}
         {/* a goal: ✓ plans it; keeping it as one task is the quiet way */}
         {read?.kind === 'project' && (
           <View style={{ marginTop: 14, gap: 8, alignItems: 'flex-start' }}>
-            <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display }}>A project. Tap ✓ and Nu plans it.</Text>
+            <Text accessibilityLabel="A project. Tap Plan it with Nu and Nu plans it." style={{ color: t.nu, fontSize: 15, fontFamily: T.display }}>{note}</Text>
             <Pressable onPress={asTask} hitSlop={8} accessibilityRole="button">
               <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand }}>Just add it as a task</Text>
             </Pressable>
           </View>
         )}
         {/* not sure what it is: one question, not a guess */}
-        {read?.kind === 'task' && u?.type === 'unclear' && !!u.question && (
-          <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display, marginTop: 14 }}>{u.question}</Text>
+        {!!question && (
+          <Text accessibilityLiveRegion="polite" style={{ color: t.nu, fontSize: 15, fontFamily: T.display, marginTop: 14 }}>{question}</Text>
         )}
 
         {/* your voice, in dots */}
-        {listening && <View style={{ marginTop: 28 }}><DotWave active width={width - (desk ? 58 : 48)} /></View>}
+        {listening && <View {...decorative} style={{ marginTop: 28 }}><DotWave active width={width - (desk ? 58 : 48)} /></View>}
 
         {/* Nu, listening — as big as the room above the buttons allows (the keyboard takes most of it) */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none"
+        <View {...decorative} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none"
           onLayout={e => setRoom(e.nativeEvent.layout.height)}>
           {nuSize >= 72 && <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: nuSize, height: nuSize, marginBottom: 10 }} />}
         </View>
@@ -292,18 +319,17 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           {dict.state !== 'unavailable' ? (
             <Pressable onPress={toggleMic} accessibilityRole="button" accessibilityLabel={listening ? 'Stop listening' : 'Say it'}
-              accessibilityState={{ selected: listening }}
               style={({ pressed }) => ({
                 width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center',
-                borderWidth: listening ? 2 : 1, borderColor: listening ? CORAL_ON : t.stroke,
+                borderWidth: listening ? 2 : 1, borderColor: listening ? t.raDeep : t.stroke,
                 backgroundColor: listening ? 'rgba(255,107,53,0.12)' : pressed ? t.subtle : t.card,
               })}>
-              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={listening ? CORAL_ON : t.nu} strokeWidth={2} strokeLinecap="round"><Path d="M9 6a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3" /></Svg>
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={listening ? t.raDeep : t.nu} strokeWidth={2} strokeLinecap="round"><Path d="M9 6a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3" /></Svg>
             </Pressable>
           ) : <View style={{ width: 54 }} />}
           <Pressable onPress={add} disabled={!read || reading} accessibilityRole="button"
             accessibilityLabel={read?.kind === 'many' ? `Add all ${read.drafts.length}` : read?.kind === 'project' ? 'Plan it with Nu' : 'Add it'}
-            accessibilityState={{ disabled: !read || reading, busy: reading }}
+            aria-disabled={!read || reading} aria-busy={reading}
             style={({ pressed }) => ({
               width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',
               backgroundColor: t.nu, opacity: read && !reading ? 1 : 0.45, transform: [{ scale: pressed ? 0.96 : 1 }],

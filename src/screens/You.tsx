@@ -12,6 +12,7 @@ import { type as T } from '../theme';
 import { Mica, IconGear, IconChevron } from '../ui';
 import { Avatar } from '../components/Avatar';
 import { READ_MAX, useDesk } from '../screen';
+import { spokenDuration } from '../a11y';
 
 /**
  * YOU, the fourth tab. A screen like the other tabs (a tab opens a place,
@@ -56,7 +57,7 @@ export default function You() {
 
         {/* you, and the gear */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 }}>
-          <Pressable onPress={() => go('/profile')} accessibilityRole="button" accessibilityLabel="Profile"
+          <Pressable onPress={() => go('/profile')} accessibilityRole="button" accessibilityLabel={`${profile.name.trim() || 'You'}, Profile`}
             style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.7 : 1 })}>
             <Avatar size={64} edge />
             <View style={{ flex: 1 }}>
@@ -83,7 +84,8 @@ export default function You() {
             <Stat big={String(week)} small="this week" />
             <View style={{ width: 1, backgroundColor: t.stroke }} />
             <Stat big={focus == null ? '0' : focus >= 60 ? `${Math.floor(focus / 60)}h` : String(focus)}
-              unit={focus != null && focus >= 60 ? (focus % 60 ? `${focus % 60}m` : '') : 'min'} small="focus this week" />
+              unit={focus != null && focus >= 60 ? (focus % 60 ? `${focus % 60}m` : '') : 'min'} small="focus this week"
+              said={`${spokenDuration((focus ?? 0) * 60)} focus this week`} />
           </View>
           <Line />
           <Row label="Everything you’ve finished" onPress={() => go('/wins')} />
@@ -107,7 +109,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   const t = useTheme();
   return (
     <View style={{ marginTop: 26 }}>
-      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8, marginLeft: 4 }}>
+      <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8, marginLeft: 4 }}>
         {title.toUpperCase()}
       </Text>
       {/* flat: a fill and a hairline */}
@@ -123,10 +125,10 @@ function Line() {
   return <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 16 }} />;
 }
 
-function Stat({ big, unit, small }: { big: string; unit?: string; small: string }) {
+function Stat({ big, unit, small, said }: { big: string; unit?: string; small: string; said?: string }) {
   const t = useTheme();
   return (
-    <View style={{ flex: 1, paddingVertical: 16, alignItems: 'center' }}>
+    <View accessible accessibilityLabel={said ?? `${big} ${small}`} style={{ flex: 1, paddingVertical: 16, alignItems: 'center' }}>
       <Text style={{ color: t.ink, fontSize: 30, letterSpacing: -1.2, fontFamily: T.displayLight }}>
         {big}{!!unit && <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 0, fontFamily: T.brand }}>{unit}</Text>}
       </Text>
@@ -138,7 +140,7 @@ function Stat({ big, unit, small }: { big: string; unit?: string; small: string 
 function Row({ label, value, onPress }: { label: string; value?: string; onPress: () => void }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button"
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label}
       style={({ pressed }) => ({
         minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
         backgroundColor: pressed ? t.subtle : 'transparent',

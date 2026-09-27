@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 /** 5×7 dots per digit; ':' is one column. */
@@ -19,8 +20,10 @@ const GLYPHS: Record<string, string[]> = {
  * DOT-MATRIX NUMBERS (guidelines/styles.md) — only where time itself is the
  * subject: the session timer and the night clock. Leading zeros can be muted.
  */
-export function DotMatrix({ text, dot = 6.2, color, muted, muteLeadingZeros }: {
+export function DotMatrix({ text, dot = 6.2, color, muted, muteLeadingZeros, label }: {
   text: string;
+  /** what a screen reader says, when the digits alone don't: "12 minutes 30 seconds left" */
+  label?: string;
   /** dot pitch, px */
   dot?: number;
   color: string;
@@ -41,9 +44,12 @@ export function DotMatrix({ text, dot = 6.2, color, muted, muteLeadingZeros }: {
     x += g[0].length + 1;
   });
   const w = Math.max(1, (x - 1) * dot);
+  // dots are a picture of the digits: a screen reader gets the digits
   return (
-    <Svg width={w} height={7 * dot}>
-      {dots.map((d, i) => <Circle key={i} cx={d.cx} cy={d.cy} r={dot * 0.38} fill={d.c} />)}
-    </Svg>
+    <View accessible accessibilityRole="text" accessibilityLabel={label ?? text}>
+      <Svg width={w} height={7 * dot}>
+        {dots.map((d, i) => <Circle key={i} cx={d.cx} cy={d.cy} r={dot * 0.38} fill={d.c} />)}
+      </Svg>
+    </View>
   );
 }

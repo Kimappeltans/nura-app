@@ -1,7 +1,8 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
+import { decorative } from '../a11y';
 
 const INK_NU = '#1B1830';
 const CORAL = '#FF6B35';
@@ -30,22 +31,33 @@ export function Knob<V>({ label, options, value, onChange, format, unit }: {
   const a = (-225 + (i / Math.max(1, options.length - 1)) * 270) * Math.PI / 180;
   const R = 42, r = 30;
   const u = unit?.(value);
+  // react-native-web ignores accessibility actions: on the web the arrow keys turn it
+  const keys = Platform.OS === 'web' ? {
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+      const d = e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1
+        : e.key === 'ArrowDown' || e.key === 'ArrowLeft' ? -1 : 0;
+      if (d) { e.preventDefault(); step(d); }
+    },
+  } : {};
   return (
     <Pressable onPress={() => step(1)} accessibilityRole="adjustable" accessibilityLabel={label}
-      accessibilityValue={{ text: `${format(value)}${u ? ` ${u}` : ''}` }}
+      aria-valuetext={`${format(value)}${u ? ` ${u}` : ''}`}
+      {...keys}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={e => step(e.nativeEvent.actionName === 'decrement' ? -1 : 1)}
       style={({ pressed }) => ({
-        flex: 1, height: 150, borderRadius: 26, padding: 16,
+        // grows with large text; the value stays anchored bottom left
+        flex: 1, minHeight: 150, borderRadius: 26, padding: 16, paddingBottom: 14,
+        justifyContent: 'flex-end',
         backgroundColor: pressed ? t.subtle : t.layer,
       })}>
-      <View style={{ position: 'absolute', right: 16, top: 16, width: R * 2, height: R * 2, borderRadius: R, backgroundColor: INK_NU }}>
+      <View {...decorative} style={{ position: 'absolute', right: 16, top: 16, width: R * 2, height: R * 2, borderRadius: R, backgroundColor: INK_NU }}>
         <View style={{
           position: 'absolute', width: 9, height: 9, borderRadius: 5, backgroundColor: CORAL,
           left: R + r * Math.cos(a) - 4.5, top: R + r * Math.sin(a) - 4.5,
         }} />
       </View>
-      <View style={{ position: 'absolute', left: 16, bottom: 14 }}>
+      <View style={{ marginTop: 69 }}>
         <Text style={{ color: t.ink, fontSize: 28, letterSpacing: -1.4, fontFamily: T.displayLight }}>
           {format(value)}
           {!!u && <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 0, fontFamily: T.brand }}> {u}</Text>}

@@ -26,9 +26,11 @@ export function HabitRow({ view, onPress, onTick }: {
   const done = doneToday && !paused;
   // the row and its tick side by side, not one inside the other (a button can't hold a button on the web)
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: t.stroke, opacity: paused ? 0.55 : 1 }}>
+    // paused sits back in a quieter ink and says so, not a fade: a faded caption can't be read
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
       <Pressable onPress={onPress} onLongPress={() => { Haptics.selectionAsync(); onPress(); }}
-        accessibilityRole="button" accessibilityLabel={name}
+        accessibilityRole="button"
+        accessibilityLabel={[name, done ? 'done today' : [v.big, v.small].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
         style={({ pressed }) => ({
           flex: 1, minWidth: 0, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12,
           opacity: pressed ? 0.7 : 1,
@@ -41,7 +43,7 @@ export function HabitRow({ view, onPress, onTick }: {
         </View>
         <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: paused ? t.ink2 : t.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{name}</Text>
         {done ? null : v.big ? (
-          <Text style={{ color: t.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
+          <Text style={{ color: paused ? t.ink2 : t.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
             {v.big}<Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}> {v.small}</Text>
           </Text>
         ) : (

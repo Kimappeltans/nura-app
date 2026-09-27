@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
 import { Mica } from '../ui';
+import { useReducedMotion, decorative } from '../a11y';
 
 const mark = require('../../assets/brand/nura-logo-tight.webp');
 
@@ -22,8 +23,11 @@ export default function Loading({ note }: { note?: string }) {
   const t = useTheme();
   const fade = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const still = useReducedMotion();
 
   useEffect(() => {
+    // Reduce Motion: the mark, there and still
+    if (still) { fade.setValue(1); pulse.setValue(0.5); return; }
     Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -31,13 +35,15 @@ export default function Loading({ note }: { note?: string }) {
     ]));
     loop.start();
     return () => loop.stop();
-  }, [fade, pulse]);
+  }, [fade, pulse, still]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Animated.View style={{
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        accessible accessibilityRole="progressbar" aria-busy
+        accessibilityLabel={note ? `Loading. ${note}` : 'Loading'}>
+        <Animated.View {...decorative} style={{
           opacity: fade,
           transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.03] }) }],
         }}>

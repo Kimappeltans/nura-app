@@ -6,6 +6,7 @@ import { useTheme } from '../store';
 import { radius, type as T } from '../theme';
 import { BUTTON } from '../ui';
 import { useDictation, say, hush, canSpeak, useSpeaking, readsAloud } from '../voice';
+import { announce } from '../a11y';
 
 /**
  * Speak into a text field. What you say lands in the field after whatever
@@ -29,17 +30,18 @@ export function MicButton({ value, onChange, label = 'Speak to Nu', compact, siz
   const { state, note, toggle } = useDictation(heard => onChange([base.current, heard].filter(Boolean).join(' ')));
   const on = state === 'listening';
   useEffect(() => { onListening?.(on); }, [on]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { announce(note); }, [note]);
   if (state === 'unavailable') return null;
   if (compact) {
     return (
       <Pressable onPress={() => { Haptics.selectionAsync(); if (!on) base.current = value.trim(); toggle(); }}
-        accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={on ? 'Stop listening' : label}
+        accessibilityRole="switch" aria-checked={on} accessibilityLabel={label}
         hitSlop={6} style={({ pressed }) => ({
           width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
           borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
           backgroundColor: on ? t.raWash : pressed ? t.subtle : 'transparent',
         })}>
-        <Svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24" fill="none" stroke={on ? t.ra : t.ink2} strokeWidth={2} strokeLinecap="round">
+        <Svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24" fill="none" stroke={on ? t.raDeep : t.ink2} strokeWidth={2} strokeLinecap="round">
           <Rect x={9} y={3} width={6} height={12} rx={3} /><Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
         </Svg>
       </Pressable>
@@ -49,7 +51,8 @@ export function MicButton({ value, onChange, label = 'Speak to Nu', compact, siz
     <View style={{ gap: 6 }}>
       <Pressable
         onPress={() => { Haptics.selectionAsync(); if (!on) base.current = value.trim(); toggle(); }}
-        accessibilityRole="button" accessibilityState={{ selected: on }}
+        // the words say what a tap does now ("Stop listening"), so no state on top
+        accessibilityRole="button"
         accessibilityLabel={on ? 'Stop listening' : label}
         style={({ pressed }) => ({
           alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -65,7 +68,7 @@ export function MicButton({ value, onChange, label = 'Speak to Nu', compact, siz
             </Svg>}
         <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{on ? 'Stop listening' : label}</Text>
       </Pressable>
-      {!!note && <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17 }}>{note}</Text>}
+      {!!note && <Text accessibilityLiveRegion="polite" style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17 }}>{note}</Text>}
     </View>
   );
 }
@@ -83,8 +86,7 @@ export function VoiceCommandButton({ listening, unavailable, onPress, label }: {
   const c = listening ? (t.key === 'ra' ? t.raDeep : t.ra) : t.ink2;
   return (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
-      accessibilityRole="button" accessibilityState={{ selected: listening }}
-      accessibilityLabel={listening ? 'Stop listening' : label}
+      accessibilityRole="switch" aria-checked={listening} accessibilityLabel={label}
       style={({ pressed }) => ({
         width: BUTTON.md.height, height: BUTTON.md.height, borderRadius: BUTTON.md.radius,
         alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
@@ -121,16 +123,18 @@ export function HearIt({ text, label = 'Hear it', auto }: { text: string; label?
         onPress={async () => {
           Haptics.selectionAsync();
           if (speaking) return hush();
-          setNone(!(await say(text)));
+          const none = !(await say(text));
+          setNone(none);
+          if (none) announce('This phone has no voice for that language, so it’s here to read instead.');
         }}
-        hitSlop={8} accessibilityRole="button"
+        hitSlop={8} accessibilityRole="button" accessibilityLabel={speaking ? 'Stop' : label}
         style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}>
         <Text style={{ color: t.key === 'ra' ? t.raDeep : t.nu, fontSize: 13.5, fontFamily: T.brand }}>
           {speaking ? '■ Stop' : `▸ ${label}`}
         </Text>
       </Pressable>
       {none && (
-        <Text style={{ color: t.ink3, fontSize: 12 }}>
+        <Text accessibilityLiveRegion="polite" style={{ color: t.ink3, fontSize: 12 }}>
           This phone has no voice for that language, so it’s here to read instead.
         </Text>
       )}

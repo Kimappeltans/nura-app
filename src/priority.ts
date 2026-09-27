@@ -16,7 +16,7 @@ import type { Task, Energy, PickRule } from './db';
 export interface Priority { n: number; name: string; color: string; onLight: string }
 
 export const PRIORITIES: Priority[] = [
-  { n: 0, name: 'None',   color: '#7E87AC', onLight: '#7B7360' },
+  { n: 0, name: 'None',   color: '#7E87AC', onLight: '#6E6654' },
   { n: 1, name: 'Low',    color: '#7FC4FF', onLight: '#0369A1' },
   { n: 2, name: 'Medium', color: '#F5D07A', onLight: '#A16207' },
   { n: 3, name: 'High',   color: '#FF8A5C', onLight: '#C2410C' },

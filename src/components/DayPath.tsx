@@ -4,6 +4,7 @@ import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop, LinearGradie
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
+import { decorative } from '../a11y';
 
 const CORAL = '#FF6B35';
 
@@ -57,9 +58,13 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
   const below = [1, 2, 3, 4, 5, 6, 7].flatMap(i => [-i * 0.018, 1 + i * 0.018]);
 
   const raSize = ended ? 104 : 66;
+  // the picture, in words: where the sun is, and what's on the calendar
+  const inView = events.map(pOf).filter(p => p >= 0 && p <= 1).length;
+  const spoken = (ended ? 'The day has ended' : `Now ${clock(minOf(Date.now()))}`)
+    + (inView ? `, ${inView} ${inView === 1 ? 'event' : 'events'} on the calendar` : '');
   return (
     <View style={style} onLayout={e => setW(e.nativeEvent.layout.width)}>
-      <View style={{ height: H }}>
+      <View style={{ height: H }} accessible accessibilityRole="image" accessibilityLabel={spoken}>
         <Svg width={W} height={H} style={{ position: 'absolute' }}>
           <Defs>
             {/* the sunrise: warm light low on the horizon, fading up the sky */}
@@ -104,13 +109,13 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8 }}>
         <Ends value={clock(pathStart)} label="Start" />
         <View style={{ alignItems: 'center' }}>
-          <Svg width={26} height={18} viewBox="-13 -16 26 18">
+          <View {...decorative}><Svg width={26} height={18} viewBox="-13 -16 26 18">
             {[0, 1, 2, 3, 4, 5, 6].map(k => {
               const a = Math.PI * k / 6;
               return <Circle key={k} cx={-Math.cos(a) * 11} cy={-Math.sin(a) * 11} r={1.6} fill={CORAL} />;
             })}
             <Circle cx={0} cy={0} r={5} fill={CORAL} />
-          </Svg>
+          </Svg></View>
           <Text style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand, marginTop: 4 }}>{done.length} done</Text>
         </View>
         <Ends value={clock(dayEndMin)} label="Day ends" right />

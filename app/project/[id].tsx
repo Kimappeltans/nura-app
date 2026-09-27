@@ -20,6 +20,7 @@ import { ActionSheet, type SheetAction } from '../../src/components/ActionSheet'
 import { PathEditor, type EditStep } from '../../src/components/PathEditor';
 import { MoveHelp } from '../../src/components/MoveHelp';
 import { HearIt } from '../../src/components/Voice';
+import { announce } from '../../src/a11y';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
 const leave = () => (goBack());
@@ -65,6 +66,10 @@ function Screen() {
   const [error, setError] = useState<{ message: string; retry: () => void } | null>(null);
   const [note, setNote] = useState('');
   const [maybeDone, setMaybeDone] = useState<string | null>(null);   // the next move's task, held while we ask
+  // Nu thinking, Nu's answer, a planner that couldn't be reached: said as they appear
+  useEffect(() => { announce(busy); }, [busy]);
+  useEffect(() => { announce(reply); }, [reply]);
+  useEffect(() => { if (error) announce(error.message); }, [error]);
 
   const load = useCallback(async () => {
     const got = id ? await getProject(id) : null;
@@ -153,12 +158,12 @@ function Screen() {
 
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, height: 48 }}>
-      <Pressable onPress={() => leave()} hitSlop={12} style={{ flex: 1, paddingVertical: 8 }}>
+      <Pressable onPress={() => leave()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ flex: 1, paddingVertical: 8 }}>
         <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
       </Pressable>
       {!after && !!data && (
         <Pressable onPress={() => { Haptics.selectionAsync(); setMenu(true); }} hitSlop={10}
-          accessibilityLabel="More" style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+          accessibilityRole="button" accessibilityLabel="More options" style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
           <Text style={{ color: t.ink2, fontSize: 18, fontFamily: T.brand }}>···</Text>
         </Pressable>
       )}
@@ -170,7 +175,7 @@ function Screen() {
       <Mica />
       {header}
       {gone && (
-        <Text style={{ color: t.ink, fontSize: 24, lineHeight: 28, fontFamily: T.display, letterSpacing: -0.8, paddingHorizontal: 20, paddingTop: 8 }}>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 24, lineHeight: 28, fontFamily: T.display, letterSpacing: -0.8, paddingHorizontal: 20, paddingTop: 8 }}>
           This project is gone.
         </Text>
       )}
@@ -180,15 +185,15 @@ function Screen() {
   const busyRow = busy && (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Character name="nu-thinking" size={44} motion="bob" />
-      <Text style={{ color: t.ink2, fontSize: 15 }}>{busy}</Text>
+      <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 15 }}>{busy}</Text>
     </View>
   );
   const errorBox = error && (
     <View style={{ gap: 6, padding: 12, borderRadius: radius.md, backgroundColor: t.subtle }}>
-      <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 20 }}>{error.message}</Text>
+      <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 14, lineHeight: 20 }}>{error.message}</Text>
       {!after && (
-        <Pressable onPress={error.retry} hitSlop={8} style={{ paddingVertical: 4 }}>
-          <Text style={{ color: t.key === 'ra' ? t.raDeep : t.ra, fontSize: 14.5, fontFamily: T.brand }}>Try again</Text>
+        <Pressable onPress={error.retry} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 4 }}>
+          <Text style={{ color: t.raDeep, fontSize: 14.5, fontFamily: T.brand }}>Try again</Text>
         </Pressable>
       )}
     </View>
@@ -205,7 +210,7 @@ function Screen() {
           <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22, gap: 14 }} keyboardShouldPersistTaps="handled">
             <Character name="ra-celebrate" size={120} motion="celebrate" style={{ alignSelf: 'center' }} />
             <Eyebrow label="A little light" />
-            <Text style={{ color: t.ink, fontSize: 32, lineHeight: 38, fontFamily: T.display, letterSpacing: -0.8 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 32, lineHeight: 38, fontFamily: T.display, letterSpacing: -0.8 }}>
               You moved it forward.
             </Text>
             <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23 }}>
@@ -237,6 +242,7 @@ function Screen() {
               <>
                 <TextInput value={note} onChangeText={setNote} multiline
                   placeholder="Anything that changes what comes next? (optional)" placeholderTextColor={t.ink3}
+                  accessibilityLabel="Anything that changes what comes next?"
                   style={{
                     color: t.ink, fontSize: 15.5, lineHeight: 21, padding: 13, minHeight: 64,
                     backgroundColor: t.card, borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
@@ -281,16 +287,17 @@ function Screen() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, gap: 18 }} keyboardShouldPersistTaps="handled">
           <View style={{ gap: 6 }}>
             <Eyebrow label="Project" tone="nu" />
-            <TextInput value={title} onChangeText={setTitle} onBlur={saveMeta} multiline
+            <TextInput value={title} onChangeText={setTitle} onBlur={saveMeta} multiline accessibilityLabel="Project title"
               style={{ color: t.ink, fontSize: 28, lineHeight: 34, fontFamily: T.display, letterSpacing: -0.6, padding: 0 }} />
             <TextInput value={doneMeans} onChangeText={setDoneMeans} onBlur={saveMeta} multiline
               placeholder="Done means… (tap to say what finished looks like)" placeholderTextColor={t.ink3}
+              accessibilityLabel="Done means"
               style={{ color: t.ink2, fontSize: 15, lineHeight: 21, padding: 0 }} />
           </View>
 
           {!!reply && (
             <View style={{ gap: 2, padding: 12, borderRadius: radius.md, backgroundColor: t.nuWash }}>
-              <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20 }}>{reply}</Text>
+              <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20 }}>{reply}</Text>
               <HearIt text={reply} auto />
             </View>
           )}
@@ -324,18 +331,19 @@ function Screen() {
           </Surface>
 
           <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>THE PATH SO FAR</Text>
+            <Text accessibilityRole="header" accessibilityLabel="The path so far" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>THE PATH SO FAR</Text>
             <PathEditor steps={steps} current={current} done={done.map(s => s.title)}
               onChange={(s, c) => { setSteps(s); setCurrent(c); setDirty(true); }} />
           </View>
 
           {!!guesses.length && (
             <View style={{ gap: 6 }}>
-              <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>NU’S GUESSES</Text>
+              <Text accessibilityRole="header" accessibilityLabel="Nu’s guesses" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>NU’S GUESSES</Text>
               {guesses.map((g, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Text style={{ flex: 1, color: t.ink2, fontSize: 14, lineHeight: 20 }}>I’m assuming: {g}</Text>
-                  <Pressable hitSlop={10} accessibilityLabel="That's wrong, remove this guess" onPress={async () => {
+                  <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="That's wrong, remove this guess"
+                    style={{ paddingHorizontal: 7, paddingVertical: 2 }} onPress={async () => {
                     await updateProject(id, { assumptions: guesses.filter((_, k) => k !== i) });
                     await load();
                   }}>

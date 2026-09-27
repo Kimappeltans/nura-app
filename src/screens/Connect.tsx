@@ -9,6 +9,7 @@ import { getFlag, setFlag } from '../db';
 import { requestPermission, setupSchedules } from '../notifications';
 import { requestCalendarPermission, hasCalendarPermission } from '../calendar';
 import { Primary, Mica, Surface, IconCalendar, IconBell, IconCheck } from '../ui';
+import { announce, decorative } from '../a11y';
 
 // tight crop — the original has ~10% invisible margin, see Welcome.tsx
 const stone = require('../../assets/brand/nura-logo-tight.webp');
@@ -77,6 +78,7 @@ export default function Connect(
     const ok = await requestCalendarPermission();
     setCal(ok ? 'connected' : 'idle');
     if (ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    announce(ok ? 'Calendar on' : 'Calendar not connected');
   };
 
   const connectNotifications = async () => {
@@ -87,6 +89,7 @@ export default function Connect(
     if (ok) await setupSchedules();
     setNotif(ok ? 'connected' : 'idle');
     if (ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    announce(ok ? 'Reminders on' : 'Reminders not connected');
   };
 
   const chooseMode = async (m: SyncMode) => {
@@ -120,10 +123,13 @@ export default function Connect(
   const ModeButton = ({ m, label, sub }: { m: SyncMode; label: string; sub: string }) => {
     const on = mode === m;
     return (
-      <Pressable onPress={() => chooseMode(m)} style={{
+      <Pressable onPress={() => chooseMode(m)}
+        accessibilityRole="radio" aria-checked={on} accessibilityLabel={`${label}. ${sub}`}
+        style={{
         flex: 1, paddingVertical: 9, paddingHorizontal: 11, borderRadius: radius.md,
         backgroundColor: on ? t.raWash : 'transparent',
-        borderWidth: 1.5, borderColor: on ? t.ra : t.stroke,
+        // the ring is the chosen one's mark: text coral, so it holds 3:1
+        borderWidth: 1.5, borderColor: on ? t.raDeep : t.stroke,
       }}>
         <Text style={{ color: on ? t.raDeep : t.ink2, fontSize: 13.5, fontFamily: T.brand }}>{label}</Text>
         <Text style={{ color: t.ink3, fontSize: 12, marginTop: 1.5, lineHeight: 15 }}>{sub}</Text>
@@ -139,7 +145,8 @@ export default function Connect(
 
         <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 12 }}>
           {!!onBack && (
-            <Pressable onPress={onBack} hitSlop={12} style={{ alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 2 }}>
+            <Pressable onPress={onBack} hitSlop={12} style={{ alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 2 }}
+              accessibilityRole="button" accessibilityLabel="Back">
               <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
             </Pressable>
           )}
@@ -153,8 +160,9 @@ export default function Connect(
               source={stone}
               style={{ position: 'absolute', left: 0, top: 0, width: 33, height: 37 }}
               resizeMode="contain"
+              {...decorative}
             />
-            <Text style={{
+            <Text accessibilityRole="header" style={{
               color: t.ink, fontSize: 28, lineHeight: 36, fontFamily: T.display,
               letterSpacing: -0.9, textAlign: 'center',
             }}>
@@ -171,7 +179,7 @@ export default function Connect(
           <ScrollView style={{ flex: 1, marginTop: 16 }} showsVerticalScrollIndicator={false}>
             {SECTIONS.map(sec => (
               <View key={sec.title} style={{ marginBottom: 18 }}>
-                <Text style={{
+                <Text accessibilityRole="header" style={{
                   color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
                   marginBottom: 6, marginLeft: 3,
                 }}>{sec.title.toUpperCase()}</Text>
@@ -186,11 +194,18 @@ export default function Connect(
                         <Pressable
                           disabled={phone || r.status === 'busy' || done}
                           onPress={r.onPress}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            r.status === 'busy' ? `${r.title}, connecting`
+                            : done ? `${r.title}, on`
+                            : phone ? `${r.title}, iPhone only. ${r.body}`
+                            : `Connect ${r.title}. ${r.body}`}
+                          aria-disabled={phone || r.status === 'busy' || done}
+                          aria-busy={r.status === 'busy'}
                           style={({ pressed }) => ({
                             flexDirection: 'row', alignItems: 'center', gap: 12,
                             paddingHorizontal: 14, paddingVertical: 13,
                             backgroundColor: pressed ? t.subtle : 'transparent',
-                            opacity: phone ? 0.72 : 1,
                           })}>
                           <View style={{
                             width: 34, height: 34, borderRadius: radius.md,
@@ -199,7 +214,8 @@ export default function Connect(
                           }}>{r.icon(t.raDeep)}</View>
 
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
+                            {/* not available here: the second ink, not a faded row (opacity took ink3 under 4.5:1) */}
+                            <Text style={{ color: phone ? t.ink2 : t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
                             <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 16.5, marginTop: 1.5 }}>{r.body}</Text>
                           </View>
 
@@ -223,7 +239,7 @@ export default function Connect(
 
                         {/* Direction, shown only once a calendar is actually on. */}
                         {r.syncable && done && (
-                          <View style={{
+                          <View accessibilityRole="radiogroup" accessibilityLabel="Calendar access" style={{
                             flexDirection: 'row', gap: 8,
                             paddingHorizontal: 14, paddingBottom: 13, paddingTop: 2,
                           }}>
@@ -246,7 +262,7 @@ export default function Connect(
           <View style={{ gap: 11, marginTop: 10 }}>
             <Primary label={anyConnected || onBack ? 'Done' : 'Continue'} tone="ra" onPress={finish} />
             {!anyConnected && !onBack && (
-              <Pressable onPress={finish} hitSlop={10}>
+              <Pressable onPress={finish} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 6, marginVertical: -6 }}>
                 <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>Skip for now</Text>
               </Pressable>
             )}

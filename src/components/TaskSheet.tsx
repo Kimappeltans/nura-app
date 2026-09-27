@@ -37,17 +37,24 @@ export function TaskSheet({ task, onClose }: { task: Task | null; onClose: () =>
     <ActionSheet visible={!!task} title={task?.title ?? ''} actions={actions} dismissLabel="Close" onDismiss={onClose}>
       {!!task && (
         <View style={{ marginTop: 14 }}>
-          <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8 }}>PRIORITY</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8 }}>PRIORITY</Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel="Priority" style={{ flexDirection: 'row', gap: 6 }}>
             {[...PRIORITIES].reverse().map(p => {
               const on = priority === p.n;
-              const c = p.n ? p.color : t.ink2;
+              // the ring in the priority's ink for this ground (the palette colour on
+              // cream was 1.3:1), the fill the light tint; on cream the word is ink,
+              // since even the priority's own ink falls under 4.5:1 on the sheet
+              const c = p.n ? (t.key === 'ra' ? p.onLight : p.color) : t.ink2;
+              const fill = p.n ? p.color : t.ink2;
+              const word = t.key === 'ra' ? t.ink : c;
               return (
-                <Pressable key={p.n} onPress={() => { setShown(p.n); setPriority(task, p.n); }} style={{
+                <Pressable key={p.n} onPress={() => { setShown(p.n); setPriority(task, p.n); }} hitSlop={4}
+                  accessibilityRole="radio" aria-checked={on} accessibilityLabel={p.name}
+                  style={{
                   flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.pill,
-                  borderWidth: 1.5, borderColor: on ? c : t.strokeStrong, backgroundColor: on ? `${c}26` : 'transparent',
+                  borderWidth: 1.5, borderColor: on ? c : t.strokeStrong, backgroundColor: on ? `${fill}26` : 'transparent',
                 }}>
-                  <Text style={{ color: on ? c : t.ink2, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{p.name}</Text>
+                  <Text style={{ color: on ? word : t.ink2, fontSize: 13.5, fontFamily: on ? T.brand : undefined }}>{p.name}</Text>
                 </Pressable>
               );
             })}

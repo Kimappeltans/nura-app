@@ -11,8 +11,10 @@ import { type as T } from '../theme';
 import { Mica, IconChevron } from '../ui';
 import { Suggestions } from '../components/Suggestions';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
+import { announce, decorative } from '../a11y';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DOW_SAID = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -118,7 +120,9 @@ export default function Calendar() {
 
   const step = (n: number) => {
     Haptics.selectionAsync();
-    setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
+    const next = new Date(cursor.getFullYear(), cursor.getMonth() + n, 1);
+    setCursor(next);
+    announce(`${MONTHS[next.getMonth()]} ${next.getFullYear()}`);
   };
 
   // a wide web window: the month fills the window's height, the picked day
@@ -149,13 +153,13 @@ export default function Calendar() {
     <>
         {/* two-tone: the month, then the year — and the arrows */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8, marginTop: 6 }}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }} accessible accessibilityRole="header" accessibilityLabel={`${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`}>
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{MONTHS[cursor.getMonth()]}</Text>
             <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{cursor.getFullYear()}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
             {(!sameDay(picked, today) || cursor.getMonth() !== today.getMonth() || cursor.getFullYear() !== today.getFullYear()) && (
-              <Pressable onPress={() => { Haptics.selectionAsync(); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); setPicked(new Date()); }}
+              <Pressable onPress={() => { Haptics.selectionAsync(); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); setPicked(new Date()); announce(`${MONTHS[today.getMonth()]} ${today.getFullYear()}`); }}
                 hitSlop={6} accessibilityRole="button"
                 style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.layer }}>
                 <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>Today</Text>
@@ -172,13 +176,13 @@ export default function Calendar() {
 
         <View style={{ flexDirection: 'row', marginTop: 22, marginBottom: 6 }}>
           {DOW.map((d, i) => (
-            <Text key={i} style={{ flex: 1, textAlign: 'center', color: t.ink3, fontSize: 12, fontFamily: T.brand }}>{d}</Text>
+            <Text key={i} accessibilityLabel={DOW_SAID[i]} style={{ flex: 1, textAlign: 'center', color: t.ink3, fontSize: 12, fontFamily: T.brand }}>{d}</Text>
           ))}
         </View>
 
         {/* a month of suns: each day's sun as big as what got done; a quiet day is just its number */}
         {/* on a wide window each week sits on a hairline, like a wall calendar */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: desk ? 0 : 8 }}>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Days" style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: desk ? 0 : 8 }}>
           {cells.map((d, i) => {
             const square = { width: `${100 / 7}%` as const, height: cell, ...(desk && { borderTopWidth: 1, borderTopColor: t.stroke }) };
             if (d === null) return <View key={i} style={square} />;
@@ -193,8 +197,8 @@ export default function Calendar() {
             const lit = isToday || (n > 0 && date.getTime() <= today.getTime());
             return (
               <Pressable key={i} onPress={() => { Haptics.selectionAsync(); setPicked(date); }}
-                accessibilityRole="button" accessibilityState={{ selected: isSel }}
-                accessibilityLabel={`${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${n ? `, ${n} done` : ''}`}
+                accessibilityRole="radio" aria-checked={isSel}
+                accessibilityLabel={`${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${isToday ? ', today' : ''}${hasItems ? ', has plans' : ''}${n ? `, ${n} done` : ''}`}
                 style={[square, { alignItems: 'center', justifyContent: 'center' }]}>
                 {lit && <MiniSun n={n} cell={cell} scale={k} />}
                 <View style={{
@@ -216,7 +220,8 @@ export default function Calendar() {
         {/* the picked day, two-tone, then its flow */}
         {desk ? (
           // two-tone, like the month beside it: the day, then what got done
-          <View style={{ marginHorizontal: 8, marginBottom: 18 }}>
+          <View style={{ marginHorizontal: 8, marginBottom: 18 }} accessible accessibilityRole="header"
+            accessibilityLabel={`${picked.toLocaleDateString(undefined, { weekday: 'long' })} ${picked.getDate()}${doneOn.get(iso(picked)) ? `, ${doneOn.get(iso(picked))} done` : ''}`}>
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
               {picked.toLocaleDateString(undefined, { weekday: 'long' })} {picked.getDate()}
             </Text>
@@ -225,7 +230,9 @@ export default function Calendar() {
             )}
           </View>
         ) : (
-          <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.8, marginHorizontal: 8, marginTop: 24, marginBottom: 8 }}>
+          <Text accessibilityRole="header"
+            accessibilityLabel={`${picked.toLocaleDateString(undefined, { weekday: 'long' })} ${picked.getDate()}${doneOn.get(iso(picked)) ? `, ${doneOn.get(iso(picked))} done` : ''}`}
+            style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.8, marginHorizontal: 8, marginTop: 24, marginBottom: 8 }}>
             {picked.toLocaleDateString(undefined, { weekday: 'long' })} {picked.getDate()}
             <Text style={{ color: t.mute ?? t.ink3 }}>{doneOn.get(iso(picked)) ? ` · ${doneOn.get(iso(picked))} done` : ''}</Text>
           </Text>
@@ -233,7 +240,10 @@ export default function Calendar() {
         <View style={{ marginHorizontal: 8, borderTopWidth: 1, borderTopColor: t.stroke }}>
           {flow.map(it => (
             <Pressable key={it.id} disabled={!it.task} onPress={() => it.task && router.push({ pathname: '/task/[id]', params: { id: it.task.id } })}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 14, height: 48, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+              // what the dot's colour says, in words: event or task, and done
+              accessibilityRole={it.task ? 'button' : 'text'}
+              accessibilityLabel={`${it.title}, ${it.timed ? new Date(it.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'any time'}, ${it.kind === 'event' ? 'event' : 'task'}${it.done ? ', done' : ''}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 48, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
               <Text style={{ width: 44, color: t.ink3, fontSize: 13, fontFamily: T.brand }}>
                 {it.timed ? new Date(it.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '') : 'any'}
               </Text>
@@ -241,7 +251,7 @@ export default function Calendar() {
                 flex: 1, color: it.done ? t.ink3 : t.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3,
                 textDecorationLine: it.done ? 'line-through' : 'none',
               }}>{it.title}</Text>
-              <View style={{
+              <View {...decorative} style={{
                 width: 12, height: 12, borderRadius: 6,
                 backgroundColor: it.kind === 'event' ? t.nu : it.done ? '#FF6B35' : 'transparent',
                 borderWidth: it.kind === 'task' && !it.done ? 2.5 : 0, borderColor: '#FF6B35',
@@ -255,11 +265,13 @@ export default function Calendar() {
         {sameDay(picked, today) && <View style={{ marginTop: 18, marginHorizontal: 2 }}><Suggestions /></View>}
 
         {picked.getTime() <= today.getTime() || sameDay(picked, today) ? (
-          <Pressable onPress={() => router.push('/retro')} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
+          <Pressable onPress={() => router.push('/retro')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Add something you did"
+            style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something you did ›</Text>
           </Pressable>
         ) : (
-          <Pressable onPress={() => useStore.setState({ telling: true, tellDay: picked.getTime() })} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
+          <Pressable onPress={() => useStore.setState({ telling: true, tellDay: picked.getTime() })} hitSlop={6} accessibilityRole="button" accessibilityLabel="Add something for this day"
+            style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something for this day ›</Text>
           </Pressable>
         )}

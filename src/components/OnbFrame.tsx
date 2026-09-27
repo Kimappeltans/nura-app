@@ -28,6 +28,7 @@ export function StepBar({ step, total = ONB_STEPS, light, force }:
   const t = useTheme(force);
   return (
     <View accessibilityRole="progressbar" accessibilityLabel={`Step ${step} of ${total}`}
+      aria-valuemin={0} aria-valuemax={total} aria-valuenow={step} aria-valuetext={`Step ${step} of ${total}`}
       style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
       {Array.from({ length: total }, (_, i) => (
         <View key={i} style={{
@@ -60,7 +61,7 @@ export function OnbFrame({ step, onBack, onSkip, skipLabel = 'Skip', title, sub,
       {/* the app sets the status bar by mode; a pinned palette needs its own */}
       {force && <StatusBar style={t.statusBar} />}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingTop: 6, height: 50 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingTop: 6, minHeight: 50 }}>
           {onBack ? (
             <Pressable onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back"
               style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
@@ -81,7 +82,7 @@ export function OnbFrame({ step, onBack, onSkip, skipLabel = 'Skip', title, sub,
 
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20 }}>
-          <Text style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
+          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
             {title}
           </Text>
           {!!sub && <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23, marginTop: 8 }}>{sub}</Text>}

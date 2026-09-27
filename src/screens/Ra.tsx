@@ -20,6 +20,7 @@ import { Handoff } from '../components/Handoff';
 import { stepForTask, type Project, type Step } from '../projects';
 import type { Energy } from '../db';
 import { STAGE, useDesk } from '../screen';
+import { decorative } from '../a11y';
 
 const at = (days: number, h: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
 /** Set a reminder: a few times, in a tap. This evening is an hour on if it's already evening. */
@@ -191,6 +192,8 @@ export default function Ra() {
     label: string; value?: string; onPress: () => void; open?: boolean; last?: boolean;
   }) => (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button"
+      accessibilityLabel={value ? `${label}, ${value}` : label}
+      aria-expanded={open}
       style={({ pressed }) => ({
         minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12,
         borderTopWidth: 1, borderTopColor: t.stroke, opacity: pressed ? 0.6 : 1,
@@ -198,7 +201,7 @@ export default function Ra() {
       })}>
       <Text style={{ flex: 1, color: t.ink, fontSize: 15.5 }}>{label}</Text>
       {!!value && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14, maxWidth: '45%' }}>{value}</Text>}
-      {open !== undefined && <Text style={{ color: t.ink3, fontSize: 14 }}>{open ? '▴' : '▾'}</Text>}
+      {open !== undefined && <View {...decorative}><Text style={{ color: t.ink3, fontSize: 14 }}>{open ? '▴' : '▾'}</Text></View>}
     </Pressable>
   );
 
@@ -229,10 +232,10 @@ export default function Ra() {
       <Mica />
       {/* the way out, top left; Ra's tile on the right (guidelines, rule 6) */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: desk ? 32 : 24, paddingTop: desk ? 24 : 8, height: desk ? 72 : 56 }}>
-        <Pressable onPress={back} hitSlop={14} accessibilityRole="button">
+        <Pressable onPress={back} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back to Everything">
           <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>← Everything</Text>
         </Pressable>
-        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <View {...decorative} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <Image source={poseImage('ra-icon')} style={{ width: 42, height: 42, marginTop: 5 }} resizeMode="contain" />
         </View>
       </View>
@@ -241,12 +244,14 @@ export default function Ra() {
         desk && { width: '100%', maxWidth: STAGE + 48, alignSelf: 'center', justifyContent: 'center', paddingTop: 24, paddingBottom: 96 }]}>
         {!now && sugs.length ? (
           <View style={{ gap: 12 }}>
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
               What feels doable now?
             </Text>
             {sugs.map(sg => (
               <Pressable key={sg.taskId}
                 onPress={async () => { Haptics.selectionAsync(); await focusOn(sg.task.id); }}
+                accessibilityRole="button"
+                accessibilityLabel={[sg.task.title, (sg.suggestedMinutes ?? sg.task.est_minutes) ? `about ${sg.suggestedMinutes ?? sg.task.est_minutes} min` : null, sg.reason].filter(Boolean).join(', ')}
                 style={({ pressed }) => ({
                   borderRadius: 22, padding: 16, gap: 4,
                   backgroundColor: pressed ? t.subtle : t.card, borderWidth: 1, borderColor: t.stroke,
@@ -263,13 +268,13 @@ export default function Ra() {
           </View>
         ) : !now ? (
           <View style={{ gap: 10 }}>
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{copy.emptyTitle}</Text>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{copy.emptyTitle}</Text>
             <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{copy.emptyBody}</Text>
           </View>
         ) : resume ? (
           <View style={{ gap: 14 }}>
             <Character name="ra-rest" size={120} motion="none" style={{ alignSelf: 'center' }} />
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
               {now.title}
             </Text>
             {!!resume.crumb.note && (
@@ -285,17 +290,19 @@ export default function Ra() {
                 logEvent('resumed', now.id);
                 router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
               }} />
-              <Pressable hitSlop={8} onPress={async () => {
+              <Pressable hitSlop={8} accessibilityRole="button" onPress={async () => {
                 await clearCrumbs(now.id); await refresh();
                 router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
               }}><Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.display }}>Start it fresh</Text></Pressable>
-              <Pressable hitSlop={8} onPress={later}><Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>Not now</Text></Pressable>
+              <Pressable hitSlop={8} accessibilityRole="button" onPress={later}><Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>Not now</Text></Pressable>
             </View>
           </View>
         ) : (
           <View>
             {/* the one thing, two-tone: the task, then how long */}
-            <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
+            <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={nowMins ? `${now.title}, about ${nowMins} min` : proj ? `${now.title}, ${proj.project.title}` : now.title}>
               <Text style={{ color: t.ink, ...big, fontFamily: T.display }}>{now.title}</Text>
               {(!!nowMins || !!proj) && (
                 <Text style={{ color: t.mute ?? t.ink3, ...big, fontFamily: T.display }}>
@@ -316,7 +323,7 @@ export default function Ra() {
             </View>
 
             <View style={{ alignItems: 'center', gap: 22, marginTop: 36 }}>
-              <BigCircle label={timerMins ? `Begin · ${timerMins}` : 'Begin'} onPress={begin} />
+              <BigCircle label={timerMins ? `Begin · ${timerMins}` : 'Begin'} said={timerMins ? `Begin, ${timerMins} min` : 'Begin'} onPress={begin} />
               <Pressable onPress={() => { Haptics.selectionAsync(); setOptions(true); }} hitSlop={10} accessibilityRole="button">
                 <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.display }}>More options</Text>
               </Pressable>
@@ -344,7 +351,7 @@ export default function Ra() {
             {reminding && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 14 }}>
                 {REMIND_AT.map(r => (
-                  <Pressable key={r.label} onPress={() => { setOptions(false); remind(r.at()); }} accessibilityRole="button"
+                  <Pressable key={r.label} onPress={() => { setOptions(false); remind(r.at()); }} accessibilityRole="button" hitSlop={{ top: 4, bottom: 4 }}
                     style={({ pressed }) => ({
                       paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1,
                       borderColor: t.strokeStrong, backgroundColor: pressed ? t.subtle : 'transparent',
@@ -366,7 +373,7 @@ export default function Ra() {
               }} />
             </View>
           )}
-          <Primary label={timerMins ? `Begin · ${timerMins} min` : 'Begin'} tone="ra"
+          <Primary label={timerMins ? `Begin · ${timerMins} min` : 'Begin'} accessibilityLabel={timerMins ? `Begin, ${timerMins} min` : 'Begin'} tone="ra"
             onPress={() => { setOptions(false); begin(); }} style={{ marginTop: 10 }} />
         </Sheet>
       )}
@@ -375,12 +382,13 @@ export default function Ra() {
 }
 
 /** The one action (guidelines/components/overview.md): a coral circle. */
-function BigCircle({ label, onPress }: { label: string; onPress: () => void }) {
+function BigCircle({ label, said, onPress }: { label: string; said?: string; onPress: () => void }) {
   return (
     <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
-      accessibilityRole="button" accessibilityLabel={label}
+      accessibilityRole="button" accessibilityLabel={said ?? label}
+      // at least a circle; bigger text grows it rather than spilling out
       style={({ pressed }) => ({
-        width: 124, height: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center',
+        minWidth: 124, minHeight: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center',
         backgroundColor: '#FF6B35', transform: [{ scale: pressed ? 0.96 : 1 }], paddingHorizontal: 10,
       })}>
       <Text style={{ color: '#3B1204', fontSize: 18, fontFamily: T.display, textAlign: 'center' }}>{label}</Text>

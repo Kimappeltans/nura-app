@@ -31,7 +31,7 @@ function Wins() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flex: 1, padding: 20, gap: 14 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 4 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to Everything" style={{ paddingVertical: 4, alignSelf: 'flex-start' }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Everything</Text>
         </Pressable>
 
@@ -68,12 +68,12 @@ function Wins() {
         </Card>
 
         <Card>
-          <Text style={{ color: t.ink3, fontSize: 13, marginBottom: 10 }}>Last 7 days</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 13, marginBottom: 10 }}>Last 7 days</Text>
           <WeekBars data={grid.slice(-7).map(d => ({ label: weekdayLetter(d.day), value: d.n }))} />
         </Card>
 
         <View>
-          <Text style={{ color: t.ink3, fontSize: 13, marginBottom: 8 }}>Last 6 months</Text>
+          <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 13, marginBottom: 8 }}>Last 6 months</Text>
           {/* gaps read as a pattern, not as failure */}
           <ContributionGrid grid={grid} months={6} />
         </View>
@@ -82,11 +82,13 @@ function Wins() {
           <FlatList
             data={wins} keyExtractor={i => i.id} showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <View style={{
+              <View accessible
+                accessibilityLabel={`${item.title}, done${item.completed_at ? ` at ${new Date(item.completed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`}
+                style={{
                 flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 12,
                 borderBottomWidth: 1, borderBottomColor: t.stroke,
               }}>
-                <Text style={{ color: t.ra, fontSize: 15 }}>✓</Text>
+                <Text style={{ color: t.raDeep, fontSize: 15 }}>✓</Text>
                 <Text style={{ color: t.ink2, fontSize: 14.5, flex: 1 }} numberOfLines={1}>{item.title}</Text>
                 <Text style={{ color: t.ink3, fontSize: 12 }}>
                   {item.completed_at

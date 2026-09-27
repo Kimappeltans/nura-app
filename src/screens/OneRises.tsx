@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Easing, AccessibilityInfo, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, Animated, Easing, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -8,6 +8,7 @@ import { Primary, Character } from '../ui';
 import type { Task } from '../db';
 import { StepBar } from '../components/OnbFrame';
 import { screenSize, useDesk, STAGE } from '../screen';
+import { useReducedMotion, announce, decorative } from '../a11y';
 
 /**
  * "Everything sinks. One thing rises." — shown, with your own tasks.
@@ -34,7 +35,7 @@ function Sinker({ title, left, delay, depth, instant }:
   { title: string; left: number; delay: number; depth: number; instant: boolean }) {
   const v = useRef(new Animated.Value(instant ? 1 : 0)).current;
   useEffect(() => {
-    if (instant) return;
+    if (instant) { v.stopAnimation(); v.setValue(1); return; }
     Animated.sequence([
       Animated.delay(delay),
       Animated.timing(v, { toValue: 1, duration: SINK_MS, easing: Easing.in(Easing.quad), useNativeDriver: true }),
@@ -61,11 +62,14 @@ function Sinker({ title, left, delay, depth, instant }:
 }
 
 /** Two horizon waves, parallax by speed — a static illustration would read as
- *  a photo of water; a slow, looping drift reads as water. */
+ *  a photo of water; a slow, looping drift reads as water. With Reduce Motion
+ *  on they hold still. */
 function Waves({ width }: { width: number }) {
   const a = useRef(new Animated.Value(0)).current;
   const b = useRef(new Animated.Value(0)).current;
+  const still = useReducedMotion();
   useEffect(() => {
+    if (still) { a.setValue(0); b.setValue(0); return; }
     const run = (v: Animated.Value, ms: number) => Animated.loop(Animated.sequence([
       Animated.timing(v, { toValue: -width, duration: ms, easing: Easing.linear, useNativeDriver: true }),
       Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }),
@@ -73,10 +77,10 @@ function Waves({ width }: { width: number }) {
     const l1 = run(a, 9000), l2 = run(b, 15000);
     l1.start(); l2.start();
     return () => { l1.stop(); l2.stop(); };
-  }, [a, b, width]);
+  }, [a, b, width, still]);
   const wave = `M0 30 Q ${width * 0.125} 12 ${width * 0.25} 30 T ${width * 0.5} 30 T ${width * 0.75} 30 T ${width} 30 V 60 H 0 Z`;
   return (
-    <View style={{ height: 56, overflow: 'hidden' }} pointerEvents="none">
+    <View style={{ height: 56, overflow: 'hidden' }} pointerEvents="none" {...decorative}>
       <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: a }] }}>
         {[0, 1].map(i => <Svg key={i} width={width} height={56}><Path d={wave} fill="rgba(34,48,124,0.85)" /></Svg>)}
       </Animated.View>
@@ -102,30 +106,32 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
   const desk = useDesk();
   const full = desk ? winW : W;
   const stage = desk ? { width: '100%', maxWidth: STAGE, alignSelf: 'center' } as const : null;
-  const [instant, setInstant] = useState(false);
-  const sun = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(0)).current;
+  const reduce = useReducedMotion();
+  const [instant, setInstant] = useState(reduce);
+  const sun = useRef(new Animated.Value(reduce ? 1 : 0)).current;
+  const rise = useRef(new Animated.Value(reduce ? 1 : 0)).current;
   const sinking = tasks.slice(0, LANES.length);
   const riseAt = STAGGER_MS * Math.max(0, sinking.length - 1) + SINK_MS - 200;
 
   useEffect(() => {
-    let dead = false;
-    AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
-      if (dead) return;
-      if (reduce) { setInstant(true); sun.setValue(1); rise.setValue(1); return; }
-      Animated.sequence([
-        Animated.delay(riseAt),
-        Animated.parallel([
-          Animated.timing(sun, { toValue: 1, duration: 1300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          Animated.sequence([
-            Animated.delay(350),
-            Animated.spring(rise, { toValue: 1, friction: 7, tension: 45, useNativeDriver: true }),
-          ]),
+    // Reduce Motion (even switched on mid-way): the end of the story, still
+    if (reduce) { setInstant(true); sun.stopAnimation(); rise.stopAnimation(); sun.setValue(1); rise.setValue(1); return; }
+    if (instant) return;
+    const play = Animated.sequence([
+      Animated.delay(riseAt),
+      Animated.parallel([
+        Animated.timing(sun, { toValue: 1, duration: 1300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.sequence([
+          Animated.delay(350),
+          Animated.spring(rise, { toValue: 1, friction: 7, tension: 45, useNativeDriver: true }),
         ]),
-      ]).start();
-    });
-    return () => { dead = true; };
-  }, [sun, rise, riseAt]);
+      ]),
+    ]);
+    play.start();
+    return () => play.stop();
+  }, [sun, rise, riseAt, reduce]);
+
+  const choose = (o: Task) => { setChosen(o); announce(`Your pick: ${o.title}`); };
 
   const insets = useSafeAreaInsets();
   // one size for both, a little smaller on short phones
@@ -138,7 +144,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
         style={{ position: 'absolute', inset: 0 }} />
 
       {/* everything you just put down, sinking */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: (full - W) / 2, width: W }}>
+      <View pointerEvents="none" {...decorative} style={{ position: 'absolute', top: 0, bottom: 0, left: (full - W) / 2, width: W }}>
         {sinking.map((task, i) => (
           <Sinker key={task.id} title={task.title} left={LANES[i]} depth={depth}
             delay={i * STAGGER_MS} instant={instant} />
@@ -147,7 +153,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
 
       <View style={[{ paddingTop: insets.top + 12, paddingHorizontal: 26 }, stage]}>
         <View style={{ flexDirection: 'row' }}><StepBar step={4} light /></View>
-        <Text style={{
+        <Text accessibilityRole="header" style={{
           color: '#FFF3EA', fontSize: 30, lineHeight: 36, fontFamily: T.display,
           letterSpacing: -0.7, marginTop: 22,
         }}>Everything sinks.{'\n'}One thing rises.</Text>
@@ -158,7 +164,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
           screen height, so a long title pushed the choices under Nu and Ra. */}
       <View style={{ flex: 1, paddingTop: 76 }}>
         {/* the sun, rising once, just above the card */}
-        <Animated.View pointerEvents="none" style={{
+        <Animated.View pointerEvents="none" {...decorative} style={{
           position: 'absolute', left: full / 2 - 70, top: 0, width: 140, height: 140, borderRadius: 70,
           opacity: sun,
           transform: [{ translateY: sun.interpolate({ inputRange: [0, 1], outputRange: [110, 0] }) }],
@@ -189,13 +195,23 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
               row that scrolls sideways, so it never grows into the figures */}
           {!!others.length && (
             <View style={{ marginTop: 14, gap: 8 }}>
-              <Text style={{ color: '#FFE3CE', fontSize: 13.5, marginHorizontal: 22 }}>Or pick another:</Text>
+              {/* on a navy veil, like the chips: the sky behind this row can be
+                  its brightest coral, where cream text alone fell to 1.9:1 */}
+              <View style={{
+                alignSelf: 'flex-start', marginHorizontal: 22, paddingHorizontal: 10, paddingVertical: 3,
+                borderRadius: radius.pill, backgroundColor: 'rgba(8,13,36,0.45)',
+              }}>
+                <Text style={{ color: '#FFE3CE', fontSize: 13.5 }}>Or pick another:</Text>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 8, paddingHorizontal: 22 }}>
                 {others.map(o => (
-                  <Pressable key={o.id} onPress={() => setChosen(o)} style={{
+                  <Pressable key={o.id} onPress={() => choose(o)}
+                    accessibilityRole="button" accessibilityLabel={o.title}
+                    style={{
+                    minHeight: 44, justifyContent: 'center',
                     paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill,
-                    backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+                    backgroundColor: 'rgba(8,13,36,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
                   }}>
                     <Text numberOfLines={1} style={{ color: '#FFF3EA', fontSize: 13.5, maxWidth: 220 }}>{o.title}</Text>
                   </Pressable>
@@ -216,7 +232,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
           style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: insets.bottom + 12, gap: 14 }}>
           <View style={[{ gap: 14 }, stage]}>
             <Primary label="Start" tone="ra" onPress={() => onStart(chosen)} />
-            <Pressable onPress={onEverything} hitSlop={10}>
+            <Pressable onPress={onEverything} hitSlop={10} accessibilityRole="button">
               <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>
             </Pressable>
           </View>

@@ -7,6 +7,7 @@ import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
 import { useAuthActions, useConfirmWait } from '../useAuthActions';
 import { AppleGlyph, GoogleGlyph, Legal } from './Auth';
+import { announce } from '../a11y';
 
 /**
  * "Create your profile" — onboarding step 3, straight after the brain dump.
@@ -53,6 +54,7 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
   const [pending, setPending] = useState<{ email: string; password: string } | null>(null);
   const [sent, setSent] = useState(false);
   const session = useStore(s => s.session);
+  useEffect(() => { announce(formError); }, [formError]);
 
   // the link opened: signed in, so onboarding carries on where it was (once)
   const went = useRef(false);
@@ -83,7 +85,8 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
     color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
     backgroundColor: t.card, borderRadius: radius.lg,
     borderWidth: 1, borderColor: t.strokeStrong,
-    borderBottomWidth: 2, borderBottomColor: focused === id ? t.ra : t.strokeStrong,
+    // the bottom edge is what marks it as a field: ink3 at rest (5.3:1), text coral on focus
+    borderBottomWidth: 2, borderBottomColor: focused === id ? t.raDeep : t.ink3,
   } as const);
   const on = (id: string) => ({ onFocus: () => setFocused(id), onBlur: () => setFocused(null) });
 
@@ -91,7 +94,8 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
   const Social = ({ id, label, glyph, onPress, black }: {
     id: string; label: string; glyph: React.ReactNode; onPress: () => void; black?: boolean;
   }) => (
-    <Pressable onPress={onPress} disabled={!!busy} accessibilityRole="button"
+    <Pressable onPress={onPress} disabled={!!busy} accessibilityRole="button" accessibilityLabel={label}
+      aria-disabled={!!busy} aria-busy={busy === id}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
         paddingVertical: 16, borderRadius: radius.lg,
@@ -120,7 +124,7 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
         <View style={{ flex: 1, gap: 8, marginTop: 18 }}>
           <Text style={{ color: t.ink, fontSize: 17, lineHeight: 23, fontFamily: T.brand }}>{pending.email}</Text>
           <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23 }}>Open the link in the email to finish.</Text>
-          {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19, marginTop: 6 }}>{formError}</Text>}
+          {!!formError && <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 14, lineHeight: 19, marginTop: 6 }}>{formError}</Text>}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 'auto', paddingTop: 26 }}>
             <Character name="nu-idle" size={176} />
             <Character name="ra-wave" size={176} />
@@ -167,24 +171,29 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
             {creating && (
               <TextInput autoFocus value={name} onChangeText={setName} {...on('name')}
                 placeholder="Your first name" placeholderTextColor={t.ink3}
+                accessibilityLabel="First name" textContentType="givenName"
                 autoCapitalize="words" autoComplete="given-name" returnKeyType="next" style={field('name')} />
             )}
             <TextInput autoFocus={!creating} value={email} onChangeText={setEmail} {...on('email')}
               placeholder="you@example.com" placeholderTextColor={t.ink3}
+              accessibilityLabel="Email" textContentType="emailAddress"
               keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next"
               style={field('email')} />
             <TextInput value={password} onChangeText={setPassword} {...on('password')}
               placeholder={creating ? 'Password (8 or more characters)' : 'Password'} placeholderTextColor={t.ink3}
+              accessibilityLabel={creating ? 'Password, 8 or more characters' : 'Password'}
+              textContentType={creating ? 'newPassword' : 'password'}
               secureTextEntry autoCapitalize="none" autoComplete={creating ? 'new-password' : 'current-password'}
               returnKeyType={creating ? 'next' : 'go'} onSubmitEditing={creating ? undefined : submit}
               style={field('password')} />
             {creating && (
               <TextInput value={confirm} onChangeText={setConfirm} {...on('confirm')}
                 placeholder="Password again" placeholderTextColor={t.ink3}
+                accessibilityLabel="Password again" textContentType="newPassword"
                 secureTextEntry autoCapitalize="none" autoComplete="new-password"
                 returnKeyType="go" onSubmitEditing={submit} style={field('confirm')} />
             )}
-            {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
+            {!!formError && <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 14, lineHeight: 19 }}>{formError}</Text>}
           </View>
         )}
       </OnbFrame>

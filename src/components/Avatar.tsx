@@ -5,6 +5,7 @@ import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage, IconPencil, IconPhoto, IconCheck } from '../ui';
 import { notify } from '../notify';
+import { decorative } from '../a11y';
 import { AVATAR_POSES, DEFAULT_LOOK, accountPhoto, forgetPhoto, initialsOf, lookFor, pickPhoto, type Look } from '../avatar';
 
 /**
@@ -21,8 +22,9 @@ export function Avatar({ size, ring, edge, look }: { size: number; ring?: boolea
   const [broken, setBroken] = useState<string | null>(null);
   const given = look ?? mine;
   const l = given.kind === 'photo' && given.uri === broken ? DEFAULT_LOOK : given;
+  // a picture only: wherever it sits, the button or row around it says what it is
   return (
-    <View style={{
+    <View {...decorative} style={{
       width: size, height: size, borderRadius: size / 2, overflow: 'hidden',
       alignItems: 'center', justifyContent: 'center', backgroundColor: t.layer,
       borderWidth: ring ? 1.5 : edge ? 1 : 0, borderColor: ring ? t.ink : t.strokeStrong,
@@ -57,6 +59,12 @@ export function AvatarButton({ size, onPress }: { size: number; onPress: () => v
     </Pressable>
   );
 }
+
+/** Eight poses, eight names, so a screen reader can tell them apart. */
+const POSE_NAMES: Record<string, string> = {
+  'ra-icon': 'Ra', 'ra-hello': 'Ra waving', 'ra-sun': 'Ra as the sun', 'ra-rest': 'Ra resting',
+  'nu-hello': 'Nu waving', 'nu-listen': 'Nu listening', 'nu-hold': 'Nu holding', 'nu-thinking': 'Nu thinking',
+};
 
 /**
  * Choosing the picture: a photo from your library, the account's photo, your
@@ -93,7 +101,8 @@ export function AvatarPicker() {
   };
 
   const Choice = ({ glyph, label, on, onPress, last }: { glyph: React.ReactNode; label: string; on?: boolean; onPress: () => void; last?: boolean }) => (
-    <Pressable onPress={onPress} disabled={picking} accessibilityRole="button" accessibilityState={{ selected: !!on }}
+    <Pressable onPress={onPress} disabled={picking}
+      {...(on === undefined ? { accessibilityRole: 'button' as const } : { accessibilityRole: 'radio' as const, 'aria-checked': on })}
       style={({ pressed }) => ({
         minHeight: 56, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
         borderBottomWidth: last ? 0 : 1, borderBottomColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
@@ -122,14 +131,16 @@ export function AvatarPicker() {
       </View>
 
       <View>
-        <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 10, marginLeft: 4 }}>NU AND RA</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 }}>
+        <Text accessibilityRole="header" accessibilityLabel="Nu and Ra"
+          style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 10, marginLeft: 4 }}>NU AND RA</Text>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Nu and Ra"
+          style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 }}>
           {AVATAR_POSES.map(pose => {
             const on = shown.kind === 'pose' && shown.pose === pose;
             return (
               <Pressable key={pose} onPress={() => choose(pose === 'ra-icon' && !account ? '' : `pose:${pose}`)}
-                accessibilityRole="button" accessibilityState={{ selected: on }}
-                accessibilityLabel={pose.startsWith('nu') ? 'Nu' : 'Ra'}
+                accessibilityRole="radio" aria-checked={on}
+                accessibilityLabel={POSE_NAMES[pose] ?? (pose.startsWith('nu') ? 'Nu' : 'Ra')}
                 style={({ pressed }) => ({
                   width: '22%', aspectRatio: 1, borderRadius: 999, overflow: 'hidden',
                   alignItems: 'center', justifyContent: 'center',

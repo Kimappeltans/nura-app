@@ -11,6 +11,7 @@ import { Mica, Surface, Eyebrow, IconClock, IconCalendar } from '../ui';
 import { RoomBar } from '../components/RoomBar';
 import { LabelTile } from '../components/LabelIcon';
 import { praiseFor } from '../components/ActivityCard';
+import { decorative } from '../a11y';
 
 const clock = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -65,7 +66,8 @@ export default function Tide({ room }: { room?: boolean }) {
       <Mica />
       {room ? <RoomBar title="Your day" who="ra" /> : (
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}>
+          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 10 }}
+            accessibilityRole="button" accessibilityLabel="Back to Today">
             <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
           </Pressable>
         </View>
@@ -76,13 +78,14 @@ export default function Tide({ room }: { room?: boolean }) {
         {room ? (
           // as a room: its name, with what has risen on the right
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 4 }}>
-            <Text style={{ color: t.ink, fontSize: 25, lineHeight: 30, fontFamily: T.display, letterSpacing: -0.8 }}>Your day</Text>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 25, lineHeight: 30, fontFamily: T.display, letterSpacing: -0.8 }}>Your day</Text>
             <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display }}>
               {above.length} <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>risen</Text>
             </Text>
           </View>
         ) : (
-          <Text style={{ color: t.ink, fontSize: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 6 }}>
+          <Text accessibilityRole="header" accessibilityLabel={`${above.length} risen, ${below.length} still in the water`}
+            style={{ color: t.ink, fontSize: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 6 }}>
             {receipt}
           </Text>
         )}
@@ -99,7 +102,7 @@ export default function Tide({ room }: { room?: boolean }) {
 
         {!!above.length && (
           <>
-            <Text style={{
+            <Text accessibilityRole="header" style={{
               color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand,
               marginTop: 24, marginBottom: 8, marginLeft: 4,
             }}>ABOVE THE SURFACE</Text>
@@ -111,7 +114,7 @@ export default function Tide({ room }: { room?: boolean }) {
                     <LabelTile id={w.label} />
                     <View style={{ flex: 1 }}>
                       <Text numberOfLines={1} style={{ color: t.ink, fontSize: 15.5 }}>{w.title}</Text>
-                      <Text style={{ color: t.ra, fontSize: 12.5, marginTop: 1 }}>{praiseFor(w.id)}</Text>
+                      <Text style={{ color: t.raDeep, fontSize: 12.5, marginTop: 1 }}>{praiseFor(w.id)}</Text>
                     </View>
                     {!!w.completed_at && (
                       <Text style={{ color: t.ink3, fontSize: 12.5 }}>{clock(w.completed_at)}</Text>
@@ -123,12 +126,12 @@ export default function Tide({ room }: { room?: boolean }) {
           </>
         )}
 
-        <Text style={{
+        <Text accessibilityLabel={`Now, ${clock(Date.now())}`} style={{
           color: t.ink3, fontSize: 9.5, letterSpacing: 2, fontFamily: T.brand,
           marginTop: 22, marginBottom: 8, marginLeft: 4,
         }}>NOW · {clock(Date.now())}</Text>
 
-        <Text style={{
+        <Text accessibilityRole="header" accessibilityLabel={`Still below, ${below.length}`} style={{
           color: t.ink3, fontSize: 12, letterSpacing: 1.8, fontFamily: T.brand, marginBottom: 8, marginLeft: 4,
         }}>STILL BELOW · {below.length}</Text>
         {!below.length ? (
@@ -156,8 +159,10 @@ export default function Tide({ room }: { room?: boolean }) {
                 ) : (
                   <Pressable
                     onPress={() => router.push({ pathname: '/task/[id]', params: { id: it.task.id } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={it.task.due_at && it.task.has_time ? `${it.task.title}, ${clock(it.task.due_at)}` : it.task.title}
                     style={({ pressed }) => ({
-                      flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+                      flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 44,
                       backgroundColor: pressed ? t.subtle : 'transparent',
                     })}>
                     <LabelTile id={it.task.label} />
@@ -190,7 +195,10 @@ export default function Tide({ room }: { room?: boolean }) {
                   ? 'Nothing here needs cutting. One pass through it anyway if you’d rather sort it than sit with it.'
                   : 'Nothing here is late. There’s just more than fits before the day winds down. One pass through the backlog and it will.'}
               </Text>
-              <Pressable onPress={() => router.push('/triage')} style={{ marginTop: 12, alignSelf: 'flex-start' }}>
+              {/* padded to a full target; the negative margins keep it where it sat */}
+              <Pressable onPress={() => router.push('/triage')} accessibilityRole="button"
+                accessibilityLabel={cap.fits ? 'Go through them anyway' : 'Sort it in one pass'}
+                style={{ marginTop: 2, marginBottom: -10, paddingVertical: 10, alignSelf: 'flex-start' }}>
                 <Text style={{ color: cap.fits ? t.nu : t.raDeep, fontSize: 14, fontFamily: T.brand }}>
                   {cap.fits ? 'Go through them anyway →' : 'Sort it in one pass →'}
                 </Text>
@@ -202,7 +210,8 @@ export default function Tide({ room }: { room?: boolean }) {
               <Text style={{ color: t.ink2, fontSize: 13.5, fontFamily: T.brand, marginBottom: 10 }}>
                 What will fit · until {clock(new Date().setHours(0, dayEndMin, 0, 0))}
               </Text>
-              <View style={{ flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: t.track }}>
+              {/* the bar is the legend below, drawn to scale */}
+              <View {...decorative} style={{ flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: t.track }}>
                 {cap.bookedMin > 0 && (
                   <View style={{ flex: cap.bookedMin, backgroundColor: t.nu }} />
                 )}

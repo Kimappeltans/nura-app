@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
+import { announce, decorative, spokenDuration } from '../a11y';
 
 const CORAL = '#FF6B35';
 
@@ -28,27 +29,46 @@ export function LivePill() {
     const id = setInterval(() => setTick(n => n + 1), 1000);
     return () => clearInterval(id);
   }, [running?.id, running?.pausedAt]);
+
+  const at = running ? running.pausedAt ?? Date.now() : 0;
+  const left = running?.endAt ? Math.max(0, Math.round((running.endAt - at) / 1000)) : null;
+  // a screen reader hears the pill change state, not every second of it
+  const state = !running ? null : running.pausedAt ? 'paused' : left === 0 ? 'up' : 'running';
+  const seen = useRef<{ id: string; state: string } | null>(null);
+  useEffect(() => {
+    if (!running || !state) { seen.current = null; return; }
+    const prev = seen.current;
+    seen.current = { id: String(running.id), state };
+    if (!prev) return;                                   // already running when it appeared
+    if (prev.id !== String(running.id)) announce(`${running.title} started`);
+    else if (prev.state === state) return;
+    else if (state === 'paused') announce('Paused');
+    else if (state === 'up') announce(`Time’s up: ${running.title}`);
+    else announce('Resumed');
+  }, [running?.id, state]);                              // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!running) return null;
 
-  const at = running.pausedAt ?? Date.now();
-  const left = running.endAt ? Math.max(0, Math.round((running.endAt - at) / 1000)) : null;
   const elapsed = Math.max(0, Math.round((at - running.startedAt) / 1000));
   const progress = running.endAt ? Math.min(1, 1 - (left ?? 0) / Math.max(1, running.span)) : Math.min(1, elapsed / (25 * 60));
   const line = running.pausedAt ? 'Paused'
     : left === 0 ? 'Time’s up'
     : left != null ? `${mmss(left)} left` : `${mmss(elapsed)} so far`;
+  const spoken = running.pausedAt ? 'Paused'
+    : left === 0 ? 'Time’s up'
+    : left != null ? `${spokenDuration(left)} left` : `${spokenDuration(elapsed)} so far`;
   const dark = t.key === 'nu';
   const C = 2 * Math.PI * 20;
 
   return (
     <View style={{
-      height: 62, borderRadius: 31, flexDirection: 'row', alignItems: 'center', paddingRight: 8, marginBottom: 10,
+      minHeight: 62, borderRadius: 31, flexDirection: 'row', alignItems: 'center', paddingRight: 8, marginBottom: 10,
       backgroundColor: dark ? '#1E2652' : '#1B1830', borderWidth: 1, borderColor: dark ? t.stroke : 'transparent',
     }}>
     <Pressable onPress={() => router.push({ pathname: '/timer', params: { id: running.id, mins: String(running.endAt ? Math.round(running.span / 60) : 0) } })}
-      accessibilityRole="button" accessibilityLabel={`${running.title}, ${line}. Back to the session`}
+      accessibilityRole="button" accessibilityLabel={`${running.title}, ${spoken}. Back to the session`}
       style={({ pressed }) => ({ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 8, paddingRight: 12, opacity: pressed ? 0.85 : 1 })}>
-      <View style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
+      <View {...decorative} style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
         <Svg width={46} height={46} style={{ position: 'absolute' }}>
           <Circle cx={23} cy={23} r={20} fill="none" stroke="rgba(242,244,251,0.16)" strokeWidth={3} />
           <Circle cx={23} cy={23} r={20} fill="none" stroke={CORAL} strokeWidth={3} strokeLinecap="round"

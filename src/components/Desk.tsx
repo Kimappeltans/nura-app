@@ -23,13 +23,11 @@ const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 // The web only: a readable column's screen draws its own ground, which would
 // stop at the column's edge; the page around it draws the ground and the glow
-// instead, across the window. And the sidebar's rows show the keyboard's focus.
+// instead, across the window. (The keyboard's focus ring is app/_layout.tsx's.)
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = [
     '[data-desk-column] > div { background-color: transparent !important; }',
-    '[data-desk-nav]:focus { outline: none; }',
-    '[data-desk-nav]:focus-visible { outline: 2px solid #FF6B35; outline-offset: 2px; }',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -38,7 +36,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 function NavRow({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}
+    <Pressable onPress={onPress} accessibilityRole="tab" aria-selected={on} accessibilityLabel={label}
       {...({ dataSet: { deskNav: '' } } as object)}
       style={(s) => {
         const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };

@@ -29,6 +29,7 @@ import { DAY_ENDS, DAY_STARTS, dayEndLabel } from '../src/capacity';
 import Constants from 'expo-constants';
 import { IconDoc, IconSparkle } from '../src/ui';
 import { openLink } from '../src/links';
+import { announce, useReducedMotion } from '../src/a11y';
 
 /**
  * Settings: how the app behaves. Your account lives on Profile (the first
@@ -63,55 +64,64 @@ function Divider({ inset = 59 }: { inset?: number }) {
   return <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: inset }} />;
 }
 
-/** One setting: its icon, its name, and its value, a switch or a tick on the right. */
-function Row({ icon: I, title, value, right, onPress }: {
+/** One setting: its icon, its name, and its value, a switch or a tick on the right.
+ *  `role` and `checked` are for a screen reader: a switch row, a choice in a
+ *  picker; `quiet` is a setting that waits (it reads ink3, not dimmed). */
+function Row({ icon: I, title, value, right, onPress, role, checked, quiet }: {
   icon?: Icon; title: string; value?: string; right?: React.ReactNode; onPress?: () => void;
+  role?: 'switch' | 'radio' | 'checkbox'; checked?: boolean; quiet?: string;
 }) {
   const t = useTheme();
   return (
     <Pressable onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined} disabled={!onPress}
-      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityRole={role ?? (onPress ? 'button' : undefined)}
+      accessibilityLabel={value ? `${title}, ${value}` : title}
+      accessibilityHint={quiet}
+      aria-checked={role ? !!checked : undefined}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 56, paddingHorizontal: 14, paddingVertical: 10,
         backgroundColor: pressed ? t.subtle : 'transparent',
       })}>
       {!!I && (
         <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash, borderWidth: 1, borderColor: t.stroke }}>
-          <I size={18} color={t.nu} />
+          <I size={18} color={quiet ? t.ink3 : t.nu} />
         </View>
       )}
-      <Text style={{ flex: 1, color: t.ink, fontSize: 16, fontFamily: T.brand, letterSpacing: -0.2 }}>{title}</Text>
+      <Text style={{ flex: 1, color: quiet ? t.ink3 : t.ink, fontSize: 16, fontFamily: T.brand, letterSpacing: -0.2 }}>{title}</Text>
       {value != null && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand, maxWidth: '48%' }}>{value}</Text>}
       {right ?? (onPress ? <IconChevron size={16} color={t.ink3} /> : null)}
     </Pressable>
   );
 }
 
-/** A switch, from the theme: coral when on. */
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }) {
+/** A switch, from the theme: coral when on. Only the picture of one: the
+ *  row around it is the switch (one control, not one inside another), and a
+ *  tap on it lands on the row. Off, its edge is ink3, so it reads at 3:1. */
+function Toggle({ on }: { on: boolean }) {
   const t = useTheme();
+  const still = useReducedMotion();
   const x = useRef(new Animated.Value(on ? 1 : 0)).current;
   useEffect(() => {
+    if (still) { x.setValue(on ? 1 : 0); return; }
     Animated.spring(x, { toValue: on ? 1 : 0, useNativeDriver: native, speed: 22, bounciness: 5 }).start();
   }, [on]);   // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Pressable onPress={() => { Haptics.selectionAsync(); onChange(!on); }} hitSlop={8}
-      accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={label}
+    <View accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none"
       style={{
         width: 50, height: 30, borderRadius: 15, padding: 3, justifyContent: 'center',
-        backgroundColor: on ? t.ra : t.track, borderWidth: 1, borderColor: on ? t.ra : t.strokeStrong,
+        backgroundColor: on ? t.ra : t.track, borderWidth: 1.5, borderColor: on ? t.ra : t.ink3,
       }}>
       <Animated.View style={{
-        width: 22, height: 22, borderRadius: 11, backgroundColor: t.key === 'nu' ? t.ink : t.card,
+        width: 21, height: 21, borderRadius: 10.5, backgroundColor: t.key === 'nu' ? t.ink : t.card,
         transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }) }],
       }} />
-    </Pressable>
+    </View>
   );
 }
 
 /** A row that is a switch: the whole row flips it. */
-function SwitchRow({ icon, title, on, onChange }: { icon?: Icon; title: string; on: boolean; onChange: (on: boolean) => void }) {
-  return <Row icon={icon} title={title} right={<Toggle on={on} onChange={onChange} label={title} />} onPress={() => onChange(!on)} />;
+function SwitchRow({ icon, title, on, onChange, quiet }: { icon?: Icon; title: string; on: boolean; onChange: (on: boolean) => void; quiet?: string }) {
+  return <Row icon={icon} title={title} role="switch" checked={on} quiet={quiet} right={<Toggle on={on} />} onPress={() => onChange(!on)} />;
 }
 
 function Tick({ on }: { on: boolean }) {
@@ -129,20 +139,23 @@ function Picker<K extends string | number>({ visible, title, options, value, onP
   return (
     <Sheet visible={visible} onClose={onClose}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 }}>
-        <Text style={{ flex: 1, color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
+        <Text accessibilityRole="header" style={{ flex: 1, color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"
           style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer }}>
           <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={t.ink2} strokeWidth={2} strokeLinecap="round" /></Svg>
         </Pressable>
       </View>
       <Card>
-        {options.map((o, i) => (
-          <View key={String(o.key)}>
-            {i > 0 && <Divider inset={14} />}
-            <Row title={o.label} value={o.note} right={<Tick on={multi ? !!o.on : o.key === value} />}
-              onPress={() => { onPick(o.key); if (!multi) onClose(); }} />
-          </View>
-        ))}
+        <View accessibilityRole={multi ? undefined : 'radiogroup'} accessibilityLabel={title}>
+          {options.map((o, i) => (
+            <View key={String(o.key)}>
+              {i > 0 && <Divider inset={14} />}
+              <Row title={o.label} value={o.note} right={<Tick on={multi ? !!o.on : o.key === value} />}
+                role={multi ? 'checkbox' : 'radio'} checked={multi ? !!o.on : o.key === value}
+                onPress={() => { onPick(o.key); if (!multi) onClose(); }} />
+            </View>
+          ))}
+        </View>
       </Card>
     </Sheet>
   );
@@ -238,6 +251,7 @@ function NotificationsPage() {
   };
   const time = (m: number | null) => (m == null ? 'Off' : clock(m));
   const times = (list: number[]) => [...list.map(m => ({ key: m, label: clock(m) })), { key: -1, label: 'Off' }];
+  const quiet = allowed ? undefined : 'Starts once reminders are on';
 
   return (
     <>
@@ -246,18 +260,16 @@ function NotificationsPage() {
       </Card>
       {n && (
         <>
-          {/* kept while reminders are off, and quieter: they start once they're on */}
-          <View style={{ opacity: allowed ? 1 : 0.55 }}>
-            <Card>
-              <Row icon={IconSunrise} title="Morning plan" value={time(n.morning)} onPress={() => setPick('morning')} />
-              <Divider />
-              <SwitchRow icon={IconSun} title="Midday check in" on={n.midday} onChange={midday => change({ midday })} />
-              <Divider />
-              <Row icon={IconMoon} title="Evening look back" value={time(n.evening)} onPress={() => setPick('evening')} />
-              <Divider />
-              <SwitchRow icon={IconClock} title="2 minutes before events" on={n.events} onChange={events => change({ events })} />
-            </Card>
-          </View>
+          {/* kept while reminders are off, and quieter (ink3, not dimmed): they start once they're on */}
+          <Card>
+            <Row icon={IconSunrise} title="Morning plan" value={time(n.morning)} onPress={() => setPick('morning')} quiet={quiet} />
+            <Divider />
+            <SwitchRow icon={IconSun} title="Midday check in" on={n.midday} onChange={midday => change({ midday })} quiet={quiet} />
+            <Divider />
+            <Row icon={IconMoon} title="Evening look back" value={time(n.evening)} onPress={() => setPick('evening')} quiet={quiet} />
+            <Divider />
+            <SwitchRow icon={IconClock} title="2 minutes before events" on={n.events} onChange={events => change({ events })} quiet={quiet} />
+          </Card>
           <Picker visible={pick === 'morning'} title="Morning plan" onClose={() => setPick(null)}
             options={times(MORNING_TIMES)} value={n.morning ?? -1} onPick={m => change({ morning: m < 0 ? null : m })} />
           <Picker visible={pick === 'evening'} title="Evening look back" onClose={() => setPick(null)}
@@ -328,12 +340,15 @@ function AppearancePage() {
   const looks: [Appearance, Icon][] = [['sun', IconSunrise], ['light', IconSun], ['dark', IconMoon]];
   return (
     <Card>
+      <View accessibilityRole="radiogroup" accessibilityLabel="Appearance">
       {looks.map(([key, icon], i) => (
         <View key={key}>
           {i > 0 && <Divider />}
-          <Row icon={icon} title={appearanceName[key]} right={<Tick on={appearance === key} />} onPress={() => setAppearance(key)} />
+          <Row icon={icon} title={appearanceName[key]} right={<Tick on={appearance === key} />} onPress={() => setAppearance(key)}
+            role="radio" checked={appearance === key} />
         </View>
       ))}
+      </View>
     </Card>
   );
 }
@@ -472,6 +487,13 @@ function Settings() {
     return () => sub.remove();
   }, [open]);
 
+  // a section opens (or closes) in place: say where you are now
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    announce(page ? page.title : 'Settings');
+  }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // the list, as cards split where PAGES asks for a gap
   const groups = PAGES.reduce<(typeof PAGES)[]>((g, p) => {
     if (!g.length || p.gap) g.push([]);
@@ -483,13 +505,13 @@ function Settings() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => (open ? setOpen(null) : goBack())} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+        <Pressable onPress={() => (open ? setOpen(null) : goBack())} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
         </Pressable>
       </View>
 
       <ScrollView key={open ?? 'list'} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 6, marginHorizontal: 4 }}>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 6, marginHorizontal: 4 }}>
           {page ? page.title : 'Settings'}
         </Text>
 
@@ -497,7 +519,7 @@ function Settings() {
           <>
             {/* you: Profile holds the account (email, sign out, delete) */}
             <Card>
-              <Pressable onPress={() => { Haptics.selectionAsync(); router.push('/profile'); }} accessibilityRole="button" accessibilityLabel="Profile"
+              <Pressable onPress={() => { Haptics.selectionAsync(); router.push('/profile'); }} accessibilityRole="button" accessibilityLabel={`${profile.name.trim() || 'You'}, Profile`}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14, backgroundColor: pressed ? t.subtle : 'transparent' })}>
                 <Avatar size={48} edge />
                 <Text numberOfLines={1} style={{ flex: 1, color: t.ink, fontSize: 18, fontFamily: T.display, letterSpacing: -0.4 }}>{profile.name.trim() || 'You'}</Text>

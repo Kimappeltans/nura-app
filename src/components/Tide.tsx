@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { View, Animated, Easing, Platform, AccessibilityInfo } from 'react-native';
+import { View, Animated, Easing, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useReducedMotion, decorative } from '../a11y';
 
 /** The surface of Nu's water on Your Tasks, drifting: the waterline slowly
  *  moves left, a fainter one behind it moves right. Still under Reduce Motion. */
@@ -10,22 +11,19 @@ export function Tide({ width, fill, line, backFill, height = 28 }:
   const b = useRef(new Animated.Value(0)).current;
   // one wave is a quarter of the width, so sliding by one wave loops seamlessly
   const period = width / 4;
+  const still = useReducedMotion();
 
   useEffect(() => {
-    let loops: Animated.CompositeAnimation[] = [];
-    let dead = false;
-    AccessibilityInfo.isReduceMotionEnabled().then(still => {
-      if (dead || still) return;
-      // one timing per loop, like the opening's sea, so a lap never catches
-      const drift = (v: Animated.Value, ms: number, from: number, to: number) => {
-        v.setValue(from);
-        return Animated.loop(Animated.timing(v, { toValue: to, duration: ms, easing: Easing.linear, useNativeDriver: true }));
-      };
-      loops = [drift(a, 5200, 0, -period), drift(b, 8400, -period, 0)];
-      loops.forEach(l => l.start());
-    });
-    return () => { dead = true; loops.forEach(l => l.stop()); };
-  }, [a, b, period]);
+    if (still) return;
+    // one timing per loop, like the opening's sea, so a lap never catches
+    const drift = (v: Animated.Value, ms: number, from: number, to: number) => {
+      v.setValue(from);
+      return Animated.loop(Animated.timing(v, { toValue: to, duration: ms, easing: Easing.linear, useNativeDriver: true }));
+    };
+    const loops = [drift(a, 5200, 0, -period), drift(b, 8400, -period, 0)];
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [a, b, period, still]);
 
   const W = width + period;
   const path = (y: number, crest: number) => {
@@ -41,7 +39,7 @@ export function Tide({ width, fill, line, backFill, height = 28 }:
   const front = path(14, 5), back = path(11, 4);
 
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width, height, overflow: 'hidden' }}>
+    <View pointerEvents="none" {...decorative} style={{ position: 'absolute', left: 0, top: 0, width, height, overflow: 'hidden' }}>
       <Animated.View style={slide(b)}>
         <Svg width={W} height={height}>
           {!!backFill && <Path d={`${back} V ${height} H 0 Z`} fill={backFill} />}
@@ -64,24 +62,21 @@ const BUBBLES = [{ x: 0.88, s: 10, ms: 7000, at: 0 }, { x: 0.08, s: 7, ms: 8200,
 
 export function Bubbles({ width }: { width: number }) {
   const rise = useRef(BUBBLES.map(() => new Animated.Value(0))).current;
+  const still = useReducedMotion();
 
   useEffect(() => {
-    let loops: Animated.CompositeAnimation[] = [];
-    let dead = false;
-    AccessibilityInfo.isReduceMotionEnabled().then(still => {
-      if (dead || still) return;
-      loops = BUBBLES.map((b, i) => Animated.loop(Animated.sequence([
-        Animated.delay(b.at),
-        Animated.timing(rise[i], { toValue: 1, duration: b.ms, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-        Animated.timing(rise[i], { toValue: 0, duration: 0, useNativeDriver: true }),
-      ])));
-      loops.forEach(l => l.start());
-    });
-    return () => { dead = true; loops.forEach(l => l.stop()); };
-  }, [rise]);
+    if (still) { rise.forEach(v => v.setValue(0)); return; }
+    const loops = BUBBLES.map((b, i) => Animated.loop(Animated.sequence([
+      Animated.delay(b.at),
+      Animated.timing(rise[i], { toValue: 1, duration: b.ms, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(rise[i], { toValue: 0, duration: 0, useNativeDriver: true }),
+    ])));
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [rise, still]);
 
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' }}>
+    <View pointerEvents="none" {...decorative} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' }}>
       {BUBBLES.map((b, i) => (
         <Animated.View key={i} style={{
           position: 'absolute', left: width * b.x, bottom: 24, width: b.s, height: b.s, borderRadius: b.s / 2,

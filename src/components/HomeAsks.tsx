@@ -76,11 +76,11 @@ function AskCard({ accent, style, text, sub, no, yes, onNo, onYes, yesColor, yes
         {!!text && <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>{text}</Text>}
         <Text style={{ color: t.ink2, fontSize: 14, lineHeight: 19 }}>{sub}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable onPress={onNo} hitSlop={8} style={{ paddingVertical: 8 }}>
+          <Pressable onPress={onNo} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 13.5 }}>{no}</Text>
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Pressable onPress={onYes}
+            <Pressable onPress={onYes} accessibilityRole="button"
               style={{ paddingVertical: 10, borderRadius: radius.pill, backgroundColor: yesColor, alignItems: 'center' }}>
               <Text style={{ color: yesInk, fontSize: 14, fontFamily: T.brand }}>{yes}</Text>
             </Pressable>

@@ -17,6 +17,7 @@ import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Character, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph, LabelTile } from '../src/components/LabelIcon';
 import { readable } from '../src/components/Desk';
+import { announce, decorative } from '../src/a11y';
 
 interface Msg {
   id: string;
@@ -72,6 +73,11 @@ function Chat() {
 
   const push = (m: Omit<Msg, 'id'>) => {
     setMsgs(prev => [...prev, { ...m, id: uid() }]);
+    // a reply is said as it arrives, the way it reads on screen
+    if (m.from === 'nura') {
+      announce(m.text ?? (m.vague ? 'Too big to start. Find the first move with Nu, or open it and write one line.'
+        : m.draft ? [m.draft.title, describe(m.draft)].filter(Boolean).join(', ') : ''));
+    }
     setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 60);
   };
 
@@ -152,6 +158,8 @@ function Chat() {
     const a = activityById(d.activity);
     const c = a ? (t.key === 'ra' ? a.onLight : a.tint) : t.ra;
     const meta = describe(d);
+    // an activity's own colour, or the text coral when there's none (ra is a fill)
+    const ink = a ? c : t.raDeep;
     return (
       <View style={[{
         borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
@@ -180,32 +188,33 @@ function Chat() {
               {!!d.label && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 }}>
                   <LabelGlyph id={d.label} size={14} color={c} />
-                  <Text style={{ color: c, fontSize: 12.5, fontFamily: T.brand }}>
+                  <Text style={{ color: ink, fontSize: 12.5, fontFamily: T.brand }}>
                     {a?.name ?? d.label}
                   </Text>
                 </View>
               )}
             </View>
             {!!a && (
-              <Image source={SCENES[a.id as ActivityId]}
+              <Image {...decorative} source={SCENES[a.id as ActivityId]}
                 style={{ width: 96, height: 84, marginRight: -6 }} resizeMode="contain" />
             )}
           </View>
 
           {!m.added && (
             <Pressable onPress={() => { goBack(); router.push({ pathname: '/project/new', params: { goal: d.title } }); }}
-              hitSlop={6} style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+              hitSlop={6} accessibilityRole="button" accessibilityLabel="Bigger than one task? Plan it with Nu"
+              style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
               <Text style={{ color: t.ink3, fontSize: 13 }}>Bigger than one task? <Text style={{ color: t.nu, fontFamily: T.brand }}>Plan it with Nu ›</Text></Text>
             </Pressable>
           )}
           <View style={{ flexDirection: 'row', gap: 8, padding: 12, paddingTop: 0 }}>
             {m.added ? (
-              <Text style={{ color: c, fontSize: 14, fontFamily: T.brand, paddingVertical: 8 }}>
+              <Text accessibilityLabel="Added" style={{ color: ink, fontSize: 14, fontFamily: T.brand, paddingVertical: 8 }}>
                 ✓ Added
               </Text>
             ) : (
               <>
-                <Pressable onPress={() => add(m)} style={{
+                <Pressable onPress={() => add(m)} accessibilityRole="button" style={{
                   flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.pill,
                   backgroundColor: `${c}3D`, borderWidth: 1, borderColor: `${c}66`,
                 }}>
@@ -225,7 +234,7 @@ function Chat() {
                     ...(d.activity ? { activity: d.activity } : {}),
                     ...(d.label ? { label: d.label } : {}),
                   } });
-                }} style={{
+                }} accessibilityRole="button" style={{
                   paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
                   borderWidth: 1, borderColor: t.strokeStrong,
                 }}>
@@ -253,14 +262,14 @@ function Chat() {
         borderWidth: 1, borderColor: `${t.ra}44`,
       }]}>
         <View style={{ backgroundColor: t.raWash, padding: 14, gap: 10 }}>
-          <Text style={{ color: t.raDeep, fontSize: 11, letterSpacing: 1.8, fontFamily: T.brand }}>
+          <Text accessibilityRole="header" accessibilityLabel="Too big to start" style={{ color: t.raDeep, fontSize: 11, letterSpacing: 1.8, fontFamily: T.brand }}>
             TOO BIG TO START
           </Text>
           <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>
             That could mean anything, so it'll sit. Nu can help find the first move, or take the first ten minutes of it.
           </Text>
           {m.added ? (
-            <Text style={{ color: t.ra, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>
+            <Text accessibilityLabel="Opened" style={{ color: t.raDeep, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>
           ) : (
             <>
               <Pressable
@@ -270,6 +279,7 @@ function Chat() {
                   goBack();
                   router.push({ pathname: '/project/new', params: { goal: d.title } });
                 }}
+                accessibilityRole="button"
                 style={{
                   alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
                   backgroundColor: t.ra,
@@ -282,6 +292,7 @@ function Chat() {
                   setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
                   router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
                 }}
+                accessibilityRole="button" accessibilityLabel="Open it and write one line, 10 min"
                 style={{
                   alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
                   backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
@@ -303,7 +314,7 @@ function Chat() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
-          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8 }}>
+          <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to Today" style={{ paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
@@ -335,7 +346,7 @@ function Chat() {
             <View style={{ gap: 8, marginTop: 6 }}>
               <Text style={{ color: t.ink3, fontSize: 13, marginLeft: 3 }}>Try one:</Text>
               {EXAMPLES.map(x => (
-                <Pressable key={x} onPress={() => { setText(x); }} style={{
+                <Pressable key={x} onPress={() => { setText(x); }} accessibilityRole="button" style={{
                   alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 10,
                   borderRadius: radius.pill, borderWidth: 1, borderColor: t.strokeStrong,
                 }}>
@@ -347,7 +358,7 @@ function Chat() {
 
           {msgs.length <= 1 && !!recentlyCaught.length && (
             <View style={{ marginTop: 18 }}>
-              <Text style={{
+              <Text accessibilityRole="header" accessibilityLabel="Recently caught" style={{
                 color: t.ink3, fontSize: 11.5, letterSpacing: 1.8, fontFamily: T.brand, marginBottom: 7, marginLeft: 3,
               }}>RECENTLY CAUGHT</Text>
               <Surface>
@@ -356,6 +367,7 @@ function Chat() {
                     {i > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
                     <Pressable
                       onPress={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
+                      accessibilityRole="button" accessibilityLabel={task.title}
                       style={({ pressed }) => ({
                         flexDirection: 'row', alignItems: 'center', gap: 12,
                         paddingHorizontal: 14, paddingVertical: 12,
@@ -379,9 +391,11 @@ function Chat() {
                 value={text} onChangeText={setText}
                 onSubmitEditing={send} returnKeyType="send" blurOnSubmit={false}
                 placeholder="Say it however you'd say it…" placeholderTextColor={t.ink3}
+                accessibilityLabel="Message"
                 style={{ flex: 1, paddingVertical: 14, color: t.ink, fontSize: 16 }}
               />
-              <Pressable onPress={send} disabled={!text.trim()} style={{
+              <Pressable onPress={send} disabled={!text.trim()} hitSlop={4}
+                accessibilityRole="button" accessibilityLabel="Send" aria-disabled={!text.trim()} style={{
                 width: 38, height: 38, borderRadius: 19,
                 alignItems: 'center', justifyContent: 'center',
                 backgroundColor: text.trim() ? t.ra : t.subtle,

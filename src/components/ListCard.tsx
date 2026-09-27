@@ -15,13 +15,13 @@ export function SectionHead({ label, action, onAction, note, style }: {
   const t = useTheme();
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 8, minHeight: 24 }, style]}>
-      <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>{label.toUpperCase()}</Text>
+      <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>{label.toUpperCase()}</Text>
       {action && onAction ? (
         <Pressable onPress={onAction} hitSlop={10} accessibilityRole="button">
           <Text style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>{action}</Text>
         </Pressable>
       ) : note ? (
-        <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.2, fontFamily: T.brand, opacity: 0.8 }}>{note.toUpperCase()}</Text>
+        <Text style={{ color: t.ink3, fontSize: 10.5, letterSpacing: 1.2, fontFamily: T.brand }}>{note.toUpperCase()}</Text>
       ) : null}
     </View>
   );

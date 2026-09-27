@@ -36,12 +36,13 @@ export function HabitSheet({ view, onClose, onTick, onPause, onResume, onLetGo }
 
   return (
     <Sheet visible onClose={onClose}>
-      <Text style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4 }}>{habitName(habit)}</Text>
+      <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 20, lineHeight: 26, fontFamily: T.display, letterSpacing: -0.4 }}>{habitName(habit)}</Text>
       {paused && <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 5 }}>Paused</Text>}
 
       <View style={{ marginTop: 10 }}>
         {rows.map(([k, v]) => (
-          <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+          <View key={k} accessible accessibilityLabel={`${k}: ${v}`}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
             <Text style={{ color: t.ink, fontSize: 14.5 }}>{k}</Text>
             <Text numberOfLines={2} style={{ color: t.ink3, fontSize: 14.5, flexShrink: 1, textAlign: 'right' }}>{v}</Text>
           </View>

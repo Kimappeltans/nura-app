@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Image, Animated, Easing, AccessibilityInfo, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, Image, Animated, Easing, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { type as T, radius } from '../theme';
 import { Primary, poseImage } from '../ui';
 import { logEvent } from '../db';
 import { useScreen, useDesk } from '../screen';
+import { useReducedMotion, announce, decorative } from '../a11y';
 
 const stone = require('../../assets/brand/nura-logo-tight.webp');
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
@@ -177,7 +178,9 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
   const full = useDesk() ? winW : W;
   const ox = (full - W) / 2;
   const insets = useSafeAreaInsets();
-  const [still, setStill] = useState(false);
+  // read before the first frame on the web and early on a phone, so nothing
+  // starts moving before the setting is known
+  const still = useReducedMotion();
   const [beat, setBeat] = useState(0);
   const [typed, setTyped] = useState(false);       // this beat's words are all there
   const nuUp = useRef(new Animated.Value(0)).current;
@@ -194,8 +197,14 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gone = useRef(false);
 
-  useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setStill).catch(() => {}); }, []);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // each new beat is read out as it appears; the first is simply on the screen
+  const shown = useRef(beat);
+  useEffect(() => {
+    if (shown.current === beat) return;
+    shown.current = beat;
+    announce(BEATS[beat]);
+  }, [beat]);
 
   // what each beat does to the scene
   const to = (v: Animated.Value, ms: number, delay = 0) => {
@@ -208,6 +217,13 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
   const breathing = useRef<Animated.CompositeAnimation | null>(null);
   const shimmering = useRef<Animated.CompositeAnimation | null>(null);
   useEffect(() => () => { breathing.current?.stop(); shimmering.current?.stop(); }, []);
+  // Reduce Motion switched on mid-story: the marks stop breathing
+  useEffect(() => {
+    if (!still) return;
+    breathing.current?.stop(); shimmering.current?.stop();
+    breathing.current = null; shimmering.current = null;
+    pulse.setValue(1); shimmer.setValue(1);
+  }, [still, pulse, shimmer]);
   useEffect(() => {
     if (beat >= NU_AT) to(nuUp, 1400);
     // the waves light as the stone clears the water; the sun when Ra's light lands
@@ -399,11 +415,13 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
         </Svg>
       </Animated.View>
       {/* Nu + Ra: who they are, and the name */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: hello }}>
+      <Animated.View pointerEvents="none" {...(beat >= HELLO_AT ? {} : decorative)}
+        style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: hello }}>
         <Bubble tone="nu" text={"I’m Nu.\nI hold everything."} style={{ left: nuLeft + 8, top: nuSurfaced - 46 }} />
         <Bubble tone="ra" text={"I’m Ra.\nI pick one thing."} style={{ right: W - raLeft - 6, top: raTop + charS * 0.12 }} />
       </Animated.View>
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: name }}>
+      <Animated.View pointerEvents="none" {...(beat >= NAME_AT ? {} : decorative)}
+        style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: name }}>
         <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
           style={{ position: 'absolute', left: (W - nameW) / 2, top: waterY + 28, width: nameW, height: nameW * 222 / 799, tintColor: '#FFF3EA' }} />
       </Animated.View>
@@ -423,18 +441,20 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       <View style={{ position: 'absolute', left: ox + 24, right: ox + 24, bottom: insets.bottom + (ox ? 40 : 14), gap: 20 }}>
         <View style={{ minHeight: 158, justifyContent: 'flex-end', gap: 10 }}>
           {beat > 0 && (
-            <Text numberOfLines={3} importantForAccessibility="no" style={{
+            <Text numberOfLines={3} {...decorative} style={{
               color: 'rgba(242,244,251,0.66)', fontSize: 15, lineHeight: 20, textAlign: 'center',
             }}>{BEATS[beat - 1]}</Text>
           )}
           <Typed key={beat} text={BEATS[beat]} still={still} onTyped={onTyped} />
         </View>
-        <Animated.View style={{ opacity: cta, gap: 12 }} pointerEvents={waiting ? 'auto' : 'none'}>
+        {/* out of a screen reader's way too until it shows */}
+        <Animated.View style={{ opacity: cta, gap: 12 }} pointerEvents={waiting ? 'auto' : 'none'}
+          {...(waiting ? {} : decorative)}>
           <Primary tone="ra"
             label={beat === BEGIN_AT ? 'Begin' : replay ? 'Done' : 'Get started'}
             onPress={beat === BEGIN_AT ? next : finish} />
           {last && !!onSignIn && (
-            <Pressable onPress={onSignIn} hitSlop={10}>
+            <Pressable onPress={onSignIn} hitSlop={10} accessibilityRole="button" style={{ paddingVertical: 4, marginVertical: -4 }}>
               <Text style={{ color: '#AEB6D4', fontSize: 13.5, textAlign: 'center' }}>
                 Already have an account? <Text style={{ color: '#FFB183', fontFamily: T.brand }}>Sign in</Text>
               </Text>

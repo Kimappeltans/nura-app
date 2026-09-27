@@ -28,11 +28,21 @@ import { type as T } from '../src/theme';
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
 // can't happen in a signed build; hidden in development only.
-// On the web, the browser draws its own square focus ring inside our rounded
-// fields — the fields show focus themselves (their border lights up).
+// On the web, the keyboard's focus is always visible (WCAG 2.4.7), in one
+// ring that reads on cream, on navy and on a coral button alike: the text
+// coral (4.8:1 on cream, 3.2:1 on navy) with a white band inside it. It's
+// drawn just inside the edge, so a row in a rounded card isn't clipped.
+// Fields get it too, rounded so it sits inside our rounded fields.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
-  style.textContent = 'input, textarea { outline: none !important; box-shadow: none !important; }';
+  style.textContent = [
+    ':focus { outline: none; }',
+    ':focus-visible, input:focus, textarea:focus {',
+    '  outline: 2px solid #C2410C !important; outline-offset: -2px;',
+    '  box-shadow: inset 0 0 0 4px #FFFFFF !important;',
+    '}',
+    'input:focus, textarea:focus { border-radius: 6px; }',
+  ].join('\n');
   document.head.appendChild(style);
 }
 

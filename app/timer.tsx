@@ -18,6 +18,7 @@ import { type as T, copy, radius, doneGround, doneStops } from '../src/theme';
 import { DotMatrix } from '../src/components/DotMatrix';
 import { Sun } from '../src/components/Handoff';
 import { Moving } from '../src/components/Moving';
+import { announce, decorative, spokenDuration } from '../src/a11y';
 import { useScreen, useDesk, STAGE } from '../src/screen';
 
 const CORAL = '#FF6B35';
@@ -82,6 +83,7 @@ function Timer() {
   const [asking, setAsking] = useState(false);
   const [catching, setCatching] = useState(false);
   const [thought, setThought] = useState('');
+  const [parkFocus, setParkFocus] = useState(false);
   // 'work' is the task itself; 'breakOffer' is Done; 'break' is the pause running
   const [phase, setPhase] = useState<'work' | 'breakOffer' | 'break'>(devDone ? 'breakOffer' : 'work');
   const [spent, setSpent] = useState(devDone ? Number(mins ?? 0) : 0);      // minutes, for Done
@@ -142,6 +144,7 @@ function Timer() {
     if (phase === 'work' && r?.endAt && left === 0 && !asking) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setAsking(true);
+      announce(copy.contract(Math.max(1, Math.round(elapsed / 60))));
     }
   }, [left, phase, r?.endAt]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -150,6 +153,7 @@ function Timer() {
   useEffect(() => {
     if (phase === 'break' && breakEnd && breakLeft === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      announce('Your break is over');
       goBack();
     }
   }, [breakLeft, phase, breakEnd]);
@@ -214,6 +218,11 @@ function Timer() {
   const breakMins = Number(breakPref) > 0 ? Number(breakPref)
     : breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
 
+  // Done arrives: say what the screen says
+  useEffect(() => {
+    if (phase === 'breakOffer') announce(`You did it together. ${task?.title ?? ''}, ${spent} minute${spent === 1 ? '' : 's'}`);
+  }, [phase]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ───────────── DONE — warm light, together ───────────── */
   if (phase === 'breakOffer') {
     const hasNext = !!next && next.id !== id;
@@ -224,21 +233,21 @@ function Timer() {
         <View style={safe}>
           {(() => {
             const out = (
-              <Pressable onPress={async () => { await toNu(); goBack(); }} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+              <Pressable onPress={async () => { await toNu(); goBack(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to Nu" style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
                 <Text style={{ color: ON_CORAL, fontSize: 15, fontFamily: T.display }}>← Back to Nu</Text>
               </Pressable>
             );
             const headline = (
               <>
-                <Text style={{ color: ON_CORAL, fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display, marginTop: 18 }}>You did it</Text>
-                <Text style={{ color: 'rgba(59,18,4,0.5)', fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display }}>together.</Text>
-                <Text numberOfLines={1} style={{ color: 'rgba(59,18,4,0.6)', fontSize: 16, fontFamily: T.brand, marginTop: 10 }}>
+                <Text accessibilityRole="header" accessibilityLabel="You did it together." style={{ color: ON_CORAL, fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display, marginTop: 14 }}>You did it</Text>
+                <Text {...decorative} style={{ color: 'rgba(59,18,4,0.6)', fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display }}>together.</Text>
+                <Text numberOfLines={1} style={{ color: 'rgba(59,18,4,0.72)', fontSize: 16, fontFamily: T.brand, marginTop: 10 }}>
                   {task?.title ?? ''} · {spent} minute{spent === 1 ? '' : 's'}
                 </Text>
               </>
             );
             const scene = (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+              <View {...decorative} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
                 <View style={{ width: 300, height: 300 }}>
                   <View style={{ position: 'absolute', left: -24, top: -24 }}><Sun size={340} /></View>
                   <Moving name="ra-pebble" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
@@ -250,18 +259,18 @@ function Timer() {
               <View style={{ paddingHorizontal: stage ? 0 : 24, paddingBottom: desk ? 40 : 18, gap: 16 }}>
                 {hasNext && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-                    <Pressable onPress={async () => { await focusOn(next!.id); goBack(); }} accessibilityRole="button" accessibilityLabel={`Next: ${next!.title}`}
+                    <Pressable onPress={async () => { await focusOn(next!.id); goBack(); }} accessibilityRole="button" accessibilityLabel={`Next: ${next!.title}${next!.est_minutes ? `, ${next!.est_minutes} min` : ''}`}
                       style={({ pressed }) => ({ width: 96, height: 96, borderRadius: 48, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
                       <Text style={{ color: CREAM, fontSize: 18, fontFamily: T.display }}>Next</Text>
                     </Pressable>
                     <View style={{ flex: 1, gap: 3 }}>
-                      {!!next!.est_minutes && <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 12, fontFamily: T.display }}>{next!.est_minutes} min</Text>}
+                      {!!next!.est_minutes && <Text style={{ color: 'rgba(59,18,4,0.72)', fontSize: 12, fontFamily: T.display }}>{next!.est_minutes} min</Text>}
                       <Text numberOfLines={2} style={{ color: ON_CORAL, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{next!.title}</Text>
                     </View>
                   </View>
                 )}
                 {!hasNext && breakPref !== 'off' && (
-                  <Pressable onPress={() => runBreak(breakMins * 60)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+                  <Pressable onPress={() => runBreak(breakMins * 60)} hitSlop={8} accessibilityRole="button" style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
                     <Text style={{ color: ON_CORAL, fontSize: 14.5, fontFamily: T.display, opacity: 0.8 }}>Take a {breakMins}-minute break</Text>
                   </Pressable>
                 )}
@@ -308,24 +317,25 @@ function Timer() {
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center' }}>
           <Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M6 9l6 6 6-6" fill="none" stroke={t.ink2} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" /></Svg>
         </Pressable>
-        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <View {...decorative} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <Image source={poseImage('ra-icon')} style={{ width: 42, height: 42, marginTop: 5 }} resizeMode="contain" />
         </View>
       </View>
 
       <View style={stage ? [stage, { justifyContent: 'center', paddingBottom: 72 }] : { flex: 1, paddingHorizontal: 24 }}>
-        <Text style={{ color: t.ink, fontSize: 30, lineHeight: 31, fontFamily: T.display, letterSpacing: -1.3, marginTop: 6 }}>
+        <Text accessibilityRole="header" accessibilityLabel={words.join(' ')} style={{ color: t.ink, fontSize: 30, lineHeight: 31, fontFamily: T.display, letterSpacing: -1.3, marginTop: 6 }}>
           {words.slice(0, cut).join(' ')}
         </Text>
         {cut < words.length && (
-          <Text style={{ color: t.mute ?? t.ink3, fontSize: 30, lineHeight: 31, fontFamily: T.display, letterSpacing: -1.3 }}>
+          <Text {...decorative} style={{ color: t.mute ?? t.ink3, fontSize: 30, lineHeight: 31, fontFamily: T.display, letterSpacing: -1.3 }}>
             {words.slice(cut).join(' ')}
           </Text>
         )}
 
         <View style={{ alignItems: 'center', marginTop: 22 }}>
           <Ring size={ring} progress={progress} tone={onBreak ? 'nu' : 'ra'}>
-            <DotMatrix text={mmss(shown)} dot={ring / 48} color={t.ink} muted="rgba(23,19,19,0.22)" muteLeadingZeros />
+            <DotMatrix text={mmss(shown)} dot={ring / 48} color={t.ink} muted="rgba(23,19,19,0.22)" muteLeadingZeros
+              label={onBreak ? `${spokenDuration(shown)} of break left` : open ? `${spokenDuration(shown)} so far` : `${spokenDuration(shown)} left`} />
             <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand, marginTop: 12 }}>
               {onBreak ? `break · ${breakMins} min` : paused ? 'paused' : open ? 'so far' : `of ${Math.round(span / 60)} min`}
             </Text>
@@ -338,7 +348,7 @@ function Timer() {
           </View>
         ) : asking ? (
           <View style={{ gap: 10, marginTop: 22 }}>
-            <Text style={{ color: t.ink2, fontSize: 14.5, textAlign: 'center', lineHeight: 21 }}>
+            <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 14.5, textAlign: 'center', lineHeight: 21 }}>
               {copy.contract(Math.max(1, Math.round(elapsed / 60)))}
             </Text>
             <Primary label="Keep going · 10 more" tone="ra" onPress={() => runWork(10 * 60)} />
@@ -367,12 +377,16 @@ function Timer() {
             {catching ? (
               <TextInput autoFocus value={thought} onChangeText={setThought} onSubmitEditing={stash} returnKeyType="done"
                 placeholder="park it and keep going…" placeholderTextColor={t.ink3}
+                accessibilityLabel="A thought to park"
+                onFocus={() => setParkFocus(true)} onBlur={() => setParkFocus(false)}
                 style={{
                   marginTop: 14, color: t.ink, fontSize: 15, paddingVertical: 13, paddingHorizontal: 14,
-                  backgroundColor: t.card, borderRadius: radius.md, borderWidth: 1, borderColor: t.strokeStrong,
+                  // focused, the edge is ink3 (5.3:1), so you can see where you're typing
+                  backgroundColor: t.card, borderRadius: radius.md, borderWidth: 1, borderColor: parkFocus ? t.ink3 : t.strokeStrong,
                 }} />
             ) : (
-              <Pressable onPress={() => setCatching(true)} hitSlop={10} style={{ alignSelf: 'center', marginTop: 12 }}>
+              <Pressable onPress={() => setCatching(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="A thought just arrived"
+                style={{ alignSelf: 'center', marginTop: 8, paddingVertical: 4 }}>
                 <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>+ a thought just arrived</Text>
               </Pressable>
             )}
@@ -408,7 +422,7 @@ function Ring({ size, progress, tone, children }: { size: number; progress: numb
         })}
       </Svg>
       <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>{children}</View>
-      <Image source={poseImage('ra-rest')} resizeMode="contain"
+      <Image {...decorative} source={poseImage('ra-rest')} resizeMode="contain"
         style={{ position: 'absolute', width: raSize, height: raSize, left: c + (R + 6) * Math.cos(a) - raSize / 2, top: c + (R + 6) * Math.sin(a) - raSize * 0.62 }} />
     </View>
   );
@@ -422,7 +436,7 @@ function RoundButton({ label, size, fill, onPress, children }: { label: string; 
         style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, backgroundColor: fill, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.95 : 1 }] })}>
         <Svg width={size * 0.36} height={size * 0.36} viewBox="0 0 24 24">{children}</Svg>
       </Pressable>
-      <Text style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand }}>{label}</Text>
+      <Text {...decorative} style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand }}>{label}</Text>
     </View>
   );
 }
