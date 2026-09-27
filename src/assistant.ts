@@ -39,6 +39,22 @@ const WEEKDAYS: [RegExp, number][] = [
 ];
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+/** Whole month names and their usual short forms, as whole words only: "mar"
+ *  is March, "mark" is a verb, and "may" only counts next to a day number. */
+const MONTH = '(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)';
+const ORD = '(?:st|nd|rd|th)?';
+// "3 march", "3rd of march", "march 3", "mar. 3rd"; never a clock time ("may 3pm")
+const DAY_MONTH = new RegExp(`\\b(\\d{1,2})${ORD}\\s+(?:of\\s+)?${MONTH}\\b\\.?`, 'i');
+const MONTH_DAY = new RegExp(`\\b${MONTH}\\b\\.?\\s+(\\d{1,2})${ORD}\\b(?!\\s*(?::\\d|am\\b|pm\\b))`, 'i');
+
+const daysIn = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+/** A day of a month, clamped: the 31st of a 30-day month is its last day. */
+const dayOf = (y: number, m: number, day: number) => {
+  const d = new Date(y, m, 1, 9, 0, 0, 0);
+  d.setDate(Math.min(day, daysIn(d.getFullYear(), d.getMonth())));
+  return d;
+};
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 
 /** Where the parser took a date, time or length out of the sentence. */
 const GAP = '\u0000';
@@ -58,6 +74,26 @@ function nextWeekday(target: number, from = new Date()): Date {
   return d;
 }
 
+/** The first time a repeat actually happens, from `from` on: a weekday
+ *  standup typed on a Saturday starts Monday, not this morning. */
+function firstOccurrence(rule: RepeatRule, days: number[], from: Date, after: Date): Date {
+  const d = new Date(from);
+  if (rule === 'monthly') {
+    if (d < after) {
+      const next = dayOf(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      next.setHours(d.getHours(), d.getMinutes(), 0, 0);
+      return next;
+    }
+    return d;
+  }
+  const fits = (x: Date) =>
+    rule === 'weekdays' ? isoDay(x) <= 5
+    : rule === 'weekly' && days.length ? days.includes(isoDay(x))
+    : true;
+  for (let i = 0; i < 14 && (d < after || !fits(d)); i++) d.setDate(d.getDate() + 1);
+  return d;
+}
+
 interface TimeFound { h: number; m: number }
 
 function findTime(s: string): TimeFound | null {
@@ -73,7 +109,9 @@ function findTime(s: string): TimeFound | null {
     if (ap === 'pm' && h < 12) h += 12;
     if (ap === 'am' && h === 12) h = 0;
     // a bare "at 7" almost always means the evening for personal plans, but
-    // guessing wrong on a time is worse than being literal — 7 stays 7
+    // guessing wrong on a time is worse than being literal — 7 stays 7.
+    // Unless the sentence says so: "tonight at 9" is 21:00.
+    if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s)) h += 12;
     if (h >= 0 && h <= 23) return { h, m: min };
   }
   if (/\b(tonight|this evening)\b/i.test(s)) return { h: 19, m: 0 };
@@ -102,7 +140,13 @@ export interface Draft {
   found: string[];
 }
 
+/** One argument on purpose: `lines.map(parseTask)` would hand the index in as a clock. */
 export function parseTask(input: string): Draft {
+  return parseTaskAt(input, new Date());
+}
+
+/** The parser against a given "now", so tests can pin the clock. */
+export function parseTaskAt(input: string, now: Date): Draft {
   let s = ` ${input.trim()} `;
   const found: string[] = [];
   // what the parser takes out leaves a marker, so the small words that only
@@ -144,35 +188,41 @@ export function parseTask(input: string): Draft {
 
   /* --- when --- */
   let due: Date | null = null;
-  if (/\btoday\b/i.test(s))          { due = new Date(); found.push('today'); eat(/\btoday\b/i); }
-  else if (/\b(tomorrow|tmrw|tmr)\b/i.test(s))  { due = new Date(); due.setDate(due.getDate() + 1); found.push('tomorrow'); eat(/\b(tomorrow|tmrw|tmr)\b/i); }
-  else if (/\btonight\b/i.test(s))   { due = new Date(); found.push('tonight'); }
-  else if (/\bnext week\b/i.test(s)) { due = new Date(); due.setDate(due.getDate() + 7); found.push('next week'); eat(/\bnext week\b/i); }
+  // "in 2 hours" is a moment, not a day: it keeps its own time
+  let exact = false;
+  if (/\btoday\b/i.test(s))          { due = new Date(now); found.push('today'); eat(/\btoday\b/i); }
+  else if (/\b(tomorrow|tmrw|tmr)\b/i.test(s))  { due = new Date(now); due.setDate(due.getDate() + 1); found.push('tomorrow'); eat(/\b(tomorrow|tmrw|tmr)\b/i); }
+  else if (/\btonight\b/i.test(s))   { due = new Date(now); found.push('tonight'); }
+  else if (/\bnext week\b/i.test(s)) { due = new Date(now); due.setDate(due.getDate() + 7); found.push('next week'); eat(/\bnext week\b/i); }
 
   const inN = s.match(/\bin\s+(\d+)\s*(day|days|week|weeks|hour|hours|min|mins|minutes)\b/i);
   if (inN && !due) {
     const n = parseInt(inN[1], 10);
-    due = new Date();
+    due = new Date(now);
     if (/day/i.test(inN[2]))       due.setDate(due.getDate() + n);
     else if (/week/i.test(inN[2])) due.setDate(due.getDate() + n * 7);
-    else if (/hour/i.test(inN[2])) due.setHours(due.getHours() + n);
-    else                            due.setMinutes(due.getMinutes() + n);
+    else {
+      if (/hour/i.test(inN[2])) due.setHours(due.getHours() + n);
+      else                      due.setMinutes(due.getMinutes() + n);
+      due.setSeconds(0, 0);
+      exact = true;
+    }
     found.push(`in ${n} ${inN[2]}`);
     eat(/\bin\s+\d+\s*(day|days|week|weeks|hour|hours|min|mins|minutes)\b/i);
   }
 
-  // "12 aug" / "aug 12" / "on the 12th"
-  const dm = s.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTHS.join('|')})\\w*\\b`, 'i'))
-          || s.match(new RegExp(`\\b(${MONTHS.join('|')})\\w*\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'));
+  // "12 aug" / "aug 12" / "3rd of march"; the 31st of a short month is its last day
+  const dm = s.match(DAY_MONTH) || s.match(MONTH_DAY);
   if (dm && !due) {
     const isDayFirst = /^\d/.test(dm[1]);
     const day = parseInt(isDayFirst ? dm[1] : dm[2], 10);
     const mon = MONTHS.indexOf((isDayFirst ? dm[2] : dm[1]).slice(0, 3).toLowerCase());
-    const now = new Date();
-    due = new Date(now.getFullYear(), mon, day, 9, 0, 0, 0);
-    if (due < now) due.setFullYear(due.getFullYear() + 1);   // a past date means next year
-    found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
-    eat(new RegExp(dm[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    if (day >= 1 && day <= 31) {
+      due = dayOf(now.getFullYear(), mon, day);
+      if (due < startOfDay(now)) due = dayOf(now.getFullYear() + 1, mon, day);   // a past date means next year
+      found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+      eat(new RegExp(dm[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    }
   }
 
   // a bare day of the month: "on the 28th", "the 3rd", "on 15"
@@ -183,10 +233,9 @@ export function parseTask(input: string): Draft {
     if (dom) {
       const day = parseInt(dom[1], 10);
       if (day >= 1 && day <= 31) {
-        const now = new Date();
-        due = new Date(now.getFullYear(), now.getMonth(), day, 9, 0, 0, 0);
+        due = dayOf(now.getFullYear(), now.getMonth(), day);
         // a day that has already passed this month means next month
-        if (due.getTime() < now.getTime() - 86400_000) due.setMonth(due.getMonth() + 1);
+        if (due < startOfDay(now)) due = dayOf(now.getFullYear(), now.getMonth() + 1, day);
         found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
         eat(new RegExp(dom[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
       }
@@ -195,25 +244,30 @@ export function parseTask(input: string): Draft {
 
   // a bare weekday with no repeat means the NEXT one
   if (!due && days.length === 1 && !repeat) {
-    due = nextWeekday(days[0]);
+    due = nextWeekday(days[0], now);
     found.push(due.toLocaleDateString(undefined, { weekday: 'long' }));
   }
 
   /* --- time of day --- */
-  const time = findTime(s);
+  const dayGiven = !!due;
+  const time = exact ? null : findTime(s);
   if (time) {
-    due = due ?? new Date();
+    due = due ?? new Date(now);
     due.setHours(time.h, time.m, 0, 0);
-    // "at 7" today, already gone? they mean tomorrow
-    if (due.getTime() < Date.now() - 60_000 && !repeat) due.setDate(due.getDate() + 1);
+    // "at 7" with no day, already gone? they mean tomorrow. A day that was
+    // named ("today at 8", "26 sep at 8") stays the day that was named.
+    if (!dayGiven && !repeat && due.getTime() < now.getTime() - 60_000) due.setDate(due.getDate() + 1);
     found.push(`${String(time.h).padStart(2, '0')}:${String(time.m).padStart(2, '0')}`);
     eat(/\bat\s+\d{1,2}(?::\d{2})?\s*(am|pm)?\b/i);
     eat(/\b\d{1,2}:\d{2}\s*(am|pm)?\b/i);
     eat(/\b\d{1,2}\s*(am|pm)\b/i);
     eat(/\b(tonight|this evening|morning|afternoon|evening|noon|midday|lunchtime)\b/i);
-  } else if (due) {
+  } else if (due && !exact) {
     due.setHours(9, 0, 0, 0);
   }
+
+  // a repeat starts at its next real occurrence, never earlier today
+  if (repeat && due) due = firstOccurrence(repeat, days, due, time ? new Date(now.getTime() - 60_000) : startOfDay(now));
 
   /* --- how long --- */
   let mins: number | null = null;
@@ -277,7 +331,7 @@ export function parseTask(input: string): Draft {
     label,
     est_minutes: mins,
     due_at: due ? due.getTime() : null,
-    has_time: !!time,
+    has_time: !!time || exact,
     repeat_rule: repeat,
     repeat_days: repeat === 'weekly' && days.length ? days.sort((a, b) => a - b).join(',') : null,
     priority,

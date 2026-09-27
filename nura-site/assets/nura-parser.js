@@ -187,6 +187,7 @@ exports.makeCustomId = makeCustomId;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseTask = parseTask;
+exports.parseTaskAt = parseTaskAt;
 exports.route = route;
 exports.describe = describe;
 const activities_1 = require("./activities");
@@ -201,6 +202,17 @@ const WEEKDAYS = [
     [/\b(sun|sunday)s?\b/i, 7],
 ];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH = '(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)';
+const ORD = '(?:st|nd|rd|th)?';
+const DAY_MONTH = new RegExp(`\\b(\\d{1,2})${ORD}\\s+(?:of\\s+)?${MONTH}\\b\\.?`, 'i');
+const MONTH_DAY = new RegExp(`\\b${MONTH}\\b\\.?\\s+(\\d{1,2})${ORD}\\b(?!\\s*(?::\\d|am\\b|pm\\b))`, 'i');
+const daysIn = (y, m) => new Date(y, m + 1, 0).getDate();
+const dayOf = (y, m, day) => {
+    const d = new Date(y, m, 1, 9, 0, 0, 0);
+    d.setDate(Math.min(day, daysIn(d.getFullYear(), d.getMonth())));
+    return d;
+};
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const GAP = '\u0000';
 const DATE_LEAD = /\b(on|at|by|this|next|every|the|before|until|due|for|in|from)\s*\u0000/gi;
 const isoDay = (d) => (d.getDay() + 6) % 7 + 1;
@@ -212,6 +224,23 @@ function nextWeekday(target, from = new Date()) {
         if (isoDay(d) === target)
             return d;
     }
+    return d;
+}
+function firstOccurrence(rule, days, from, after) {
+    const d = new Date(from);
+    if (rule === 'monthly') {
+        if (d < after) {
+            const next = dayOf(d.getFullYear(), d.getMonth() + 1, d.getDate());
+            next.setHours(d.getHours(), d.getMinutes(), 0, 0);
+            return next;
+        }
+        return d;
+    }
+    const fits = (x) => rule === 'weekdays' ? isoDay(x) <= 5
+        : rule === 'weekly' && days.length ? days.includes(isoDay(x))
+            : true;
+    for (let i = 0; i < 14 && (d < after || !fits(d)); i++)
+        d.setDate(d.getDate() + 1);
     return d;
 }
 function findTime(s) {
@@ -226,6 +255,8 @@ function findTime(s) {
             h += 12;
         if (ap === 'am' && h === 12)
             h = 0;
+        if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s))
+            h += 12;
         if (h >= 0 && h <= 23)
             return { h, m: min };
     }
@@ -242,6 +273,9 @@ function findTime(s) {
     return null;
 }
 function parseTask(input) {
+    return parseTaskAt(input, new Date());
+}
+function parseTaskAt(input, now) {
     var _a;
     let s = ` ${input.trim()} `;
     const found = [];
@@ -284,23 +318,24 @@ function parseTask(input) {
         eat(/\bweekly\b|\bevery week\b/i);
     }
     let due = null;
+    let exact = false;
     if (/\btoday\b/i.test(s)) {
-        due = new Date();
+        due = new Date(now);
         found.push('today');
         eat(/\btoday\b/i);
     }
     else if (/\b(tomorrow|tmrw|tmr)\b/i.test(s)) {
-        due = new Date();
+        due = new Date(now);
         due.setDate(due.getDate() + 1);
         found.push('tomorrow');
         eat(/\b(tomorrow|tmrw|tmr)\b/i);
     }
     else if (/\btonight\b/i.test(s)) {
-        due = new Date();
+        due = new Date(now);
         found.push('tonight');
     }
     else if (/\bnext week\b/i.test(s)) {
-        due = new Date();
+        due = new Date(now);
         due.setDate(due.getDate() + 7);
         found.push('next week');
         eat(/\bnext week\b/i);
@@ -308,30 +343,34 @@ function parseTask(input) {
     const inN = s.match(/\bin\s+(\d+)\s*(day|days|week|weeks|hour|hours|min|mins|minutes)\b/i);
     if (inN && !due) {
         const n = parseInt(inN[1], 10);
-        due = new Date();
+        due = new Date(now);
         if (/day/i.test(inN[2]))
             due.setDate(due.getDate() + n);
         else if (/week/i.test(inN[2]))
             due.setDate(due.getDate() + n * 7);
-        else if (/hour/i.test(inN[2]))
-            due.setHours(due.getHours() + n);
-        else
-            due.setMinutes(due.getMinutes() + n);
+        else {
+            if (/hour/i.test(inN[2]))
+                due.setHours(due.getHours() + n);
+            else
+                due.setMinutes(due.getMinutes() + n);
+            due.setSeconds(0, 0);
+            exact = true;
+        }
         found.push(`in ${n} ${inN[2]}`);
         eat(/\bin\s+\d+\s*(day|days|week|weeks|hour|hours|min|mins|minutes)\b/i);
     }
-    const dm = s.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTHS.join('|')})\\w*\\b`, 'i'))
-        || s.match(new RegExp(`\\b(${MONTHS.join('|')})\\w*\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'));
+    const dm = s.match(DAY_MONTH) || s.match(MONTH_DAY);
     if (dm && !due) {
         const isDayFirst = /^\d/.test(dm[1]);
         const day = parseInt(isDayFirst ? dm[1] : dm[2], 10);
         const mon = MONTHS.indexOf((isDayFirst ? dm[2] : dm[1]).slice(0, 3).toLowerCase());
-        const now = new Date();
-        due = new Date(now.getFullYear(), mon, day, 9, 0, 0, 0);
-        if (due < now)
-            due.setFullYear(due.getFullYear() + 1);
-        found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
-        eat(new RegExp(dm[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+        if (day >= 1 && day <= 31) {
+            due = dayOf(now.getFullYear(), mon, day);
+            if (due < startOfDay(now))
+                due = dayOf(now.getFullYear() + 1, mon, day);
+            found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+            eat(new RegExp(dm[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+        }
     }
     if (!due) {
         const dom = s.match(/\bon\s+the\s+(\d{1,2})(?:st|nd|rd|th)?\b/i)
@@ -340,24 +379,24 @@ function parseTask(input) {
         if (dom) {
             const day = parseInt(dom[1], 10);
             if (day >= 1 && day <= 31) {
-                const now = new Date();
-                due = new Date(now.getFullYear(), now.getMonth(), day, 9, 0, 0, 0);
-                if (due.getTime() < now.getTime() - 86400000)
-                    due.setMonth(due.getMonth() + 1);
+                due = dayOf(now.getFullYear(), now.getMonth(), day);
+                if (due < startOfDay(now))
+                    due = dayOf(now.getFullYear(), now.getMonth() + 1, day);
                 found.push(due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
                 eat(new RegExp(dom[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
             }
         }
     }
     if (!due && days.length === 1 && !repeat) {
-        due = nextWeekday(days[0]);
+        due = nextWeekday(days[0], now);
         found.push(due.toLocaleDateString(undefined, { weekday: 'long' }));
     }
-    const time = findTime(s);
+    const dayGiven = !!due;
+    const time = exact ? null : findTime(s);
     if (time) {
-        due = due !== null && due !== void 0 ? due : new Date();
+        due = due !== null && due !== void 0 ? due : new Date(now);
         due.setHours(time.h, time.m, 0, 0);
-        if (due.getTime() < Date.now() - 60000 && !repeat)
+        if (!dayGiven && !repeat && due.getTime() < now.getTime() - 60000)
             due.setDate(due.getDate() + 1);
         found.push(`${String(time.h).padStart(2, '0')}:${String(time.m).padStart(2, '0')}`);
         eat(/\bat\s+\d{1,2}(?::\d{2})?\s*(am|pm)?\b/i);
@@ -365,9 +404,11 @@ function parseTask(input) {
         eat(/\b\d{1,2}\s*(am|pm)\b/i);
         eat(/\b(tonight|this evening|morning|afternoon|evening|noon|midday|lunchtime)\b/i);
     }
-    else if (due) {
+    else if (due && !exact) {
         due.setHours(9, 0, 0, 0);
     }
+    if (repeat && due)
+        due = firstOccurrence(repeat, days, due, time ? new Date(now.getTime() - 60000) : startOfDay(now));
     let mins = null;
     const dur = s.match(/\bfor\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours)\b/i)
         || s.match(/\b(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours)\b(?!\s*(am|pm))/i);
@@ -425,7 +466,7 @@ function parseTask(input) {
         label,
         est_minutes: mins,
         due_at: due ? due.getTime() : null,
-        has_time: !!time,
+        has_time: !!time || exact,
         repeat_rule: repeat,
         repeat_days: repeat === 'weekly' && days.length ? days.sort((a, b) => a - b).join(',') : null,
         priority,
