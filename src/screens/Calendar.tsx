@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,7 +10,7 @@ import { eventsBetween, type UpcomingEvent } from '../calendar';
 import { type as T } from '../theme';
 import { Mica, IconChevron } from '../ui';
 import { Suggestions } from '../components/Suggestions';
-import { ROOM_MAX, useDesk } from '../screen';
+import { ROOM_MAX, useDesk, useScreen } from '../screen';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -19,11 +19,11 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 /** A day's sun, small, as the opening draws it: a disc from pale gold into
  *  sunrise orange, in a soft glow, with the date on it. The more got done,
  *  the bigger the disc and the warmer the glow; five fills the day. */
-function MiniSun({ n, cell = 48 }: { n: number; cell?: number }) {
+function MiniSun({ n, cell = 48, scale = 1 }: { n: number; cell?: number; scale?: number }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const level = Math.min(1, n / 5);
-  const G = 64, c = G / 2;                      // the glow spills a little past the day
-  const disc = 13 + level * 3;                  // wide enough to sit the date on
+  const G = Math.round(64 * scale), c = G / 2;  // the glow spills a little past the day
+  const disc = (13 + level * 3) * scale;        // wide enough to sit the date on
   return (
     // centred on the whole day, not inside its ring (a border would push it off)
     <Svg width={G} height={G} style={{ position: 'absolute', left: '50%', marginLeft: -c, top: cell / 2 - c }}>
@@ -45,6 +45,10 @@ function MiniSun({ n, cell = 48 }: { n: number; cell?: number }) {
     </Svg>
   );
 }
+
+/** a room's side padding, and the space between the month and the day, on a wide window */
+const DESK_PAD = 40;
+const DESK_GAP = 40;
 
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
 const sameDay = (a: Date, b: Date) => iso(a) === iso(b);
@@ -117,9 +121,20 @@ export default function Calendar() {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
   };
 
-  // a wide web window: the month beside the picked day (src/components/Desk.tsx)
+  // a wide web window: the month fills the window's height, the picked day
+  // in a column beside it (src/components/Desk.tsx)
   const desk = useDesk();
-  const cell = desk ? 62 : 48;
+  const room = useScreen().width;
+  const winH = useWindowDimensions().height;
+  const inner = Math.min(ROOM_MAX, room - DESK_PAD * 2);
+  const dayW = Math.max(300, Math.min(400, Math.round(inner * 0.34)));
+  const cellW = (inner - dayW - DESK_GAP) / 7;
+  // what's left of the height once the heading, the weekdays and the padding are in
+  const rows = cells.length / 7;
+  const cell = desk ? Math.max(62, Math.min(150, Math.floor((winH - 188) / rows))) : 48;
+  // the suns and the rings grow with the day's square, a little
+  const k = desk ? Math.max(1, Math.min(1.45, Math.min(cell, cellW) / 62)) : 1;
+  const ring = Math.round(40 * k);
   const wins = useStore(s => s.wins);
   const flow = useMemo(() => {
     const doneThatDay = wins.filter(w => w.completed_at && sameDay(new Date(w.completed_at), picked) && !dayTasks.some(x => x.id === w.id));
@@ -162,9 +177,11 @@ export default function Calendar() {
         </View>
 
         {/* a month of suns: each day's sun as big as what got done; a quiet day is just its number */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
+        {/* on a wide window each week sits on a hairline, like a wall calendar */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: desk ? 0 : 8 }}>
           {cells.map((d, i) => {
-            if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, height: cell }} />;
+            const square = { width: `${100 / 7}%` as const, height: cell, ...(desk && { borderTopWidth: 1, borderTopColor: t.stroke }) };
+            if (d === null) return <View key={i} style={square} />;
             const date = new Date(cursor.getFullYear(), cursor.getMonth(), d);
             const n = doneOn.get(iso(date)) ?? 0;
             const on = byDay.get(iso(date));
@@ -178,16 +195,16 @@ export default function Calendar() {
               <Pressable key={i} onPress={() => { Haptics.selectionAsync(); setPicked(date); }}
                 accessibilityRole="button" accessibilityState={{ selected: isSel }}
                 accessibilityLabel={`${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${n ? `, ${n} done` : ''}`}
-                style={{ width: `${100 / 7}%`, height: cell, alignItems: 'center', justifyContent: 'center' }}>
-                {lit && <MiniSun n={n} cell={cell} />}
+                style={[square, { alignItems: 'center', justifyContent: 'center' }]}>
+                {lit && <MiniSun n={n} cell={cell} scale={k} />}
                 <View style={{
-                  width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+                  width: ring, height: ring, borderRadius: ring / 2, alignItems: 'center', justifyContent: 'center',
                   // only the picked day and today are ringed; an empty day is just its number
                   borderWidth: isSel ? 2 : isToday && !lit ? 1.5 : 0, borderColor: isSel ? t.nu : t.ink3,
                 }}>
-                  <Text style={{ color: lit ? '#3B1204' : isSel || isToday ? t.ink : past ? t.ink3 : t.ink2, fontSize: 13, fontFamily: lit || isToday ? T.display : T.brand, letterSpacing: -0.3 }}>{d}</Text>
+                  <Text style={{ color: lit ? '#3B1204' : isSel || isToday ? t.ink : past ? t.ink3 : t.ink2, fontSize: desk ? 14 : 13, fontFamily: lit || isToday ? T.display : T.brand, letterSpacing: -0.3 }}>{d}</Text>
                 </View>
-                {hasItems && <View style={{ position: 'absolute', bottom: 0, width: 5, height: 5, borderRadius: 3, backgroundColor: t.ink2 }} />}
+                {hasItems && <View style={{ position: 'absolute', bottom: desk ? Math.round((cell - ring) / 4) : 0, width: 5, height: 5, borderRadius: 3, backgroundColor: t.ink2 }} />}
               </Pressable>
             );
           })}
@@ -253,11 +270,12 @@ export default function Calendar() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
 
-      <ScrollView contentContainerStyle={desk ? { paddingHorizontal: 40, paddingTop: 34, paddingBottom: 40 } : { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={desk ? { flexGrow: 1, paddingHorizontal: DESK_PAD, paddingTop: 34, paddingBottom: 32 } : { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
         {desk ? (
-          <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center', flexDirection: 'row', gap: 56, alignItems: 'flex-start' }}>
-            <View style={{ flex: 1.15, minWidth: 0, maxWidth: 600 }}>{month}</View>
-            <View style={{ flex: 1, minWidth: 0, paddingTop: 6 }}>{day}</View>
+          // the month takes the room; the day is a column on a hairline, the full height
+          <View style={{ flex: 1, width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center', flexDirection: 'row', gap: DESK_GAP }}>
+            <View style={{ flex: 1, minWidth: 0 }}>{month}</View>
+            <View style={{ width: dayW, paddingTop: 6, paddingLeft: DESK_GAP, borderLeftWidth: 1, borderLeftColor: t.stroke }}>{day}</View>
           </View>
         ) : <>{month}{day}</>}
       </ScrollView>

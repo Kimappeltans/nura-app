@@ -23,7 +23,7 @@ export const DESK = 900;
 /** the desktop's sidebar */
 export const SIDEBAR = 256;
 /** a room's content, at most (Home, Your Tasks, Calendar) */
-export const ROOM_MAX = 1100;
+export const ROOM_MAX = 1280;
 /** a pushed screen's content, at most (You, Settings, a task…) */
 export const READ_MAX = 640;
 /** a one-thing screen's content, at most (Focus, a session, Done, onboarding) */

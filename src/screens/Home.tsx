@@ -50,8 +50,11 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const room = useScreen().width;
   const inner = Math.min(ROOM_MAX, room - DESK_PAD * 2);
   const side = Math.min(440, Math.round(inner * 0.46));    // the stack's column
-  const short = useWindowDimensions().height < 740;
+  const winH = useWindowDimensions().height;
+  const short = winH < 740;
   const compact = !desk && short;
+  // a wide window: the path grows with the window's height, so the room fills it
+  const pathH = Math.max(200, Math.min(320, Math.round(winH * 0.28)));
   const head = compact ? 30 : 34;
   const t = useTheme();
   const { inbox, todayPicked, projects, now, focusOn, toRa, wins, profile, agenda, dayEndMin } = useStore();
@@ -130,18 +133,19 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         })}
       </>
     );
-    // a wide window: the clock and the headline, then the path beside tomorrow and Nu resting
+    // a wide window: the clock and the headline, then the path beside tomorrow
+    // and Nu resting, in the middle of the window's height
     if (desk) {
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
           <Mica sunProgress={sunUp} />
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: DESK_PAD, paddingTop: 48, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: DESK_PAD, paddingTop: 48, paddingBottom: 72 }} showsVerticalScrollIndicator={false}>
             <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center' }}>
               <DotMatrix text={hhmm.padStart(5, '0')} dot={9} color={t.ink} muted={t.stroke} muteLeadingZeros />
               <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8, marginTop: 24 }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
               <Text style={{ color: t.mute ?? t.ink3, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8 }}>Anything now is extra.</Text>
               <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 36, alignItems: 'flex-start' }}>
-                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={200} style={{ flex: 1, minWidth: 0 }} />
+                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} style={{ flex: 1, minWidth: 0 }} />
                 <View style={{ width: side }}>
                   {tomorrowRows}
                   {/* Nu, resting */}
@@ -195,7 +199,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   );
 
   // A WIDE WINDOW: the greeting; the day's path and the stack side by side;
-  // what else Nu is holding under them, up to STILL_MAX, then Your Tasks
+  // what else Nu is holding under them, up to STILL_MAX, then Your Tasks.
+  // In the middle of the window's height, not stuck to the top of it.
   if (desk) {
     const more = still.slice(2, 2 + STILL_MAX);
     const half = Math.ceil(more.length / 2);
@@ -206,7 +211,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
         <Mica sunProgress={sunUp} />
         <RoomBar who="nu" />
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: DESK_PAD, paddingTop: short ? 32 : 48, paddingBottom: 48 }}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: DESK_PAD, paddingTop: short ? 32 : 48, paddingBottom: short ? 48 : 72 }}
           showsVerticalScrollIndicator={false}>
           <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center' }}>
             <Text style={{ color: t.ink, fontSize: 40, lineHeight: 42, fontFamily: T.display, letterSpacing: -1.8 }}>
@@ -214,7 +219,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
             </Text>
             <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 32, alignItems: 'flex-start' }}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={200} />
+                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} />
                 <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 28 }} />
               </View>
               <View style={{ width: side }}>
