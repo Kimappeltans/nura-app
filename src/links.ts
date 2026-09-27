@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 /** Where the legal and help pages live. On the web they sit next to the app. */
-const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://nura-app-811.netlify.app';
+const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://app.risewithnura.com';
 
 export const LINKS = {
   privacy: '/privacy.html',
