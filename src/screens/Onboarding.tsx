@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useStore } from '../store';
-import { logEvent, setBlockers, suggestions, getTask, pickForToday, getFlag, setFlag, type Blocker, type Task, type PickRule } from '../db';
+import { logEvent, setBlockers, getTask, pickForToday, getFlag, setFlag, type Blocker, type Task } from '../db';
+import { getNextActions } from '../nextActions';
 // The Benben opening, then the original Welcome. To go back to the Welcome
 // on its own, import './Welcome' here instead — both are kept.
 import Welcome from './WelcomeBenben';
@@ -53,7 +54,7 @@ export default function Onboarding() {
   const [step, setStep] = useState<Step>(() => (landsOnSignIn() ? 'auth' : 'welcome'));
   useEffect(() => { landedOnSignIn(); }, []);
   const [picks, setPicks] = useState<Blocker[]>([]);
-  const [rise, setRise] = useState<{ tasks: Task[]; pick: Task; rule: PickRule } | null>(null);
+  const [rise, setRise] = useState<{ tasks: Task[]; pick: Task } | null>(null);
   const t0 = useRef(Date.now());
   const dumped = useRef<string[]>([]);   // held across the reminders detour
   // Dev only, like `dev.open` in app/_layout.tsx: start on the step named in
@@ -96,10 +97,10 @@ export default function Onboarding() {
 
   const toRise = async (ids: string[]) => {
     const tasks = (await Promise.all(ids.map(getTask))).filter((x): x is Task => !!x);
-    // the engine only suggests — the screen lets you pick a different one
-    const p = (await suggestions(1))[0];
+    // the planner only suggests — the screen lets you pick a different one
+    const p = (await getNextActions('all'))[0];
     if (!p) return finish(false);
-    setRise({ tasks, pick: p.task, rule: p.rule });
+    setRise({ tasks, pick: p.task });
     setStep('rise');
   };
 

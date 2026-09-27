@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "screens": "bash scripts/screens.sh",
-    "test": "node tests/planner.test.cjs && node tests/coach.test.cjs && node tests/learn.test.cjs && node tests/priority.test.cjs && node tests/parser.test.cjs && node tests/understand.test.cjs"
+    "test": "node tests/planner.test.cjs && node tests/coach.test.cjs && node tests/learn.test.cjs && node tests/next.test.cjs && node tests/parser.test.cjs && node tests/understand.test.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",

@@ -11,7 +11,7 @@ import { DotMatrix } from '../components/DotMatrix';
 import { labelById } from '../labels';
 import { LabelGlyph } from '../components/LabelIcon';
 import { TodayStack } from '../components/TodayStack';
-import { factLine } from '../priority';
+import { byPlan, reasonFor } from '../next';
 import { DayPath } from '../components/DayPath';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
@@ -57,11 +57,13 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const pathH = Math.max(200, Math.min(320, Math.round(winH * 0.28)));
   const head = compact ? 30 : 34;
   const t = useTheme();
-  const { inbox, todayPicked, projects, now, focusOn, toRa, wins, profile, agenda, dayEndMin } = useStore();
+  const { inbox, todayPicked, projects, now, nowDecision, decisions, focusOn, toRa, wins, profile, agenda, dayEndMin } = useStore();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
 
-  const today = useMemo(() => [...todayPicked].filter(x => !x.parent_id).sort(byPriority), [todayPicked]);
+  // the planner's order (src/next.ts): the same one Ra and Your Tasks use
+  const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
+  const today = useMemo(() => [...todayPicked].filter(x => !x.parent_id).sort(order), [todayPicked, order]);
   const projectOf = useMemo(() => new Map(
     projects.filter(p => p.current?.task_id).map(p => [p.current!.task_id!, p])), [projects]);
 
@@ -75,20 +77,17 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = pickedId ? [...today, ...inbox].find(x => x.id === pickedId) ?? null : null;
   const held_ = picked ?? one;
-  // what the one in front has to fit before: today's events and anything else with a time
-  const fact = held_ ? factLine(held_, [
-    ...agenda.map(e => e.startsAt),
-    ...[...today, ...inbox].filter(x => x.id !== held_.id && x.has_time && x.due_at).map(x => x.due_at as number),
-  ], dayEndMin) : null;
+  // the one in front's facts: the planner's reason for it (at most two)
+  const fact = reasonFor(decisions, held_?.id, nowDecision);
   const oneProject = held_ ? projectOf.get(held_.id) : undefined;
 
   // still here: the rest of Today, then everything else
   const still = useMemo(() => {
     const at = Date.now();
     const later = (x: Task) => !!x.snoozed_until && x.snoozed_until > at;
-    const rest = [...inbox].filter(x => !later(x)).sort(byPriority);
+    const rest = [...inbox].filter(x => !later(x)).sort(order);
     return [...today, ...rest].filter(x => x.id !== held_?.id);
-  }, [today, inbox, held_?.id]);
+  }, [today, inbox, held_?.id, order]);
   const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneAt = wins.map(w => w.completed_at ?? 0).filter(at => at >= new Date().setHours(0, 0, 0, 0));

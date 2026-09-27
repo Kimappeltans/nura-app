@@ -48,6 +48,12 @@ export interface BehaviorProfile {
   activeDays14: number;
   /** days since the app was last opened before today (a comeback, if large) */
   gapDays: number;
+  /** actual ÷ estimated, per label with at least 3 finished tasks ("writing takes you 1.6×") */
+  estimateByLabel?: { label: string; ratio: number; n: number }[];
+  /** what you really finish on a day you do something, in minutes (median, last 14 days) */
+  capacityMin?: number | null;
+  /** how many days capacityMin rests on */
+  capacityDays?: number;
 }
 
 /** What a sentence you typed or said seems to be, and how you seem to be. */

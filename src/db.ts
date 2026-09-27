@@ -222,6 +222,49 @@ async function openDb() {
       note       TEXT,
       at         INTEGER NOT NULL
     );
+    -- THE ADAPTIVE PLANNER (src/next.ts). What Nura learned about how you
+    -- work, one row per pattern ("estimate_ratio" for "writing" is 1.55,
+    -- from 14 tasks): derived from the event log, which stays on the device;
+    -- the patterns themselves sync, so the learning follows the account.
+    CREATE TABLE IF NOT EXISTS behavior_pattern (
+      id           TEXT PRIMARY KEY,
+      kind         TEXT NOT NULL,
+      scope        TEXT NOT NULL,
+      value        REAL NOT NULL,
+      confidence   REAL NOT NULL,
+      sample_count INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL
+    );
+    -- each decision the planner put in front of you, and what you did with
+    -- it: accepted, not_now, something_else, edited (ignored is read off an
+    -- old row with no response)
+    CREATE TABLE IF NOT EXISTS decision_feedback (
+      decision_id   TEXT PRIMARY KEY,
+      task_id       TEXT,
+      decision_type TEXT NOT NULL,
+      reason        TEXT,
+      score         REAL,
+      shown_at      INTEGER NOT NULL,
+      response      TEXT,
+      acted_at      INTEGER,
+      updated_at    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_decision_task ON decision_feedback(task_id);
+    -- the day, as the planner sees it: what you kept, what's flexible, what
+    -- you agreed to leave for later, against what you really finish
+    CREATE TABLE IF NOT EXISTS daily_plan (
+      day               TEXT PRIMARY KEY,
+      committed_ids     TEXT,
+      flexible_ids      TEXT,
+      deferred_ids      TEXT,
+      planned_minutes   INTEGER,
+      capacity_minutes  INTEGER,
+      actual_minutes    INTEGER,
+      reason            TEXT,
+      state             TEXT NOT NULL DEFAULT 'open',
+      recalculated_at   INTEGER NOT NULL,
+      updated_at        INTEGER NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS idx_step_project ON project_step(project_id);
     CREATE INDEX IF NOT EXISTS idx_step_task    ON project_step(task_id);
     CREATE INDEX IF NOT EXISTS idx_pevent_proj  ON project_event(project_id);
@@ -251,11 +294,10 @@ async function addColumns(db: SQLite.SQLiteDatabase) {
   if (!have.has('priority'))      await db.execAsync(`ALTER TABLE task ADD COLUMN priority INTEGER DEFAULT 0`);
   if (!have.has('activity'))      await db.execAsync(`ALTER TABLE task ADD COLUMN activity TEXT`);
   if (!have.has('repeat_days'))   await db.execAsync(`ALTER TABLE task ADD COLUMN repeat_days TEXT`);
-  // Counts "not now"s on a task, and ONLY that — never shown as a number
-  // anywhere, never a factor in NOW's ordering, never a reason a task looks
-  // different in a list. Its one job is letting the app notice a task that
-  // keeps slipping and offer a check-in, once, the same courtesy as the
-  // skip.est/skip.first flags already get. See notNow() below.
+  // Counts "not now"s on a task — never shown as a number anywhere, never a
+  // reason a task looks different in a list. The planner (src/next.ts) lets
+  // it lower a task a little and offers to make it smaller; the slipping
+  // check-in reads it too. See notNow() below.
   if (!have.has('snooze_count'))  await db.execAsync(`ALTER TABLE task ADD COLUMN snooze_count INTEGER DEFAULT 0`);
   // Sync's watermark column (see src/sync.ts) — every mutator that writes to
   // task/habit/habit_log stamps this. Backfilled rather than left NULL:
@@ -272,6 +314,18 @@ async function addColumns(db: SQLite.SQLiteDatabase) {
     await db.execAsync(`ALTER TABLE habit ADD COLUMN updated_at INTEGER`);
     await db.execAsync(`UPDATE habit SET updated_at = created_at WHERE updated_at IS NULL`);
   }
+
+  // a project's path as a living plan (target architecture): what a step
+  // waits on, whether it's optional, why it's blocked, how long it really
+  // took, how sure Nu is of it, who made it, and why it last changed
+  const stepCols = new Set((await db.getAllAsync<{ name: string }>(`PRAGMA table_info(project_step)`)).map(c => c.name));
+  if (!stepCols.has('depends_on'))     await db.execAsync(`ALTER TABLE project_step ADD COLUMN depends_on TEXT`);
+  if (!stepCols.has('optional'))       await db.execAsync(`ALTER TABLE project_step ADD COLUMN optional INTEGER DEFAULT 0`);
+  if (!stepCols.has('blocked_reason')) await db.execAsync(`ALTER TABLE project_step ADD COLUMN blocked_reason TEXT`);
+  if (!stepCols.has('actual_minutes')) await db.execAsync(`ALTER TABLE project_step ADD COLUMN actual_minutes INTEGER`);
+  if (!stepCols.has('confidence'))     await db.execAsync(`ALTER TABLE project_step ADD COLUMN confidence REAL`);
+  if (!stepCols.has('origin'))         await db.execAsync(`ALTER TABLE project_step ADD COLUMN origin TEXT`);
+  if (!stepCols.has('change_reason'))  await db.execAsync(`ALTER TABLE project_step ADD COLUMN change_reason TEXT`);
 
   const logCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(habit_log)`);
   const haveLog = new Set(logCols.map(c => c.name));
@@ -290,6 +344,85 @@ export async function logEvent(kind: EventKind, taskId?: string, meta?: unknown)
     'INSERT INTO event (task_id, kind, at, meta) VALUES (?, ?, ?, ?)',
     taskId ?? null, kind, Date.now(), meta ? JSON.stringify(meta) : null,
   );
+  // what you did with a decision the planner showed you: the same events,
+  // so no screen has to remember to report back
+  if (!taskId) return;
+  const m = meta as { dropped?: boolean } | undefined;
+  const response: DecisionResponse | null =
+    kind === 'session_start' || kind === 'completed' ? 'accepted'
+    : kind === 'skipped' && !m?.dropped ? 'not_now'
+    : kind === 'swapped' ? 'something_else'
+    : null;
+  if (response) await respondToDecision(taskId, response).catch(() => {});
+}
+
+/* ---------------- the planner's memory (src/next.ts) ---------------- */
+
+export interface PatternRow {
+  id: string;
+  kind: string;
+  scope: string;
+  value: number;
+  confidence: number;
+  sample_count: number;
+  updated_at: number;
+}
+
+export async function getPatterns(): Promise<PatternRow[]> {
+  const db = await getDb();
+  return db.getAllAsync<PatternRow>('SELECT * FROM behavior_pattern');
+}
+
+/** What the profile says now, one row per pattern; unchanged rows keep their stamp (so sync skips them). */
+export async function savePatterns(rows: Omit<PatternRow, 'id' | 'updated_at'>[], now = Date.now()) {
+  const db = await getDb();
+  const have = new Map((await getPatterns()).map(r => [r.id, r]));
+  for (const r of rows) {
+    const id = `${r.kind}:${r.scope}`;
+    const old = have.get(id);
+    if (old && old.value === r.value && old.confidence === r.confidence && old.sample_count === r.sample_count) continue;
+    await db.runAsync(
+      `INSERT INTO behavior_pattern (id, kind, scope, value, confidence, sample_count, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET value = excluded.value, confidence = excluded.confidence,
+         sample_count = excluded.sample_count, updated_at = excluded.updated_at`,
+      id, r.kind, r.scope, r.value, r.confidence, r.sample_count, now);
+  }
+}
+
+export type DecisionType = 'next_action' | 'option' | 'intervention';
+export type DecisionResponse = 'accepted' | 'ignored' | 'not_now' | 'something_else' | 'edited';
+
+/** A decision put in front of you. Once per task, type and day: seeing the same card again isn't news. */
+export async function recordDecision(d: { taskId: string; type: DecisionType; reason: string | null; score: number }, now = Date.now()) {
+  const db = await getDb();
+  const day = new Date(now); day.setHours(0, 0, 0, 0);
+  const seen = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM decision_feedback WHERE task_id = ? AND decision_type = ? AND shown_at >= ? AND response IS NULL',
+    d.taskId, d.type, day.getTime());
+  if (seen?.n) return;
+  await db.runAsync(
+    `INSERT INTO decision_feedback (decision_id, task_id, decision_type, reason, score, shown_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    uid(), d.taskId, d.type, d.reason, d.score, now, now);
+}
+
+/** What you did with the last open decision about a task, within a day of it being shown. */
+export async function respondToDecision(taskId: string, response: DecisionResponse, now = Date.now()) {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ decision_id: string }>(
+    `SELECT decision_id FROM decision_feedback WHERE task_id = ? AND response IS NULL AND shown_at >= ?
+     ORDER BY shown_at DESC LIMIT 1`, taskId, now - 86_400_000);
+  if (!row) return;
+  await db.runAsync('UPDATE decision_feedback SET response = ?, acted_at = ?, updated_at = ? WHERE decision_id = ?',
+    response, now, now, row.decision_id);
+}
+
+/** How often each task was put off when the planner offered it, since a time. */
+export async function putOffsSince(since: number): Promise<Map<string, number>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ task_id: string; n: number }>(
+    `SELECT task_id, COUNT(*) AS n FROM decision_feedback
+      WHERE response IN ('not_now','something_else') AND shown_at >= ? AND task_id IS NOT NULL GROUP BY task_id`, since);
+  return new Map(rows.map(r => [r.task_id, r.n]));
 }
 
 /* ================================================================== *
@@ -597,85 +730,6 @@ const LIVE = `state NOT IN ('done','dropped')
 export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'priority' | 'upcoming' | 'fits' | 'smallest';
 export interface Pick { task: Task; rule: PickRule }
 
-export async function pickNow(exclude: string[] = []): Promise<Task | null> {
-  return (await pickWithRule(exclude))?.task ?? null;
-}
-
-/**
- * The NOW engine. Order matters more than the code:
- *   1 time-bound within 2h · 2 already started · 3 picked for today
- *   3.5 due in the next 72h (upcoming deadlines surface before random tasks)
- *   4 inbox: oldest-first for steady/focused (prevents burial of important
- *     long tasks); shortest-first only for low energy (genuinely can't start
- *     something big — this is the one case momentum beats importance)
- *   5 fallback: smallest thing regardless of energy rather than empty screen
- */
-export async function pickWithRule(exclude: string[] = []): Promise<Pick | null> {
-  const db = await getDb();
-  const now = Date.now();
-  // "show me something else" passes the ids you've already seen, so Focus can
-  // hand you a genuinely different task instead of the same one forever.
-  const skip = exclude.length
-    ? ` AND id NOT IN (${exclude.map(() => '?').join(',')})` : '';
-  const soon = now + 2 * 60 * 60 * 1000;
-  const threeDays = now + 72 * 60 * 60 * 1000;
-  const energy = await getEnergy();
-  const ceiling = CEILING[energy];
-  // low: shortest-first so you can actually start; steady/focused: oldest-first
-  // so tasks don't get buried indefinitely behind everything quick and easy.
-  // Priority is a TIEBREAK, not a tier (see priority.ts) — it never earns a
-  // clause of its own. But it has to come BEFORE age: created_at is a
-  // millisecond timestamp, so two tasks are never "equal" on it, and a
-  // priority sorted after it could never decide anything. It sits after the
-  // real key of each tier (the deadline, or shortness on a low day) and
-  // before age.
-  const inboxSort = energy === 'low'
-    ? 'COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC'
-    : 'priority DESC, created_at ASC, COALESCE(est_minutes, 999) ASC';
-
-  const q = async (rule: PickRule, sql: string, ...args: SQLite.SQLiteBindValue[]): Promise<Pick | null> => {
-    const task = await db.getFirstAsync<Task>(sql.replace('/*SKIP*/', skip), ...args, ...exclude);
-    return task ? { task, rule } : null;
-  };
-
-  return (
-    // 1. anything genuinely time-bound still wins, whatever your energy —
-    //    a deadline doesn't care how you feel
-    (await q('due',
-      `SELECT * FROM task WHERE ${LIVE}
-         AND due_at IS NOT NULL AND due_at <= ?/*SKIP*/ ORDER BY due_at ASC, priority DESC LIMIT 1`, now, soon)) ??
-    // 2. resume what you already started
-    (await q('started',
-      `SELECT * FROM task WHERE state = 'doing'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-       ORDER BY priority DESC, created_at ASC LIMIT 1`, now)) ??
-    // 3. picked for today, fits energy
-    (await q('today',
-      `SELECT * FROM task WHERE state = 'today'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/ ORDER BY priority DESC, created_at ASC LIMIT 1`, now, ceiling)) ??
-    // 3.5 upcoming: not burning yet, but due in the next 72h — surface it now
-    (await q('upcoming',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND due_at IS NOT NULL AND due_at > ? AND due_at <= ?
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
-         ORDER BY due_at ASC, priority DESC LIMIT 1`, soon, threeDays, now, ceiling)) ??
-    // 4. inbox sorted by energy level — oldest for steady/focused, shortest for low
-    (await q('fits',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
-         ORDER BY ${inboxSort} LIMIT 1`, now, ceiling)) ??
-    // 5. still nothing fits — offer the smallest thing rather than an empty screen
-    (await q('smallest',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-         ORDER BY COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC LIMIT 1`, now)) ??
-    null
-  );
-}
-
 /* ---------------- the one thing, held ---------------- */
 
 /**
@@ -688,16 +742,16 @@ export async function pickWithRule(exclude: string[] = []): Promise<Pick | null>
  *
  * Stored as flags, not in memory, so it survives the app being closed.
  */
-interface Pin { id: string; rule: PickRule; day: string }
+export interface Pin { id: string; rule: PickRule; day: string }
 const dayKey = () => new Date().toDateString();
 
-async function readPin(): Promise<Pin | null> {
+export async function readPin(): Promise<Pin | null> {
   try { return JSON.parse((await getFlag('ra.pin')) ?? 'null'); } catch { return null; }
 }
 async function writePin(p: { id: string; rule: PickRule } | null) {
   await setFlag('ra.pin', p ? JSON.stringify({ ...p, day: dayKey() }) : 'null');
 }
-async function passedToday(): Promise<string[]> {
+export async function passedToday(): Promise<string[]> {
   try {
     const v = JSON.parse((await getFlag('ra.passed')) ?? 'null');
     return v && v.day === dayKey() ? v.ids : [];
@@ -710,73 +764,10 @@ async function writePassed(ids: string[]) {
 const isLive = (t: Task | null): t is Task =>
   !!t && t.state !== 'done' && t.state !== 'dropped' && !(t.snoozed_until && t.snoozed_until > Date.now());
 
-/**
- * The one thing, right now — and it is never forced on you.
- *
- *   1. A task you chose yourself ("Focus on this"), until it's done, dropped
- *      or snoozed.
- *   2. Otherwise the top of YOUR Today list: anything already started, then
- *      your priority label (High, Medium, Low), then the soonest date.
- *   3. Otherwise nothing. Ra then offers suggestions() and you pick one.
- *
- * This used to fall back to the engine choosing from everything you'd ever
- * written down and holding it in front of you — which, the first time Kim
- * used the app for real, felt like the app shoving a task at her. Choosing
- * is yours; the engine only suggests.
- */
-export async function currentPick(): Promise<Pick | null> {
-  const passed = await passedToday();
-  const pin = await readPin();
-  if (pin && pin.day === dayKey() && pin.rule === 'chosen') {
-    const held = await getTask(pin.id);
-    if (isLive(held)) return { task: held, rule: 'chosen' };
-  }
-  const top = (await todayOrdered()).find(t => !passed.includes(t.id));
-  if (top) return { task: top, rule: top.state === 'doing' ? 'started' : 'today' };
-  return null;
-}
-
-/** Your Today list in the order Focus works through it. */
-export async function todayOrdered(): Promise<Task[]> {
-  const db = await getDb();
-  return db.getAllAsync<Task>(
-    `SELECT * FROM task WHERE state IN ('today','doing') AND parent_id IS NULL
-       AND (snoozed_until IS NULL OR snoozed_until <= ?)
-     ORDER BY (state = 'doing') DESC, COALESCE(priority,0) DESC, COALESCE(due_at, 9e15) ASC, created_at ASC`,
-    Date.now());
-}
-
-/**
- * What Ra offers when you haven't picked anything: a few candidates with the
- * reason each is worth considering. Deadlines within two hours first, then
- * your priority labels, then dates in the next three days, then whatever fits
- * the energy you said you have.
- */
-export async function suggestions(n = 3): Promise<Pick[]> {
-  const db = await getDb();
-  const now = Date.now();
-  const energy = await getEnergy();
-  const ceiling = CEILING[energy];
-  const soon = now + 2 * 3600_000, threeDays = now + 72 * 3600_000;
-  const rows = await db.getAllAsync<Task>(
-    `SELECT * FROM task WHERE state NOT IN ('done','dropped') AND parent_id IS NULL
-       AND (snoozed_until IS NULL OR snoozed_until <= ?) LIMIT 200`, now);
-  const scored = rows.map(t => {
-    const pr = t.priority ?? 0;
-    const rule: PickRule =
-      t.due_at != null && t.due_at <= soon ? 'due'
-      : pr >= 2 ? 'priority'
-      : t.due_at != null && t.due_at <= threeDays ? 'upcoming'
-      : (t.est_minutes ?? 15) <= ceiling ? 'fits' : 'smallest';
-    const tier = { due: 0, priority: 1, upcoming: 2, fits: 3, smallest: 4, chosen: 9, started: 9, today: 9 }[rule];
-    return { task: t, rule, key: [tier, -pr, t.due_at ?? 9e15, t.est_minutes ?? 15, t.created_at] };
-  });
-  scored.sort((a, b) => {
-    for (let i = 0; i < a.key.length; i++) if (a.key[i] !== b.key[i]) return a.key[i] - b.key[i];
-    return 0;
-  });
-  return scored.slice(0, n).map(({ task, rule }) => ({ task, rule }));
-}
+/* The one thing now, and the options when there's none, are the planner's
+ * (src/next.ts, src/nextActions.ts): one set of rules, not one here and
+ * another there. What lives here is the state it reads: the task you chose
+ * (the pin) and what you passed on today. */
 
 /** You chose this one. It stays until it's done, dropped or snoozed. */
 export async function chooseTask(id: string) {
@@ -792,15 +783,14 @@ export async function handOverPin(fromId: string, toId: string) {
   if (pin && pin.id === fromId && pin.rule === 'chosen') await writePin({ id: toId, rule: 'chosen' });
 }
 
-/** "Something else instead": not this one, not today — the next on your
- *  Today list, or nothing (and Ra offers suggestions). */
-export async function passOn(id: string): Promise<Pick | null> {
+/** "Something else instead": not this one, not today. The planner then
+ *  offers the next on your Today list, or nothing (and Ra offers options). */
+export async function passOn(id: string): Promise<void> {
   const pin = await readPin();
   await writePassed([...(await passedToday()).filter(x => x !== id), id]);
   await writePin(null);
   await logEvent('swapped', id, { rule: pin?.id === id ? pin.rule : null });
   await markActed('swap');
-  return currentPick();
 }
 
 /** Every task carrying a date in a window — what the calendar screen draws. */

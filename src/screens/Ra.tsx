@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Primary, Mica, Character, poseImage } from '../ui';
 import { useStore, useTheme } from '../store';
 import {
-  notNow, dropTask, clearCrumbs, updateTask, getFlag, setFlag, logEvent, suggestions, type Pick,
+  notNow, dropTask, clearCrumbs, updateTask, getFlag, setFlag, logEvent, recordDecision,
 } from '../db';
 import { useTaskActions } from '../useTaskActions';
 import { reconcileNudges } from '../notifications';
@@ -58,7 +58,9 @@ function ago(ms: number) {
  */
 export default function Ra() {
   const t = useTheme();
-  const { now, nowRule, crumb, toNu, refresh, nextEvent, energy, setEnergy, inbox, passOn, focusOn, showToast } = useStore();
+  const { now, nowRule, nowDecision, decisions, crumb, toNu, refresh, nextEvent, energy, setEnergy, passOn, focusOn, showToast } = useStore();
+  // how long it will really take you: the planner's figure (your guess × your pace), else your guess
+  const nowMins = now ? (nowDecision?.taskId === now.id ? nowDecision.suggestedMinutes : null) ?? now.est_minutes : null;
   const { tick } = useTaskActions();
 
   const [options, setOptions] = useState(false);    // More options, open
@@ -129,19 +131,21 @@ export default function Ra() {
     await passOn();
   };
 
-  // Nothing picked (your Today is empty, nothing chosen): Ra offers a few
-  // suggestions and you choose. It never picks for you.
-  const [sugs, setSugs] = useState<Pick[]>([]);
+  // Nothing picked (your Today is empty, nothing chosen): Ra offers the
+  // planner's top three, each with its reason, and you choose. It never
+  // picks for you.
+  const sugs = now ? [] : decisions.slice(0, 3);
   useEffect(() => {
-    if (now) return;
-    suggestions(3).then(setSugs);
-  }, [now?.id, energy, inbox.length]);   // eslint-disable-line react-hooks/exhaustive-deps
+    for (const d of sugs) recordDecision({ taskId: d.taskId, type: 'option', reason: d.reason, score: d.score }).catch(() => {});
+  }, [sugs.map(d => d.taskId).join()]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // What Ra showed, and why — the measure the start rate is built on.
+  // What Ra showed, and why — the measure the start rate is built on, and
+  // the decision the planner learns from (what you do next answers it).
   useEffect(() => {
     if (!now || now.id === lastShown) return;
     lastShown = now.id;
-    logEvent('shown', now.id, { rule: nowRule, energy });
+    logEvent('shown', now.id, { rule: nowRule, energy, score: nowDecision?.score, factors: nowDecision?.factors });
+    recordDecision({ taskId: now.id, type: 'next_action', reason: nowDecision?.reason ?? null, score: nowDecision?.score ?? 0 }).catch(() => {});
   }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** "Waiting on someone" — stays in the water, just stops being asked for a
@@ -241,14 +245,19 @@ export default function Ra() {
               What feels doable now?
             </Text>
             {sugs.map(sg => (
-              <Pressable key={sg.task.id}
+              <Pressable key={sg.taskId}
                 onPress={async () => { Haptics.selectionAsync(); await focusOn(sg.task.id); }}
                 style={({ pressed }) => ({
                   borderRadius: 22, padding: 16, gap: 4,
                   backgroundColor: pressed ? t.subtle : t.card, borderWidth: 1, borderColor: t.stroke,
                 })}>
                 <Text style={{ color: t.ink, fontSize: 17, lineHeight: 22, fontFamily: T.brand }} numberOfLines={2}>{sg.task.title}</Text>
-                {!!sg.task.est_minutes && <Text style={{ color: t.ink3, fontSize: 13 }}>≈ {sg.task.est_minutes} min</Text>}
+                {/* why this one, in facts: the same reason the planner ranked it by */}
+                {(!!sg.reason || !!(sg.suggestedMinutes ?? sg.task.est_minutes)) && (
+                  <Text style={{ color: t.ink3, fontSize: 13 }}>
+                    {[(sg.suggestedMinutes ?? sg.task.est_minutes) ? `≈ ${sg.suggestedMinutes ?? sg.task.est_minutes} min` : null, sg.reason].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
               </Pressable>
             ))}
           </View>
@@ -288,9 +297,9 @@ export default function Ra() {
             {/* the one thing, two-tone: the task, then how long */}
             <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
               <Text style={{ color: t.ink, ...big, fontFamily: T.display }}>{now.title}</Text>
-              {(!!now.est_minutes || !!proj) && (
+              {(!!nowMins || !!proj) && (
                 <Text style={{ color: t.mute ?? t.ink3, ...big, fontFamily: T.display }}>
-                  {now.est_minutes ? `≈ ${now.est_minutes} min` : proj?.project.title}
+                  {nowMins ? `≈ ${nowMins} min` : proj?.project.title}
                 </Text>
               )}
             </Pressable>

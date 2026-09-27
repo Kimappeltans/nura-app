@@ -8,6 +8,8 @@ import { raTheme, mixedTheme, utilityTheme, type Theme } from './theme';
 import { TRIALS, type Trial, type SheetTrial } from './themeTrials';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
+import { plannerState, currentDecision, getNextActions, ruleOf, type PlannerState } from './nextActions';
+import type { PlannerDecision } from './next';
 
 export interface Celebration { award: Award; line: string; at: number; rankUp: Rank | null }
 
@@ -52,6 +54,10 @@ interface State {
   now: db.Task | null;
   /** which rule put `now` in front of you — see db.PickRule */
   nowRule: db.PickRule | null;
+  /** the planner's decision behind `now`: its score, factors and reason (src/next.ts) */
+  nowDecision: PlannerDecision | null;
+  /** every live task, ranked by the same planner: Ra's options, the order Home shows */
+  decisions: PlannerDecision[];
   crumb: { crumb: db.Crumb; task: db.Task } | null;
   inbox: db.Task[];
   /** Tasks explicitly picked for today (state 'today'/'doing') — a separate
@@ -137,8 +143,17 @@ interface State {
   dismissToast: () => void;
 }
 
+/** The planner's answer for the store: the one thing, why, and every live task ranked. */
+async function planned(given?: { projects?: ProjectSummary[] }): Promise<{
+  now: db.Task | null; nowRule: db.PickRule | null; nowDecision: PlannerDecision | null; decisions: PlannerDecision[];
+}> {
+  const s: PlannerState = await plannerState(given);
+  const [d, decisions] = await Promise.all([currentDecision(s), getNextActions('all', [], s)]);
+  return { now: d?.task ?? null, nowRule: ruleOf(d, s.ctx.pinId), nowDecision: d, decisions };
+}
+
 export const useStore = create<State>((set, get) => ({
-  mode: 'nu', energy: 'steady', now: null, nowRule: null, crumb: null,
+  mode: 'nu', energy: 'steady', now: null, nowRule: null, nowDecision: null, decisions: [], crumb: null,
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '', pronouns: '', avatar: '' },
@@ -183,17 +198,15 @@ export const useStore = create<State>((set, get) => ({
 
   setEnergy: async (e) => {
     await db.setEnergy(e);
-    const p = await db.currentPick();
-    set({ energy: e, now: p?.task ?? null, nowRule: p?.rule ?? null });
+    set({ energy: e, ...(await planned()) });
   },
 
   // Nu -> Ra is the only way to start anything, and Ra never sees a list.
-  // Every path reads db.currentPick(), which holds the one thing steady
-  // instead of re-picking on every refresh.
+  // Every path asks the one planner (nextActions.ts): the task you chose is
+  // held; otherwise the top of your Today, in the planner's order.
   toRa: async () => {
     await db.setMode('ra');
-    const p = await db.currentPick();
-    set({ mode: 'ra', now: p?.task ?? null, nowRule: p?.rule ?? null, crumb: await db.latestCrumb() });
+    set({ mode: 'ra', ...(await planned()), crumb: await db.latestCrumb() });
   },
   focusOn: async (id) => {
     await db.chooseTask(id);
@@ -202,8 +215,8 @@ export const useStore = create<State>((set, get) => ({
   passOn: async () => {
     const { now } = get();
     if (!now) return;
-    const p = await db.passOn(now.id);
-    set({ now: p?.task ?? null, nowRule: p?.rule ?? null });
+    await db.passOn(now.id);
+    set(await planned());
   },
   toNu: async () => {
     await db.setMode('nu');
@@ -238,9 +251,9 @@ export const useStore = create<State>((set, get) => ({
     // move ticked off anywhere is a step done), so the lists below agree
     const projects = await activeProjects();
     const moveIds = projects.map(p => p.current?.task_id).filter((x): x is string => !!x);
-    const [mode, now, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look] =
+    const [mode, pick, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look] =
       await Promise.all([
-        db.getMode(), db.currentPick(), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
+        db.getMode(), planned({ projects }), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
         db.totalLight(), db.todayLight(),
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
         nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'),
@@ -251,7 +264,7 @@ export const useStore = create<State>((set, get) => ({
     dayStart = Number.isFinite(start) && start > 0 ? start : DAY_START_DEFAULT;
     // 'nura' was Dark's name before By the sun
     const appearance: Appearance = look === 'light' || look === 'sun' ? look : look === 'dark' || look === 'nura' ? 'dark' : 'sun';
-    set({ dayEndMin, dayStartMin: dayStart, appearance, daylight: isDaylight(dayEndMin), mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    set({ dayEndMin, dayStartMin: dayStart, appearance, daylight: isDaylight(dayEndMin), mode, ...pick, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action

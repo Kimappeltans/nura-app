@@ -6,7 +6,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useStore, useTheme, PinnedPalette } from '../store';
 import { search as searchTasks, type Task } from '../db';
-import { factLine } from '../priority';
+import { byPlan, reasonFor } from '../next';
 import { type as T, nuTheme, type Theme } from '../theme';
 import { Mica, Character } from '../ui';
 import { TaskSheet } from '../components/TaskSheet';
@@ -43,7 +43,7 @@ export default function Tasks() {
   const lane: ViewStyle = desk
     ? { width: '100%', maxWidth: ROOM_MAX + 80, alignSelf: 'center', paddingHorizontal: 40 }
     : { paddingHorizontal: 24 };
-  const { inbox, todayPicked, projects, now, focusOn, toRa, agenda, dayEndMin } = useStore();
+  const { inbox, todayPicked, projects, now, nowDecision, decisions, focusOn, toRa } = useStore();
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Task[]>([]);
@@ -63,8 +63,10 @@ export default function Tasks() {
   const water = useMemo(() => {
     const tonight = new Date().setHours(23, 59, 59, 999);
     const weekEnd = tonight + 7 * 86400_000;
-    const today = [...todayPicked].filter(x => !x.parent_id).sort(byPriority);
-    const open = [...inbox].sort(byPriority);
+    // the planner's order (src/next.ts), the same one Home and Ra use
+    const order = byPlan(decisions, byPriority);
+    const today = [...todayPicked].filter(x => !x.parent_id).sort(order);
+    const open = [...inbox].sort(order);
     const pick = now ?? today[0] ?? null;
     const seen = new Set<string>(pick ? [pick.id] : []);
     const take = (xs: Task[]) => xs.filter(x => (seen.has(x.id) ? false : (seen.add(x.id), true)));
@@ -72,7 +74,7 @@ export default function Tasks() {
     const weekRows = take(open.filter(x => !!x.due_at && x.due_at <= weekEnd).sort((a, b) => (a.due_at ?? 0) - (b.due_at ?? 0)));
     const somedayRows = take(open);
     return { pick, today: todayRows, week: weekRows, someday: somedayRows };
-  }, [inbox, todayPicked, now]);
+  }, [inbox, todayPicked, now, decisions]);
 
   // underwater is Nu's water from the opening, in any appearance
   const sea = nuTheme;
@@ -186,11 +188,7 @@ export default function Tasks() {
                     <Text style={{ color: ON_CORAL, fontSize: 21, lineHeight: 23, fontFamily: T.display, letterSpacing: -0.9, marginTop: 8, paddingRight: 30 }}>{water.pick.title}</Text>
                   </Pressable>
                   {(() => {
-                    const pick = water.pick!;
-                    const fact = factLine(pick, [
-                      ...agenda.map(e => e.startsAt),
-                      ...[...todayPicked, ...inbox].filter(x => x.id !== pick.id && x.has_time && x.due_at).map(x => x.due_at as number),
-                    ], dayEndMin);
+                    const fact = reasonFor(decisions, water.pick!.id, nowDecision);
                     return fact ? <Text style={{ color: 'rgba(59,18,4,0.66)', fontSize: 12.5, fontFamily: T.brand, marginTop: 5 }}>{fact}</Text> : null;
                   })()}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12 }}>

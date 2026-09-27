@@ -38,7 +38,7 @@ export function TodayStack({ front, back, from, fact, waiting, onBegin, onOpen, 
   back: Task[];
   /** a project's name, when the front card is a project's move */
   from?: string | null;
-  /** the facts behind the one in front (priority.ts → factLine) */
+  /** the facts behind the one in front (the planner's reason, src/next.ts) */
   fact?: string | null;
   /** tasks are waiting, just none on Today: offer a pick, not the planner */
   waiting?: boolean;

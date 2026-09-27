@@ -160,6 +160,41 @@ export function profileFrom(input: ProfileInput, now = Date.now()): BehaviorProf
 
   const typical = median(sessionMin);
 
+  // the same, per label: which kinds of task run long for you
+  const labelOf = new Map(input.tasks.map(t => [t.id, t.label]));
+  const perLabel = new Map<string, number[]>();
+  for (const [id, t] of perTask) {
+    const label = labelOf.get(id);
+    if (!label || !t.done || !t.est || t.minutes <= 0) continue;
+    const r = t.minutes / t.est;
+    if (r < 0.1 || r > 10) continue;
+    perLabel.set(label, [...(perLabel.get(label) ?? []), r]);
+  }
+  const estimateByLabel = !enough ? [] : [...perLabel.entries()]
+    .filter(([, rs]) => rs.length >= 3)
+    .map(([label, rs]) => ({ label, ratio: round2(median(rs) as number), n: rs.length }));
+
+  // what a day really holds: minutes on the timer, plus 15 for each thing
+  // ticked off without one, on the days in the last 14 where something got done
+  const recent = startOfDay(now) - 13 * DAY;
+  const perDay = new Map<string, number>();
+  const timed = new Set<string>();
+  for (const e of events) {
+    if (e.at < recent || !e.task_id) continue;
+    const m = parseMeta(e.meta);
+    if (e.kind === 'session_end' && typeof m?.minutes === 'number' && m.minutes > 0) {
+      perDay.set(dayKeyOf(e.at), (perDay.get(dayKeyOf(e.at)) ?? 0) + m.minutes);
+      timed.add(`${e.task_id}:${dayKeyOf(e.at)}`);
+    }
+  }
+  for (const e of events) {
+    if (e.at < recent || e.kind !== 'completed' || !e.task_id) continue;
+    if (timed.has(`${e.task_id}:${dayKeyOf(e.at)}`)) continue;
+    perDay.set(dayKeyOf(e.at), (perDay.get(dayKeyOf(e.at)) ?? 0) + 15);
+  }
+  const dayMinutes = [...perDay.values()];
+  const capacityMin = dayMinutes.length >= MIN_DAYS ? Math.round(median(dayMinutes) as number) : null;
+
   // put off, per task, by label — only labels with a few tasks behind them
   const byLabel = new Map<string, { n: number; off: number }>();
   for (const t of input.tasks) {
@@ -202,6 +237,9 @@ export function profileFrom(input: ProfileInput, now = Date.now()): BehaviorProf
     activeDays14: completedDays14.size,
     gapDays: input.lastBeforeToday != null && input.lastBeforeToday < startOfDay(now)
       ? daysBetween(input.lastBeforeToday, now) : 0,
+    estimateByLabel,
+    capacityMin,
+    capacityDays: dayMinutes.length,
   };
 }
 
