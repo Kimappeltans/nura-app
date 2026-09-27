@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type React from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, Platform } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -28,13 +28,14 @@ export default function You() {
   const [calendar, setCalendar] = useState<boolean | null>(null);
 
   useFocusEffect(useCallback(() => {
-    // focus time this week: the minutes of every session that ended since Monday
+    // focus time this week: every session that ended since Monday, each
+    // counted as Done showed it (at least a minute), so the two agree
     (async () => {
       try {
         const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
         const db = await getDb();
         const rows = await db.getAllAsync<{ meta: string | null }>(`SELECT meta FROM event WHERE kind = 'session_end' AND at >= ?`, d.getTime());
-        setFocusMin(rows.reduce((s, r) => { try { return s + (JSON.parse(r.meta ?? '{}').minutes ?? 0); } catch { return s; } }, 0));
+        setFocusMin(rows.reduce((s, r) => { try { const m = JSON.parse(r.meta ?? '{}').minutes; return typeof m === 'number' ? s + Math.max(1, Math.round(m)) : s; } catch { return s; } }, 0));
       } catch { setFocusMin(null); }
     })();
     hasCalendarPermission().then(setCalendar).catch(() => setCalendar(false));
@@ -45,6 +46,8 @@ export default function You() {
   const today = wins.filter(w => (w.completed_at ?? 0) >= dayStart).length;
   const week = wins.filter(w => (w.completed_at ?? 0) >= weekStart).length;
   const focus = focusMin == null ? null : Math.round(focusMin);
+  // calendar and reminders need the phone; the web says so, like Settings
+  const web = Platform.OS === 'web';
   const go = (path: Parameters<typeof router.push>[0]) => { Haptics.selectionAsync(); router.push(path); };
   // a wide web window: a readable column in the middle of the room
   const desk = useDesk();
@@ -92,11 +95,11 @@ export default function You() {
         </Group>
 
         <Group title="Connected apps">
-          <Row label="Calendar" value={calendar ? 'Connected' : 'Connect'} onPress={() => go('/integrations')} />
+          <Row label="Calendar" value={web ? 'iPhone only' : calendar ? 'Connected' : 'Connect'} onPress={() => go('/integrations')} />
           <Line />
-          <Row label="Reminders" value="Set up" onPress={() => go('/integrations')} />
+          <Row label="Reminders" value={web ? 'iPhone only' : 'Set up'} onPress={() => go('/integrations')} />
           <Line />
-          <Row label="Voice" value={canSpeak() ? 'On this phone' : 'Set up'} onPress={() => go('/settings')} />
+          <Row label="Voice" value={canSpeak() ? (web ? 'In this browser' : 'On this phone') : 'Set up'} onPress={() => go('/settings')} />
         </Group>
       </ScrollView>
     </SafeAreaView>

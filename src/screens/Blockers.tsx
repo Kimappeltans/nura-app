@@ -51,7 +51,7 @@ export default function Blockers({ onNext, onBack }: { onNext: (picked: Blocker[
   return (
     <OnbFrame step={1} onBack={onBack} onSkip={() => onNext([])}
       title="What do you want help with?"
-      sub="Choose all that fit. Nura sets itself up for each one."
+      sub="Choose all that fit."
       footer={<Primary label="Continue" tone="ra" disabled={!picked.length} onPress={() => onNext(picked)} />}>
       <View style={{ gap: 11, marginTop: 24 }}>
         {OPTIONS.map(o => {

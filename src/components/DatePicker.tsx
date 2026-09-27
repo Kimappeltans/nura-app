@@ -266,11 +266,11 @@ export function DatePicker(
   );
 }
 
-/** "Tue 12 Aug · 15:00" — one line, wherever a date needs showing. */
+/** "Tue 12 Aug · 3:00 PM" — one line, wherever a date needs showing. */
 export function formatDue(ms: number, hasTime: boolean) {
   const d = new Date(ms);
   const day = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   return hasTime
-    ? `${day} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    ? `${day} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
     : day;
 }

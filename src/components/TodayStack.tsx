@@ -1,6 +1,7 @@
 import { View, Text, Pressable, Image } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../store';
+import { useStore, useTheme } from '../store';
+import { backToSession } from '../nav';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
 import { labelById, type LabelId } from '../labels';
@@ -53,6 +54,9 @@ export function TodayStack({ front, back, from, fact, waiting, onBegin, onOpen, 
 }) {
   const t = useTheme();
   const dark = t.key === 'nu';
+  const running = useStore(s => s.running);
+  // its session is already going: Begin takes you back into it
+  const live = running && front && running.id === front.id ? running : null;
   return (
     <View>
       {back.map((x, i) => (
@@ -89,13 +93,13 @@ export function TodayStack({ front, back, from, fact, waiting, onBegin, onOpen, 
             </Pressable>
             {!!fact && <Text style={{ color: ON_CORAL, fontSize: 13, fontFamily: T.brand, marginTop: 6 }}>{fact}</Text>}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 22 }}>
-              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onBegin(); }}
-                accessibilityRole="button" accessibilityLabel={`Begin ${front.title}`}
+              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); if (live) backToSession(live); else onBegin(); }}
+                accessibilityRole="button" accessibilityLabel={live ? `Back to ${front.title}` : `Begin ${front.title}`}
                 style={({ pressed }) => ({
                   minWidth: 70, minHeight: 70, paddingHorizontal: 8, borderRadius: 35, alignItems: 'center', justifyContent: 'center',
                   backgroundColor: INK_NU, transform: [{ scale: pressed ? 0.96 : 1 }],
                 })}>
-                <Text style={{ color: '#FAF7F0', fontSize: 14.5, fontFamily: T.display }}>Begin</Text>
+                <Text style={{ color: '#FAF7F0', fontSize: 14.5, fontFamily: T.display }}>{live ? 'Back to it' : 'Begin'}</Text>
               </Pressable>
               {!!front.est_minutes && (
                 <View accessible accessibilityLabel={`${front.est_minutes} min`} style={{ flexDirection: 'row', alignItems: 'baseline' }}>

@@ -235,7 +235,7 @@ export const copy = {
   emptyTitle: 'Nothing left today.',
   emptyBody: 'Want to pull something forward, or call it a day?',
   // said at the end of a session, whatever length it was
-  contract: (m: number) => `${m} minute${m === 1 ? '' : 's'} done. Stop here, or keep the momentum.`,
+  contract: (m: number) => `${m} minute${m === 1 ? '' : 's'} done.`,
   stop: 'Stop here, it still counts',
   nextStep: 'FOCUS',
 } as const;

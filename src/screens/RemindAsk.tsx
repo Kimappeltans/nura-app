@@ -38,9 +38,6 @@ export default function RemindAsk({ onDone }: { onDone: (yes: boolean) => void }
             color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display,
             letterSpacing: -0.8, textAlign: 'center',
           }}>Want a nudge{'\n'}now and then?</Text>
-          <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, textAlign: 'center', maxWidth: 320 }}>
-            A few a day at most. If you’re not answering, they get quieter, then stop for the day.
-          </Text>
         </View>
 
         <View style={{ gap: 14 }}>

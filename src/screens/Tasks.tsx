@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
+import { backToSession } from '../nav';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -49,7 +50,7 @@ export default function Tasks() {
   const lane: ViewStyle = desk
     ? { width: '100%', maxWidth: ROOM_MAX + 80, alignSelf: 'center', paddingHorizontal: 40 }
     : { paddingHorizontal: 24 };
-  const { inbox, todayPicked, projects, habits, refreshHabits, now, nowDecision, decisions, focusOn, toRa } = useStore();
+  const { inbox, todayPicked, projects, habits, refreshHabits, now, nowDecision, decisions, focusOn, toRa, running } = useStore();
   const [habit, setHabit] = useState<HabitView | null>(null);   // the habit's sheet (tap or hold)
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
@@ -152,7 +153,7 @@ export default function Tasks() {
       </View>
       <Text numberOfLines={1} style={{ flex: 1, color: sea.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{p.project.title}</Text>
       <Text style={{ color: sea.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
-        {p.total - p.done}<Text style={{ color: sea.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>left</Text>
+        {p.total - p.done}<Text style={{ color: sea.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}> left</Text>
       </Text>
     </Pressable>
   );
@@ -195,7 +196,7 @@ export default function Tasks() {
 
         {searching ? (
           <View style={[{ paddingTop: 18 }, lane]}>
-            <SearchBar value={q} onChange={setQ} placeholder="Search tasks and projects" />
+            <SearchBar autoFocus value={q} onChange={setQ} placeholder="Search tasks and projects" />
             {!!q.trim() && label(`${hits.length} MATCH${hits.length === 1 ? '' : 'ES'}`)}
             {rows(hits, 0)}
           </View>
@@ -220,10 +221,10 @@ export default function Tasks() {
                     return fact ? <Text style={{ color: ON_CORAL, fontSize: 12.5, fontFamily: T.brand, marginTop: 5 }}>{fact}</Text> : null;
                   })()}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12 }}>
-                    <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); focusOn(water.pick!.id); }}
-                      accessibilityRole="button" accessibilityLabel={`Begin ${water.pick.title}`}
+                    <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); if (running?.id === water.pick!.id) backToSession(running); else focusOn(water.pick!.id); }}
+                      accessibilityRole="button" accessibilityLabel={running?.id === water.pick.id ? `Back to ${water.pick.title}` : `Begin ${water.pick.title}`}
                       style={({ pressed }) => ({ minWidth: 56, minHeight: 56, paddingHorizontal: 6, borderRadius: 28, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
-                      <Text style={{ color: '#FAF7F0', fontSize: 13.5, fontFamily: T.display }}>Begin</Text>
+                      <Text style={{ color: '#FAF7F0', fontSize: 13.5, fontFamily: T.display }}>{running?.id === water.pick.id ? 'Back to it' : 'Begin'}</Text>
                     </Pressable>
                     {(() => {
                       const v = taskValue(water.pick);

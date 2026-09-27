@@ -25,8 +25,10 @@ export function SearchField({ value, onChange, onCancel }: {
 }
 
 /** The search bar that sits in a room's scroll, always there: type to search. */
-export function SearchBar({ value, onChange, placeholder = 'Search' }: {
+export function SearchBar({ value, onChange, placeholder = 'Search', autoFocus }: {
   value: string; onChange: (q: string) => void; placeholder?: string;
+  /** opened by a tap on search: the cursor goes straight in */
+  autoFocus?: boolean;
 }) {
   const t = useTheme();
   const [focused, setFocused] = useState(false);
@@ -36,7 +38,7 @@ export function SearchBar({ value, onChange, placeholder = 'Search' }: {
       borderWidth: 1, borderColor: focused ? t.nu : t.stroke, backgroundColor: t.layer, paddingHorizontal: 12, marginBottom: 12,
     }}>
       <IconSearch size={16} color={t.ink3} />
-      <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.ink3}
+      <TextInput autoFocus={autoFocus} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={t.ink3}
         returnKeyType="search" accessibilityLabel={placeholder}
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 0 }} />

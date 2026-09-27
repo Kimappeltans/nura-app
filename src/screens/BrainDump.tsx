@@ -47,7 +47,7 @@ export default function BrainDump({ onNext, onBack }: { onNext: (ids: string[]) 
   return (
     <OnbFrame step={2} onBack={onBack} onSkip={() => onNext([])}
       title="What do you need to get done?"
-      sub="Everything on your plate, one per line. Add a day or time if there is one."
+      sub="One per line."
       footer={
         <Primary tone="ra" onPress={save} disabled={!lines.length}
           label={saving ? 'Saving…' : lines.length ? `Continue · ${lines.length} thing${lines.length === 1 ? '' : 's'}` : 'Continue'} />
@@ -65,9 +65,6 @@ export default function BrainDump({ onNext, onBack }: { onNext: (ids: string[]) 
           borderLeftWidth: 3, borderLeftColor: t.nu,
         }}
       />
-      <Text style={{ color: t.ink3, fontSize: 14.5, lineHeight: 21, marginTop: 14 }}>
-        Stuck? Think about work, home, errands, bills, and anyone waiting to hear from you.
-      </Text>
     </OnbFrame>
   );
 }

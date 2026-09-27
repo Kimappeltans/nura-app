@@ -371,7 +371,6 @@ function Timer() {
                 <Path d="M5 12.5l4.5 4.5L19 7.5" stroke={CREAM} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </RoundButton>
             </View>
-            <Text style={{ color: t.ink3, fontSize: 13.5, fontFamily: T.brand, textAlign: 'center', marginTop: 18 }}>{copy.stop}</Text>
 
             {/* a thought arrives mid-task: one tap parks it in Nu without leaving */}
             {catching ? (

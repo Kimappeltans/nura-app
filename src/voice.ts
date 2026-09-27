@@ -187,13 +187,25 @@ export async function setChosenVoice(id: string | null) { await setFlag('voice.i
 
 export interface VoiceOption { id: string; name: string; enhanced: boolean }
 
+/** Apple's joke and old robot voices (Bubbles, Zarvox, Grandpa...): they
+ *  come with every phone and Mac, and none of them should read your day. */
+const NOVELTY = new Set([
+  'albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'deranged', 'good news',
+  'hysterical', 'jester', 'organ', 'pipe organ', 'superstar', 'trinoids', 'whisper', 'wobble', 'zarvox',
+  'princess', 'ralph', 'fred', 'junior', 'kathy', 'agnes', 'bruce', 'vicki', 'victoria',
+  'eddy', 'flo', 'grandma', 'grandpa', 'reed', 'rocko', 'sandy', 'shelley',
+]);
+const isNovelty = (v: { identifier: string; name: string }) =>
+  /\.eloquence\./.test(v.identifier)
+  || NOVELTY.has(v.name.replace(/\s*\(.*\)$/, '').trim().toLowerCase());
+
 /** The phone's voices for the chosen language — what Settings offers. */
 export async function voicesForLanguage(): Promise<VoiceOption[]> {
   if (!speech) return [];
   const tag = languageTag(await getLanguage());
   const all = await speech.getAvailableVoicesAsync().catch(() => []);
   return all
-    .filter(v => v.language?.toLowerCase().startsWith(tag.slice(0, 2).toLowerCase()))
+    .filter(v => v.language?.toLowerCase().startsWith(tag.slice(0, 2).toLowerCase()) && !isNovelty(v))
     .map(v => ({ id: v.identifier, name: v.name, enhanced: v.quality === 'Enhanced' }))
     .sort((a, b) => Number(b.enhanced) - Number(a.enhanced) || a.name.localeCompare(b.name));
 }

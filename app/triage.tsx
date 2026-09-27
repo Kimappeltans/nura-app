@@ -14,12 +14,12 @@ import { announce, decorative } from '../src/a11y';
 
 type Outcome = 'kept' | 'pushed' | 'shrunk' | 'waiting' | 'dropped';
 
-const ACTIONS: { key: Outcome; glyph: string; label: string; sub: string }[] = [
-  { key: 'kept',    glyph: '✓', label: 'Keep it today',        sub: 'on today’s plan' },
-  { key: 'pushed',  glyph: '↓', label: 'Push to this evening',  sub: 'resurfaces after 7:30' },
-  { key: 'shrunk',  glyph: '◊', label: 'Shrink it',             sub: 'just five minutes of it, for now' },
-  { key: 'waiting', glyph: '⋯', label: 'Waiting on someone',    sub: 'stays in the water, stops being asked' },
-  { key: 'dropped', glyph: '×', label: 'Let it go',             sub: 'gone, no explanation needed' },
+const ACTIONS: { key: Outcome; glyph: string; label: string }[] = [
+  { key: 'kept', glyph: '✓', label: 'Keep it today' },
+  { key: 'pushed', glyph: '↓', label: 'Push to this evening' },
+  { key: 'shrunk', glyph: '◊', label: 'Shrink it' },
+  { key: 'waiting', glyph: '⋯', label: 'Waiting on someone' },
+  { key: 'dropped', glyph: '×', label: 'Let it go' },
 ];
 
 const TALLY_LABEL: Record<Outcome, string> = {
@@ -82,8 +82,8 @@ function Triage() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
-          <Text style={{ color: t.ink3, fontSize: 16 }}>✕</Text>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
+          <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
         </Pressable>
       </View>
 
@@ -92,9 +92,6 @@ function Triage() {
           <Character name="nu-idle" size={104} motion="bob" />
           <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 22, fontFamily: T.display, textAlign: 'center' }}>
             Nothing waiting on a decision.
-          </Text>
-          <Text style={{ color: t.ink3, fontSize: 14.5, textAlign: 'center', lineHeight: 20, maxWidth: 260 }}>
-            The water's clear enough that there's nothing here worth a pass through it.
           </Text>
           <Primary label="Back to the one thing" tone="nu" onPress={() => goBack()} />
         </View>
@@ -115,9 +112,6 @@ function Triage() {
           <Text accessibilityRole="header" accessibilityLabel={`One pass, ${i + 1} of ${queue.length}`} style={{ color: t.nu, fontSize: 11.5, letterSpacing: 2, fontFamily: T.brand }}>
             ONE PASS · {i + 1} OF {queue.length}
           </Text>
-          <Text style={{ color: t.ink3, fontSize: 14.5, marginTop: 4, marginBottom: 18 }}>
-            One decision each. Nothing here is judged.
-          </Text>
 
           <View style={[{
             borderRadius: radius.xl, padding: 18, marginBottom: 18,
@@ -135,7 +129,7 @@ function Triage() {
             {ACTIONS.map((a, idx) => (
               <View key={a.key}>
                 {idx > 0 && <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 56 }} />}
-                <Pressable onPress={() => act(a.key)} accessibilityRole="button" accessibilityLabel={`${a.label}, ${a.sub}`} style={({ pressed }) => ({
+                <Pressable onPress={() => act(a.key)} accessibilityRole="button" accessibilityLabel={a.label} style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', gap: 13,
                   paddingVertical: 13, paddingHorizontal: 14,
                   backgroundColor: pressed ? t.subtle : 'transparent',
@@ -146,10 +140,7 @@ function Triage() {
                   }}>
                     <Text style={{ color: t.nu, fontSize: 15 }}>{a.glyph}</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>{a.label}</Text>
-                    <Text style={{ color: t.ink3, fontSize: 12.5, marginTop: 1 }}>{a.sub}</Text>
-                  </View>
+                  <Text style={{ flex: 1, color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>{a.label}</Text>
                 </Pressable>
               </View>
             ))}

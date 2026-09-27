@@ -40,7 +40,7 @@ export function ActivityCard(
 
   const when = task.due_at
     ? (task.has_time
-        ? new Date(task.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        ? new Date(task.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
         : formatDue(task.due_at, false))
     : null;
   const mins = task.est_minutes
@@ -157,7 +157,7 @@ export function HeroCard(
 
   const when = task.due_at
     ? (task.has_time
-        ? new Date(task.due_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        ? new Date(task.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
         : formatDue(task.due_at, false))
     : null;
   const mins = task.est_minutes

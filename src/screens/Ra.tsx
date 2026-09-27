@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { router } from 'expo-router';
+import { backToSession } from '../nav';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Primary, Mica, Character, poseImage } from '../ui';
@@ -59,7 +60,9 @@ function ago(ms: number) {
  */
 export default function Ra() {
   const t = useTheme();
-  const { now, nowRule, nowDecision, decisions, crumb, toNu, refresh, nextEvent, energy, setEnergy, passOn, focusOn, showToast } = useStore();
+  const { now, nowRule, nowDecision, decisions, crumb, toNu, refresh, nextEvent, energy, setEnergy, passOn, focusOn, showToast, running } = useStore();
+  // this one's session is already going: Begin takes you back into it
+  const live = running && now && running.id === now.id ? running : null;
   // how long it will really take you: the planner's figure (your guess × your pace), else your guess
   const nowMins = now ? (nowDecision?.taskId === now.id ? nowDecision.suggestedMinutes : null) ?? now.est_minutes : null;
   const { tick } = useTaskActions();
@@ -175,6 +178,7 @@ export default function Ra() {
 
   const begin = () => {
     if (!now) return;
+    if (live) return backToSession(live);
     router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
   };
 
@@ -323,7 +327,7 @@ export default function Ra() {
             </View>
 
             <View style={{ alignItems: 'center', gap: 22, marginTop: 36 }}>
-              <BigCircle label={timerMins ? `Begin · ${timerMins}` : 'Begin'} said={timerMins ? `Begin, ${timerMins} min` : 'Begin'} onPress={begin} />
+              <BigCircle label={live ? 'Back to it' : timerMins ? `Begin · ${timerMins}` : 'Begin'} said={live ? 'Back to it' : timerMins ? `Begin, ${timerMins} min` : 'Begin'} onPress={begin} />
               <Pressable onPress={() => { Haptics.selectionAsync(); setOptions(true); }} hitSlop={10} accessibilityRole="button">
                 <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.display }}>More options</Text>
               </Pressable>
@@ -373,7 +377,7 @@ export default function Ra() {
               }} />
             </View>
           )}
-          <Primary label={timerMins ? `Begin · ${timerMins} min` : 'Begin'} accessibilityLabel={timerMins ? `Begin, ${timerMins} min` : 'Begin'} tone="ra"
+          <Primary label={live ? 'Back to it' : timerMins ? `Begin · ${timerMins} min` : 'Begin'} accessibilityLabel={live ? 'Back to it' : timerMins ? `Begin, ${timerMins} min` : 'Begin'} tone="ra"
             onPress={() => { setOptions(false); begin(); }} style={{ marginTop: 10 }} />
         </Sheet>
       )}

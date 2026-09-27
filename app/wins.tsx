@@ -31,8 +31,8 @@ function Wins() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flex: 1, padding: 20, gap: 14 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to Everything" style={{ paddingVertical: 4, alignSelf: 'flex-start' }}>
-          <Text style={{ color: t.ink3, fontSize: 15 }}>← Everything</Text>
+        <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={{ paddingVertical: 4, alignSelf: 'flex-start' }}>
+          <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
         </Pressable>
 
         {/* The light. Earned, never spent, never decayed, never lost. */}
@@ -47,10 +47,7 @@ function Wins() {
           <SunArc light={today} size={128} compact />
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{skyLabel(today)}</Text>
-            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              {today} today. Tomorrow starts at the horizon again. Nothing carries over,
-              and nothing is taken away.
-            </Text>
+            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3 }}>{today} light today</Text>
           </View>
         </Card>
 
@@ -60,10 +57,7 @@ function Wins() {
             <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>
               {momentum > 0.6 ? 'Strong' : momentum > 0.25 ? 'Building back' : 'Quiet'}
             </Text>
-            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              A decaying average, not a chain. One quiet day doesn't reset it.
-            </Text>
-            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 6 }}>{total} things done, all time.</Text>
+            <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3 }}>{total} done, all time</Text>
           </View>
         </Card>
 

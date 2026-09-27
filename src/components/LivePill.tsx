@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
 import { announce, decorative, spokenDuration } from '../a11y';
+import { backToSession } from '../nav';
 
 const CORAL = '#FF6B35';
 
@@ -65,7 +65,7 @@ export function LivePill() {
       minHeight: 62, borderRadius: 31, flexDirection: 'row', alignItems: 'center', paddingRight: 8, marginBottom: 10,
       backgroundColor: dark ? '#1E2652' : '#1B1830', borderWidth: 1, borderColor: dark ? t.stroke : 'transparent',
     }}>
-    <Pressable onPress={() => router.push({ pathname: '/timer', params: { id: running.id, mins: String(running.endAt ? Math.round(running.span / 60) : 0) } })}
+    <Pressable onPress={() => backToSession(running)}
       accessibilityRole="button" accessibilityLabel={`${running.title}, ${spoken}. Back to the session`}
       style={({ pressed }) => ({ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 8, paddingRight: 12, opacity: pressed ? 0.85 : 1 })}>
       <View {...decorative} style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>

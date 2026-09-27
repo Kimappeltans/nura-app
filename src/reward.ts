@@ -142,7 +142,7 @@ const DONE_LINES = [
 
 const PARTIAL_LINES = [
   'You showed up. That was the whole ask.',
-  'Five minutes of it is five more than none.',
+  'It still counts.',
   'Stopping on purpose is not the same as not starting.',
   'You chose to stop. That is control, not failure.',
 ];

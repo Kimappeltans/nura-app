@@ -391,7 +391,7 @@ export function describe(d: Draft): string {
   if (d.due_at) {
     const dt = new Date(d.due_at);
     if (!d.repeat_rule) bits.push(dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }));
-    if (d.has_time) bits.push(dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    if (d.has_time) bits.push(dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
   }
   if (d.est_minutes) bits.push(d.est_minutes < 60 ? `${d.est_minutes} min` : `${d.est_minutes / 60} hr`);
   if (d.priority >= 3) bits.push('high priority');

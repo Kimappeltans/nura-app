@@ -23,7 +23,8 @@ const web = Platform.OS === 'web';
 interface Row {
   key: string;
   title: string;
-  body: string;
+  /** one fact, when the title needs it */
+  body?: string;
   icon: (c: string) => React.ReactNode;
   status: Status;
   onPress?: () => void;
@@ -104,13 +105,12 @@ export default function Connect(
       rows: [
         {
           key: 'calendar', title: 'Calendar', syncable: true,
-          body: 'Your real day, next to your tasks. Covers whatever is already in iOS: iCloud, Google, Outlook.',
+          body: 'iCloud, Google, Outlook',
           icon: c => <IconCalendar size={21} color={c} />,
           status: web ? 'phone' : cal, onPress: connectCalendar,
         },
         {
           key: 'notifications', title: 'Reminders',
-          body: 'A few a day, and they get quieter if you’re not answering.',
           icon: c => <IconBell size={21} color={c} />,
           status: web ? 'phone' : notif, onPress: connectNotifications,
         },
@@ -168,12 +168,6 @@ export default function Connect(
             }}>
               Connect your day.
             </Text>
-            <Text style={{
-              color: t.ink2, fontSize: 14.5, lineHeight: 21, marginTop: 8,
-              textAlign: 'center', maxWidth: 290,
-            }}>
-              Nura plans against the hours you actually have. You can change any of this later.
-            </Text>
           </View>
 
           <ScrollView style={{ flex: 1, marginTop: 16 }} showsVerticalScrollIndicator={false}>
@@ -198,8 +192,8 @@ export default function Connect(
                           accessibilityLabel={
                             r.status === 'busy' ? `${r.title}, connecting`
                             : done ? `${r.title}, on`
-                            : phone ? `${r.title}, iPhone only. ${r.body}`
-                            : `Connect ${r.title}. ${r.body}`}
+                            : phone ? `${r.title}, iPhone only${r.body ? `. ${r.body}` : ''}`
+                            : `Connect ${r.title}${r.body ? `. ${r.body}` : ''}`}
                           aria-disabled={phone || r.status === 'busy' || done}
                           aria-busy={r.status === 'busy'}
                           style={({ pressed }) => ({
@@ -216,7 +210,7 @@ export default function Connect(
                           <View style={{ flex: 1 }}>
                             {/* not available here: the second ink, not a faded row (opacity took ink3 under 4.5:1) */}
                             <Text style={{ color: phone ? t.ink2 : t.ink, fontSize: 16, fontFamily: T.brand }}>{r.title}</Text>
-                            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 16.5, marginTop: 1.5 }}>{r.body}</Text>
+                            {!!r.body && <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 16.5, marginTop: 1.5 }}>{r.body}</Text>}
                           </View>
 
                           {r.status === 'busy' ? <ActivityIndicator size="small" color={t.raDeep} />
@@ -253,10 +247,6 @@ export default function Connect(
                 </Surface>
               </View>
             ))}
-
-            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 17.5, marginBottom: 8, paddingHorizontal: 2 }}>
-              Nothing is shared with anyone. Nura only ever edits events it created itself.
-            </Text>
           </ScrollView>
 
           <View style={{ gap: 11, marginTop: 10 }}>
