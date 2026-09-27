@@ -1,0 +1,20 @@
+# Nura, the web app on Netlify.
+#
+# Expo exports the app to dist/ and copies public/ into it: the headers
+# (public/_headers), the one page fallback (public/_redirects) and the legal
+# pages (public/privacy.html, terms.html, support.html).
+#
+# EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are baked into the
+# bundle at build time. When Netlify builds, set both under Site configuration,
+# Environment variables. Or build locally (with .env) and deploy dist/ as it is:
+#   npx expo export -p web && npx netlify deploy --prod --dir dist
+#
+# Then add the site's address to Supabase, Authentication, URL Configuration,
+# Redirect URLs (https://<site>.netlify.app/**), see supabase/README.md.
+
+[build]
+  command = "npx expo export -p web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

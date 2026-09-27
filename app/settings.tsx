@@ -16,7 +16,7 @@ import { signOut } from '../src/account';
 import { type as T } from '../src/theme';
 import {
   Mica, IconChevron, IconCheck, IconBell, IconCalendar, IconClock, IconSun,
-  IconSunrise, IconSunset, IconMoon, IconTimer, IconCup, IconPhone, IconTasks, IconTray, IconRepeat,
+  IconSunrise, IconSunset, IconMoon, IconTimer, IconCup, IconPhone, IconTasks, IconTray,
   IconLayers, IconCalendarPlus, IconContrast, IconGlobe, IconSpeaker, IconBubble, IconShield, IconExport,
   IconHelp, IconPlay, IconRestart,
 } from '../src/ui';
@@ -26,6 +26,9 @@ import { askToReplayIntro } from '../src/intro';
 import { LANGUAGES, getLanguage, setLanguage, languageName, type LangCode } from '../src/planner';
 import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, setChosenVoice, say, type VoiceOption } from '../src/voice';
 import { DAY_ENDS, DAY_STARTS, dayEndLabel } from '../src/capacity';
+import Constants from 'expo-constants';
+import { IconDoc, IconSparkle } from '../src/ui';
+import { openLink } from '../src/links';
 
 /**
  * Settings: how the app behaves. Your account lives on Profile (the first
@@ -207,8 +210,6 @@ function Tasks() {
   return (
     <Card>
       <Row icon={IconTray} title="One pass through your backlog" onPress={() => router.push('/triage')} />
-      <Divider />
-      <Row icon={IconRepeat} title="Add a habit" onPress={() => router.push('/habit')} />
     </Card>
   );
 }
@@ -408,6 +409,14 @@ function Help() {
       <Row icon={IconPlay} title="Watch the opening again" onPress={() => router.push('/opening')} />
       <Divider />
       <Row icon={IconRestart} title="Start from the beginning" onPress={askToReplayIntro} />
+      <Divider />
+      <Row icon={IconBubble} title="Support" onPress={() => openLink('support')} />
+      <Divider />
+      <Row icon={IconShield} title="Privacy policy" onPress={() => openLink('privacy')} />
+      <Divider />
+      <Row icon={IconDoc} title="Terms" onPress={() => openLink('terms')} />
+      <Divider />
+      <Row icon={IconSparkle} title="Version" value={Constants.expoConfig?.version ?? ''} />
     </Card>
   );
 }

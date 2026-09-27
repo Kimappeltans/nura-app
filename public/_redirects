@@ -1,0 +1,3 @@
+# One page app: every route is index.html. Netlify serves files that exist
+# first (privacy.html, terms.html, support.html, the bundles), so they still load.
+/*  /index.html  200

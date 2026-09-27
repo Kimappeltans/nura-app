@@ -1,0 +1,65 @@
+/* Nura: the legal and help pages served next to the web app (public/).
+   The app host sends Cross-Origin-Embedder-Policy: require-corp, so everything
+   here is same-origin: Inter Tight from ./fonts, no images, no scripts.
+   The rules are a small subset of nura-site/site.css; keep them in step. */
+@font-face { font-family: 'Inter Tight'; font-weight: 400; font-display: swap; src: url(fonts/InterTight-400.woff) format('woff'); }
+@font-face { font-family: 'Inter Tight'; font-weight: 500; font-display: swap; src: url(fonts/InterTight-500.woff) format('woff'); }
+@font-face { font-family: 'Inter Tight'; font-weight: 600; font-display: swap; src: url(fonts/InterTight-600.woff) format('woff'); }
+
+:root {
+  --ink: #171313; --ink-2: #4A4340; --ink-3: #7B7360; --mute: #958B77;
+  --coral: #FF6B35; --coral-deep: #C2410C; --on-coral: #3B1204;
+  --font: 'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ease-pop: cubic-bezier(0.22, 1, 0.36, 1);
+  --gutter: clamp(16px, 5vw, 40px);
+}
+.day { --bg: #FFFFFF; --text: var(--ink); --sub: var(--ink-3); --mh: var(--mute); --line: rgba(23,19,19,.08); }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: #FFFFFF; color: var(--ink); font: 500 16px/1.5 var(--font); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; }
+section { background: var(--bg); color: var(--text); }
+.wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 var(--gutter); }
+h1, h2 { margin: 0; font-weight: 600; letter-spacing: -0.045em; line-height: 1.02; text-wrap: balance; }
+h1 { font-size: clamp(38px, 5.2vw, 66px); line-height: 1.04; }
+.mh { color: var(--mh); }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--coral-deep); outline-offset: 3px; border-radius: 8px; }
+
+/* header: the name, and the way back into the app */
+header { position: sticky; top: 0; z-index: 10; background: #FFFFFF; border-bottom: 1px solid rgba(23,19,19,.08); }
+.bar { display: flex; align-items: center; gap: 28px; height: 64px; }
+.name { font-size: 20px; font-weight: 600; letter-spacing: -0.03em; text-decoration: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; height: 40px; padding: 0 18px; border-radius: 20px;
+       background: var(--coral); color: var(--on-coral); font: 600 14.5px var(--font); letter-spacing: -0.01em; text-decoration: none; }
+.btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.hero { padding-block: clamp(40px, 6vw, 80px) clamp(56px, 8vw, 104px); }
+.glow { background-image:
+  radial-gradient(55% 60% at 88% 18%, rgba(255,150,100,.16), transparent 70%),
+  radial-gradient(45% 50% at 0% 100%, rgba(255,190,150,.16), transparent 70%); }
+.kicker { display: block; margin-bottom: 16px; font-size: 11px; font-weight: 600; letter-spacing: 1.7px; text-transform: uppercase; color: var(--sub); }
+
+.prose { max-width: 720px; }
+.prose h2 { font-size: clamp(24px, 2.6vw, 30px); letter-spacing: -0.035em; margin-top: 48px; }
+.prose p, .prose li { color: var(--ink-2); font-size: 17px; line-height: 1.6; }
+.prose p { margin-top: 14px; }
+.prose ul { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 8px; }
+.prose b { color: var(--ink); font-weight: 600; }
+.prose .updated { margin-top: 18px; font-size: 14px; color: var(--ink-3); }
+
+.faq { max-width: 760px; margin-top: 40px; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 20px; padding: 22px 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-weight: 400; font-size: 24px; line-height: 1; color: var(--sub); transition: transform .3s var(--ease-pop); }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 0 22px; color: var(--sub); max-width: 40em; }
+
+footer { background: #FFD6BD; color: var(--on-coral); }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; padding-block: 28px 36px; font-size: 14px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+footer nav a { text-decoration: none; opacity: .75; }
+footer nav a:hover { opacity: 1; }
+footer .c { margin-left: auto; opacity: .7; }
