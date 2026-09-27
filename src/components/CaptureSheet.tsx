@@ -13,7 +13,10 @@ import { labelById } from '../labels';
 import { LabelGlyph } from './LabelIcon';
 import { useDictation } from '../voice';
 import { DotWave } from './DotWave';
-import { readInput } from '../coach';
+import { readInput, localRead, localIsSure } from '../coach';
+import { getLanguage } from '../planner';
+import { aiConsent, setAiConsent } from '../ai';
+import { AiConsent } from './AiConsent';
 import type { StateRead } from '../learn/types';
 import { useScreen, COLUMN } from '../screen';
 
@@ -41,6 +44,18 @@ const WHEN = [
 const HOW_LONG = [5, 15, 30, 60];
 const CORAL_ON = '#FF6B35';
 
+/** What Nu makes of the lines, given a read of the one sentence (or none). */
+function readOf(lines: string[], coached: StateRead | null) {
+  if (!lines.length) return null;
+  if (lines.length > 1) return { kind: 'many' as const, drafts: lines.map(parseTask) };
+  // one run-on sentence that was really several things
+  if (coached?.kind === 'tasks' && (coached.items?.length ?? 0) > 1) return { kind: 'many' as const, drafts: coached.items!.map(parseTask) };
+  if (coached?.kind === 'project') return { kind: 'project' as const, draft: parseTask(lines[0]) };
+  const intent = route(lines[0]);
+  if (intent.kind === 'vague') return { kind: 'project' as const, draft: intent.draft };
+  return { kind: 'task' as const, draft: intent.kind === 'create' ? intent.draft : parseTask(lines[0]) };
+}
+
 function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useTheme();
   const { refresh, showToast } = useStore();
@@ -48,43 +63,29 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [open, setOpen] = useState<'when' | 'long' | null>(null);
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
   const [mins, setMins] = useState<number | null>(null);
-  // what the coach made of it, for the text it was read for (only messy text reaches the model)
+  // what the model made of it, for the text it was read for (only messy text, only on ✓)
   const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
+  const [reading, setReading] = useState(false);
+  const [asking, setAsking] = useState(false);   // AI help, asked the first time it matters
+  const [lang, setLang] = useState('en');
   const input = useRef<TextInput>(null);
   const [room, setRoom] = useState(999);   // the height left for Nu
 
   useEffect(() => {
-    if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); return; }
+    if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); setReading(false); setAsking(false); return; }
+    getLanguage().then(setLang).catch(() => {});
     // opened with words already (a dev link, later the share sheet)
     const draft = useStore.getState().tellDraft;
     if (draft) { setText(draft); useStore.setState({ tellDraft: null }); }
   }, [visible]);
 
-  // when you pause: read it properly. readInput decides on the phone first and
-  // asks the model only when the phone isn't sure
-  useEffect(() => {
-    const v = text.trim();
-    if (v.split(/\s+/).length < 4 || v.includes('\n')) return;
-    let dead = false;
-    const timer = setTimeout(() => {
-      readInput(v).then(r => { if (!dead) setSmart({ text: v, read: r }); }).catch(() => {});
-    }, 900);
-    return () => { dead = true; clearTimeout(timer); };
-  }, [text]);
-
-  // what Nu makes of it, as you type
+  // what Nu makes of it, as you type: the phone's own read, instant and
+  // free. The model is only asked when you tap ✓ (add, below).
   const lines = useMemo(() => text.split('\n').map(s => s.trim()).filter(Boolean), [text]);
-  const coached = smart && smart.text === text.trim() ? smart.read : null;
-  const read = useMemo(() => {
-    if (!lines.length) return null;
-    if (lines.length > 1) return { kind: 'many' as const, drafts: lines.map(parseTask) };
-    // one run-on sentence that was really several things
-    if (coached?.kind === 'tasks' && (coached.items?.length ?? 0) > 1) return { kind: 'many' as const, drafts: coached.items!.map(parseTask) };
-    if (coached?.kind === 'project') return { kind: 'project' as const, draft: parseTask(lines[0]) };
-    const intent = route(lines[0]);
-    if (intent.kind === 'vague') return { kind: 'project' as const, draft: intent.draft };
-    return { kind: 'task' as const, draft: intent.kind === 'create' ? intent.draft : parseTask(lines[0]) };
-  }, [lines, coached]);
+  const sentence = lines.length === 1 && lines[0].split(/\s+/).length >= 4 ? lines[0] : null;
+  const local = useMemo(() => (sentence ? localRead(sentence, lang) : null), [sentence, lang]);
+  const coached = smart && smart.text === sentence ? smart.read : local;
+  const read = useMemo(() => readOf(lines, coached), [lines, coached]);
 
   // what you set with a tap wins over what was read from the words
   const withChoices = (d: Draft): Draft => ({
@@ -100,7 +101,24 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   });
 
   const add = async () => {
-    if (!read) return;
+    if (!read || reading) return;
+    // a sentence the phone isn't sure of: ask the model once, on ✓, and only
+    // with your yes. If it reads differently (several things, a project, a
+    // reply from Nu), show that first; the next ✓ puts it down.
+    if (sentence && local && smart?.text !== sentence && !localIsSure(sentence, local, lang)) {
+      const ok = await aiConsent();
+      if (ok === 'ask') return setAsking(true);
+      if (ok === 'yes') {
+        setReading(true);
+        const r = await readInput(sentence).catch(() => null);
+        setReading(false);
+        if (r) {
+          setSmart({ text: sentence, read: r });
+          const next = readOf(lines, r);
+          if (next?.kind !== read.kind || (r.source === 'model' && !!r.reply)) return;
+        }
+      }
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (read.kind === 'many') {
       for (const d of read.drafts) await save(withChoices(d));
@@ -246,11 +264,12 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={listening ? CORAL_ON : t.nu} strokeWidth={2} strokeLinecap="round"><Path d="M9 6a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3" /></Svg>
             </Pressable>
           ) : <View style={{ width: 54 }} />}
-          <Pressable onPress={add} disabled={!read} accessibilityRole="button"
+          <Pressable onPress={add} disabled={!read || reading} accessibilityRole="button"
             accessibilityLabel={read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'}
+            accessibilityState={{ disabled: !read || reading, busy: reading }}
             style={({ pressed }) => ({
               width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',
-              backgroundColor: t.nu, opacity: read ? 1 : 0.45, transform: [{ scale: pressed ? 0.96 : 1 }],
+              backgroundColor: t.nu, opacity: read && !reading ? 1 : 0.45, transform: [{ scale: pressed ? 0.96 : 1 }],
             })}>
             <Svg width={30} height={30} viewBox="0 0 24 24"><Path d="M5 12.5l4.5 4.5L19 7.5" stroke={t.onNu} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
           </Pressable>
@@ -261,6 +280,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         </View>
       </View>
       </KeyboardAvoidingView>
+      {/* inside this Modal, so it opens over Tell Nu on iOS too; ✓ carries
+          on once the sheet is down */}
+      <AiConsent visible={asking} onClose={() => setAsking(false)}
+        onAnswer={async ok => { setAsking(false); await setAiConsent(ok); setTimeout(add, 300); }} />
     </Modal>
   );
 }

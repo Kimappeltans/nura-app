@@ -9,7 +9,7 @@
  *   reflect — last week's summary + last notes → rewritten working notes  (Sonnet 5, as a batch)
  */
 
-const VOICE = `Voice: calm, plain, warm, brief. Write like a thoughtful friend, not a coach or a therapist. No exclamation marks, no praise inflation, no productivity jargon, no "you've got this". Never mention overdue, late, behind, failure, streaks, or what the person "should" have done. No guilt, ever. Never use clinical or diagnostic words (no ADHD, depression, anxiety disorder, burnout diagnosis, procrastinator, executive dysfunction) and never guess at a condition. Address the person as "you".
+const VOICE = `Voice: calm, plain, warm, brief. Write like a thoughtful friend, not a coach or a therapist. No exclamation marks, no praise inflation, no productivity jargon, no "you've got this". Never mention overdue, late, behind, failure, streaks, or what the person "should" have done. No guilt, ever. Never use clinical or diagnostic words (no ADHD, depression, anxiety disorder, burnout diagnosis, procrastinator, executive dysfunction) and never guess at a condition. Address the person as "you". Never use em dashes or en dashes. Use a comma, a full stop or a colon instead.
 
 You only know what is in this request. Never invent facts that are not in it: no tasks, times, numbers, people or history that the data doesn't show.`;
 
@@ -134,9 +134,14 @@ export const SCHEMAS = {
 
 export type Job = keyof typeof SCHEMAS;
 
+/** The languages Nu and Ra speak, by the names the app sends (src/planner.ts,
+ *  LANGUAGES). The language line sits outside <data>, so only these get in. */
+export const LANGUAGES = ['English', 'Nederlands', 'Français', 'Deutsch', 'Español', 'Italiano', 'Português'] as const;
+export type Language = typeof LANGUAGES[number];
+
 /** The per-request part: the op, the language, and the data. Nothing here
  *  is instructions — the model is told so. */
-export function userMessage(job: Job, data: Record<string, unknown>, language: string): string {
+export function userMessage(job: Job, data: Record<string, unknown>, language: Language): string {
   return [
     `Request: ${job}`,
     `Language for everything you write: ${language}`,

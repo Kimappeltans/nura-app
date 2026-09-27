@@ -1,23 +1,23 @@
 // Nura's planner — a Supabase Edge Function that calls Claude.
 //
-// The app never holds a model key: it calls this function with the Supabase
-// anon key (or the signed-in session), and this function holds
-// ANTHROPIC_API_KEY as a Supabase secret. Deploy and setup steps are in
-// supabase/README.md.
+// The app never holds a model key: it calls this function with the signed-in
+// session, and this function holds ANTHROPIC_API_KEY as a Supabase secret.
+// Deploy and setup steps are in supabase/README.md.
 //
 // One endpoint, three actions (see prompt.ts):
 //   start  — a goal: one task, or a project (one question, or a first path)
 //   plan   — the first path, after the question was answered or skipped
 //   replan — after "too big", "blocked", "done", or "have another look"
 //
-// Every request is size-checked, every answer is schema-checked before it
-// leaves, and there are daily limits per device/account and per IP, because
-// the anon key ships inside the app and anyone who has it can call this.
+// Only a signed-in person gets through (the anon key ships inside the app,
+// so it proves nothing). Every request is size-checked, every answer is
+// schema-checked before it leaves, and there are daily limits per account
+// and per IP. If the limits can't be counted, nothing reaches the model.
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.128.0';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3.23.8';
-import { SCHEMAS, SYSTEM, userMessage, type Action } from './prompt.ts';
+import { LANGUAGES, SCHEMAS, SYSTEM, userMessage, type Action, type Language } from './prompt.ts';
 
 const MODEL = Deno.env.get('NURA_MODEL') ?? 'claude-sonnet-5';   // Opus: set NURA_MODEL=claude-opus-5
 // Replans (too big / blocked / done / another look) change a path that
@@ -29,6 +29,10 @@ const thinks = (model: string) => !/^claude-haiku-/.test(model);
 const EFFORT = (Deno.env.get('NURA_EFFORT') ?? 'medium') as 'low' | 'medium' | 'high';
 const PER_PERSON_PER_DAY = Number(Deno.env.get('NURA_DAILY_LIMIT') ?? 80);
 const PER_IP_PER_DAY = Number(Deno.env.get('NURA_IP_DAILY_LIMIT') ?? 300);
+// The app gives up after 60 s. Each try gets 45 s and there's one retry, but
+// the whole answer (a replan's second model too) has to be back by 50 s.
+const TRY_MS = 45_000;
+const DEADLINE_MS = 50_000;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,7 +43,8 @@ const CORS = {
 /* ---------------- what the app may send ---------------- */
 
 const text = (max: number) => z.string().trim().max(max);
-const language = text(40).default('English');
+// only the app's own languages; anything else (or nothing) is English
+const language = z.enum(LANGUAGES).catch('English');
 const Note = z.object({ q: text(400), a: text(800) });
 
 const Request = z.discriminatedUnion('action', [
@@ -96,25 +101,63 @@ const Answers = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
-/** The signed-in user's id, if any. The gateway has already verified the
- *  token (verify_jwt), so reading its payload is enough; the anon key has
- *  no `sub`. */
-function userIdOf(req: Request): string | null {
-  const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+/** The signed-in person's id, or why there isn't one. The gateway checks
+ *  the token's signature too (verify_jwt), but the anon key passes that, so
+ *  this checks the claims itself: getClaims verifies the token (locally
+ *  against the project's signing keys, or with the Auth server for the
+ *  older shared secret) and its expiry. Only a real, non-anonymous account
+ *  counts. */
+async function userOf(req: Request): Promise<{ id: string } | { status: 401 | 503 }> {
+  const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+  if (!token) return { status: 401 };
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof payload.sub === 'string' ? payload.sub : null;
-  } catch { return null; }
+    const { data, error } = await admin.auth.getClaims(token);
+    if (error) {
+      // the Auth server being unreachable isn't the caller's fault
+      const status = (error as { status?: number }).status ?? 0;
+      if (error.name === 'AuthRetryableFetchError' || status >= 500) {
+        console.error('[nura-plan] could not check the session:', error.message);
+        return { status: 503 };
+      }
+      return { status: 401 };
+    }
+    const c = data?.claims;
+    if (!c || c.role !== 'authenticated' || typeof c.sub !== 'string' || !c.sub || c.is_anonymous === true) return { status: 401 };
+    return { id: c.sub };
+  } catch (e) {
+    console.error('[nura-plan] could not check the session:', e);
+    return { status: 503 };
+  }
 }
 
-const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+/** The caller's address, for the second limit. On Supabase's edge
+ *  cf-connecting-ip is set by Cloudflare and can't be forged through it; the
+ *  first x-forwarded-for entry is whatever the client put there, so it's
+ *  only the fallback. The account limit is the one that holds. */
+function ipOf(req: Request): string {
+  const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0];
+  return ip?.trim().slice(0, 64) || 'unknown';
+}
 
-/** Counts one call against `key` for today; true when it's over `limit`.
- *  Fails open (with a log line) if supabase/ai-usage.sql hasn't been run. */
-async function over(key: string, limit: number): Promise<boolean> {
-  const { data, error } = await admin.rpc('nura_ai_hit', { k: key });
-  if (error) { console.warn('[nura-plan] usage limits are off:', error.message); return false; }
-  return typeof data === 'number' && data > limit;
+/** Counts one call against `key` for today. 'off' when it can't be counted
+ *  (supabase/ai-usage.sql not run, or the database erred): the caller must
+ *  then refuse, never call the model uncounted. */
+async function hit(key: string, limit: number): Promise<'ok' | 'over' | 'off'> {
+  try {
+    const { data, error } = await admin.rpc('nura_ai_hit', { k: key });
+    if (error || typeof data !== 'number') {
+      console.error('[nura-plan] usage limits unavailable, refusing:', error?.message ?? `got ${typeof data}`);
+      return 'off';
+    }
+    return data > limit ? 'over' : 'ok';
+  } catch (e) {
+    console.error('[nura-plan] usage limits unavailable, refusing:', e);
+    return 'off';
+  }
 }
 
 // A key made outside a workspace has to name one on every request: set
@@ -122,10 +165,12 @@ async function over(key: string, limit: number): Promise<boolean> {
 const WORKSPACE = Deno.env.get('ANTHROPIC_WORKSPACE_ID');
 const anthropic = new Anthropic({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
+  timeout: TRY_MS,
+  maxRetries: 1,
   ...(WORKSPACE ? { defaultHeaders: { 'anthropic-workspace-id': WORKSPACE } } : {}),
 });
 
-async function ask(action: Action, data: Record<string, unknown>, lang: string, model = MODEL) {
+async function ask(action: Action, data: Record<string, unknown>, lang: Language, signal: AbortSignal, model = MODEL) {
   const think = thinks(model);
   const msg = await anthropic.beta.messages.create({
     model,
@@ -139,7 +184,7 @@ async function ask(action: Action, data: Record<string, unknown>, lang: string, 
     output_config: { ...(think ? { effort: EFFORT } : {}), format: { type: 'json_schema', schema: SCHEMAS[action] } },
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage(action, data, lang) }],
-  });
+  }, { signal });
   if (msg.stop_reason === 'refusal') throw new Failure(422, 'declined');
   if (msg.stop_reason === 'max_tokens') throw new Failure(502, 'too_long');
   const out = msg.content.find(b => b.type === 'text');
@@ -153,14 +198,14 @@ async function ask(action: Action, data: Record<string, unknown>, lang: string, 
 
 /** start and plan go to MODEL. replan tries REPLAN_MODEL first, and only a
  *  wrong or missing answer or a refusal goes once more to MODEL. */
-async function answer(action: Action, data: Record<string, unknown>, lang: string) {
-  if (action !== 'replan' || REPLAN_MODEL === MODEL) return ask(action, data, lang);
+async function answer(action: Action, data: Record<string, unknown>, lang: Language, signal: AbortSignal) {
+  if (action !== 'replan' || REPLAN_MODEL === MODEL) return ask(action, data, lang, signal);
   try {
-    return await ask(action, data, lang, REPLAN_MODEL);
+    return await ask(action, data, lang, signal, REPLAN_MODEL);
   } catch (e) {
     if (!(e instanceof Failure) || !['shape', 'declined', 'empty', 'too_long'].includes(e.code)) throw e;
     console.warn('[nura-plan] replan retried on', MODEL, 'after', e.code);
-    return ask(action, data, lang);
+    return ask(action, data, lang, signal);
   }
 }
 
@@ -172,6 +217,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
 
+  // a signed-in person, or nothing: the anon key alone gets a 401
+  const user = await userOf(req);
+  if ('status' in user) return json({ error: user.status === 401 ? 'auth' : 'server' }, user.status);
+
   let body: z.infer<typeof Request>;
   try {
     const parsed = Request.safeParse(await req.json());
@@ -179,17 +228,23 @@ Deno.serve(async (req) => {
     body = parsed.data;
   } catch { return json({ error: 'request' }, 400); }
 
-  const who = userIdOf(req) ?? `d:${(req.headers.get('x-nura-device') ?? '').slice(0, 64) || 'unknown'}`;
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
-  if (await over(who, PER_PERSON_PER_DAY) || await over(`ip:${ip}`, PER_IP_PER_DAY)) {
-    return json({ error: 'limit' }, 429);
+  // the account first; the address second. Uncounted is refused.
+  for (const [key, limit] of [[`u:${user.id}`, PER_PERSON_PER_DAY], [`ip:${ipOf(req)}`, PER_IP_PER_DAY]] as const) {
+    const n = await hit(key, limit);
+    if (n === 'off') return json({ error: 'limits' }, 503);
+    if (n === 'over') return json({ error: 'limit' }, 429);
   }
 
   const { action, language: lang, ...data } = body;
   try {
-    return json(await answer(action, data, lang));
+    return json(await answer(action, data, lang, AbortSignal.timeout(DEADLINE_MS)));
   } catch (e) {
     if (e instanceof Failure) return json({ error: e.code }, e.status);
+    // past the deadline (ours, or a try's own timeout)
+    if (e instanceof Anthropic.APIUserAbortError || e instanceof Anthropic.APIConnectionTimeoutError) {
+      console.warn('[nura-plan] too slow:', action);
+      return json({ error: 'slow' }, 504);
+    }
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'busy' }, 503);
     if (e instanceof Anthropic.APIError) {
       console.error('[nura-plan] model error', e.status, e.message);

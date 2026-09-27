@@ -15,6 +15,8 @@ import { NuGlow } from '../../src/components/NuGlow';
 import { Moving } from '../../src/components/Moving';
 import { PathEditor, editKey, type EditStep } from '../../src/components/PathEditor';
 import { MicButton, HearIt } from '../../src/components/Voice';
+import { AiConsent } from '../../src/components/AiConsent';
+import { aiConsent, setAiConsent } from '../../src/ai';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
 const leave = () => (goBack());
@@ -78,9 +80,19 @@ function Screen() {
     setPhase({ at: 'path', plan });
   };
 
+  // the planner is Claude: ask first, once (Not now keeps "write it myself")
+  const [asking, setAsking] = useState(false);
+  const answerAsk = async (ok: boolean) => {
+    setAsking(false);
+    await setAiConsent(ok);
+    if (ok) send();
+    else setPhase({ at: 'error', message: 'Nu plans with Claude, so it needs your yes first.', retry: send });
+  };
+
   const send = async () => {
     const g = goal.trim();
     if (!g) return;
+    if ((await aiConsent()) !== 'yes') return setAsking(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPhase({ at: 'thinking', line: 'Nu is looking for a way in…' });
     try {
@@ -302,6 +314,7 @@ function Screen() {
         </ScrollView>
         {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, gap: 10 }}>{footer}</View>}
       </KeyboardAvoidingView>
+      <AiConsent visible={asking} onAnswer={answerAsk} onClose={() => setAsking(false)} />
     </SafeAreaView>
   );
 }

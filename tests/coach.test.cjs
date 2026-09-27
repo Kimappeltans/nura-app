@@ -34,14 +34,26 @@ const assistant = load('assistant.ts', {
 });
 
 const flags = new Map();
+/** A fresh phone that has said yes to AI help. */
+const reset = () => { flags.clear(); flags.set('ai.ok', '1'); };
+reset();
+let session = { access_token: 'x' };
 let invoke = async () => { throw new Error('no network in tests'); };
+const supabase = {
+  functions: { invoke: (...a) => invoke(...a) },
+  auth: { getSession: async () => ({ data: { session } }) },
+};
+const db = { getFlag: async (k) => (flags.has(k) ? flags.get(k) : null), setFlag: async (k, v) => { flags.set(k, v); } };
+const ai = load('ai.ts', { './supabase': { supabase }, './db': db });
 const coach = load('coach.ts', {
-  './supabase': { supabase: { functions: { invoke: (...a) => invoke(...a) } } },
-  './db': { getFlag: async (k) => (flags.has(k) ? flags.get(k) : null), setFlag: async (k, v) => { flags.set(k, v); } },
+  './supabase': { supabase },
+  './db': db,
+  './ai': ai,
   './assistant': assistant,
   './planner': { getLanguage: async () => 'en', languageName: () => 'English' },
 });
 const { localRead, localIsSure, splitItems, readState, readSuggestions, readNotes, reflectDue, readInput, modelSuggestions, maybeReflect, getNotes } = coach;
+const { noDashes, aiConsent, setAiConsent } = ai;
 
 let passed = 0;
 const tests = [];
@@ -293,7 +305,7 @@ const byOp = (handlers) => async (_n, opts) => {
 };
 const week = { summary: '7 days: 12 done', outcomes: [{ kind: 'shrink', accepted: 3, dismissed: 1, ignored: 0 }], activeDays: 6 };
 test('the weekly reflection is queued as a batch, then collected on a later open', async () => {
-  flags.clear();
+  reset();
   const ops = [];
   let ready = false;
   invoke = byOp({
@@ -310,7 +322,7 @@ test('the weekly reflection is queued as a batch, then collected on a later open
   assert.deepStrictEqual(ops, ['reflect_submit', 'reflect_collect', 'reflect_collect']);
 });
 test('an accepted batch counts as the week’s, even if it ends badly', async () => {
-  flags.clear();
+  reset();
   const ops = [];
   invoke = byOp({
     reflect_submit: () => { ops.push('submit'); return { data: { batch: 'msgbatch_abc123' }, error: null }; },
@@ -324,7 +336,7 @@ test('an accepted batch counts as the week’s, even if it ends badly', async ()
   assert.deepStrictEqual(ops, ['submit', 'collect', 'submit']);
 });
 test('offline, a submit is tried again after a day, not before', async () => {
-  flags.clear();
+  reset();
   let calls = 0;
   invoke = async () => { calls++; throw new Error('offline'); };
   await maybeReflect(week, NOW);
@@ -334,17 +346,99 @@ test('offline, a submit is tried again after a day, not before', async () => {
   assert.strictEqual(calls, 2);
 });
 test('when the server answers straight away, the notes are saved at once', async () => {
-  flags.clear();
+  reset();
   invoke = byOp({ reflect_submit: () => ({ data: { notes: ['Short tasks tend to get done first.'] }, error: null }) });
   const n = await maybeReflect(week, NOW);
   assert.strictEqual(n.text, 'Short tasks tend to get done first.');
 });
 test('too few active days: nothing is sent', async () => {
-  flags.clear();
+  reset();
   let calls = 0;
   invoke = async () => { calls++; return { data: null, error: null }; };
   assert.strictEqual(await maybeReflect({ ...week, activeDays: 4 }, NOW), null);
   assert.strictEqual(calls, 0);
+});
+
+section('no dashes from the model');
+test('a spaced dash between clauses becomes a comma', () => {
+  assert.strictEqual(noDashes('Start small — one page is enough.'), 'Start small, one page is enough.');
+  assert.strictEqual(noDashes('Start small – one page.'), 'Start small, one page.');
+});
+test('a dash between words becomes a comma', () => {
+  assert.strictEqual(noDashes('the draft—then the rest'), 'the draft, then the rest');
+  assert.strictEqual(noDashes('Mon–Fri'), 'Mon, Fri');
+});
+test('a number range reads "to"', () => {
+  assert.strictEqual(noDashes('5–10 minutes'), '5 to 10 minutes');
+  assert.strictEqual(noDashes('between 9 — 11am'), 'between 9 to 11am');
+  assert.strictEqual(noDashes('$5–$10'), '$5 to $10');
+});
+test('a dash that opens or closes a line goes, and no stray comma is left', () => {
+  assert.strictEqual(noDashes('— Open the file'), 'Open the file');
+  assert.strictEqual(noDashes('Open the file —'), 'Open the file');
+  assert.strictEqual(noDashes('Done — .'), 'Done.');
+  assert.strictEqual(noDashes('one\n— two'), 'one\ntwo');
+});
+test('hyphens and text without dashes are left alone', () => {
+  assert.strictEqual(noDashes('a well-known 2-step plan'), 'a well-known 2-step plan');
+  const s = 'Plain words, nothing to change.';
+  assert.strictEqual(noDashes(s), s);
+});
+test('reads, suggestions and notes come through without dashes', () => {
+  const r = readState({ kind: 'tasks', items: ['finish the report — today', 'call the bank'], load: 'busy', reply: 'A full day — one at a time.' });
+  assert.deepStrictEqual(r.items, ['finish the report, today', 'call the bank']);
+  assert.strictEqual(r.reply, 'A full day, one at a time.');
+  const [s] = readSuggestions({ suggestions: [sug({ text: 'Do it at 10 — then rest?', why: 'You finished 5–6 before noon.' })] }, ['t1'], NOW);
+  assert.strictEqual(s.text, 'Do it at 10, then rest?');
+  assert.strictEqual(s.why, 'You finished 5 to 6 before noon.');
+  assert.strictEqual(readNotes({ notes: ['Mornings — mostly — go well.'] }, null, NOW).text, 'Mornings, mostly, go well.');
+});
+
+section('AI help: asked once, and nothing goes without it');
+test('never asked, "not now" and "yes" are kept apart', async () => {
+  flags.delete('ai.ok');
+  assert.strictEqual(await aiConsent(), 'ask');
+  await setAiConsent(false);
+  assert.strictEqual(await aiConsent(), 'no');
+  await setAiConsent(true);
+  assert.strictEqual(await aiConsent(), 'yes');
+});
+test('without a yes: the phone’s read, no model suggestions, no reflection, and nothing sent', async () => {
+  for (const v of [null, '0']) {
+    reset();
+    if (v === null) flags.delete('ai.ok'); else flags.set('ai.ok', v);
+    let calls = 0;
+    invoke = async () => { calls++; return { data: { suggestions: [sug()] }, error: null }; };
+    assert.strictEqual((await readInput(`${UNSURE} first`)).source, 'local');
+    assert.deepStrictEqual(await modelSuggestions('7 days', { tasks: [{ id: 't1', title: 'Invoice', minutes: null, priority: 2 }], notes: null }), []);
+    assert.strictEqual(await maybeReflect(week, NOW), null);
+    assert.strictEqual(calls, 0);
+    assert.ok(!flags.has('coach.reflect.tried'));   // a try isn't used up either
+  }
+  reset();
+});
+test('signed out: the phone’s read, and nothing sent', async () => {
+  reset();
+  let calls = 0;
+  invoke = async () => { calls++; return { data: null, error: null }; };
+  session = null;
+  assert.strictEqual((await readInput(`${UNSURE} first`)).source, 'local');
+  assert.strictEqual(calls, 0);
+  session = { access_token: 'x' };
+});
+test('a 401 falls back to the phone’s read', async () => {
+  invoke = async () => ({ data: null, error: { context: { status: 401 } } });
+  assert.strictEqual((await readInput(`${UNSURE} today`)).source, 'local');
+});
+test('the same words are read by the model once', async () => {
+  let calls = 0;
+  invoke = async () => { calls++; return { data: { kind: 'tasks', items: ['finish the essay', 'email Sam'], load: 'low', reply: '' }, error: null }; };
+  const words = 'I’m so tired and I still need to finish the essay and email Sam about it';
+  const a = await readInput(words);
+  const b = await readInput(`  ${words} `);
+  assert.strictEqual(a.source, 'model');
+  assert.deepStrictEqual(b, a);
+  assert.strictEqual(calls, 1);
 });
 
 (async () => {

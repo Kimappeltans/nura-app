@@ -382,6 +382,27 @@ function LanguageVoice() {
       <Picker visible={pick === 'voice'} title="Voice" onClose={() => setPick(null)}
         options={[{ key: '', label: 'Default' }, ...voices.slice(0, 7).map(v => ({ key: v.id, label: v.name, note: v.enhanced ? 'Enhanced' : undefined }))]}
         value={voice ?? ''} onPick={pickVoice} />
+      <AiHelp />
+    </>
+  );
+}
+
+/** AI help: whether Nu may send text to Claude (src/ai.ts keeps the answer
+ *  as `ai.ok`; Tell Nu and Plan a project ask the first time), and the one
+ *  line that says what's sent. */
+function AiHelp() {
+  const t = useTheme();
+  const [on, setOn] = useState(false);
+  useEffect(() => { getFlag('ai.ok').then(v => setOn(v === '1')).catch(() => {}); }, []);
+  return (
+    <>
+      <Card>
+        <SwitchRow icon={IconShield} title="AI help" on={on}
+          onChange={async next => { setOn(next); await setFlag('ai.ok', next ? '1' : '0'); }} />
+      </Card>
+      <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, fontFamily: T.brand, marginTop: 8, marginHorizontal: 14 }}>
+        Goals you plan, sentences the phone isn’t sure about, your open tasks’ titles and your week in numbers go to Claude, made by Anthropic. Nura doesn’t keep them.
+      </Text>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getFlag, setFlag } from './db';
+import { aiAllowed, noDashes, signedIn } from './ai';
 import { getProject, planState, savePath, addNote, type PlanState, type Step, type StepDraft, type Note } from './projects';
 
 /**
@@ -14,7 +15,8 @@ import { getProject, planState, savePath, addNote, type PlanState, type Step, ty
  * Calls happen only when you do something — send a goal, answer a question,
  * say "too big", "blocked" or "done", or ask for a fresh look. Each call
  * sends the compact project state (projects.ts → planState), never the
- * whole history.
+ * whole history. Only after you've said yes to AI help (ai.ts), and only
+ * signed in: the function answers nobody else.
  *
  * Every response is checked here before anything uses it, even though the
  * server already asked for structured output: a response that doesn't have
@@ -60,7 +62,7 @@ export interface ReplanResult {
 }
 
 export class PlannerError extends Error {
-  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' = 'bad') { super(message); }
+  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' | 'auth' | 'consent' = 'bad') { super(message); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -95,7 +97,8 @@ export const languageTag = (code: string) => LANGUAGES.find(l => l.code === code
  *  Checking what comes back
  * ------------------------------------------------------------------ */
 
-const str = (v: unknown, max = 400) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+/** Every string the planner sends back: trimmed, capped, and without dashes. */
+const str = (v: unknown, max = 400) => (typeof v === 'string' ? noDashes(v).trim().slice(0, max) : '');
 const strs = (v: unknown, n: number, max = 200) =>
   Array.isArray(v) ? v.map(x => str(x, max)).filter(Boolean).slice(0, n) : [];
 const mins = (v: unknown) =>
@@ -243,28 +246,47 @@ async function deviceId() {
 
 const TIMEOUT_MS = 60_000;
 
+const OFFLINE = 'Nu couldn’t reach the planner. Check your connection and try again.';
+export const SIGN_IN_AGAIN = 'Sign in again to plan with Nu.';
+export const NEEDS_OK = 'Turn on AI help in Settings to plan with Nu.';
+
+/** What a failed call means, from the function's status. No status at all
+ *  means the request never got an answer: the connection. */
+export function plannerError(status: number | undefined): PlannerError {
+  if (status === 401) return new PlannerError(SIGN_IN_AGAIN, 'auth');
+  if (status === 429) return new PlannerError('That’s all the planning for today. Try again tomorrow.', 'limit');
+  if (status === 422) return new PlannerError('Nu couldn’t use that. Try saying it another way.', 'bad');
+  if (status === 400 || status === 413) return new PlannerError('Nu couldn’t use that. Try it in fewer words.', 'bad');
+  if (status === 504) return new PlannerError('Nu took too long to answer. Try again in a minute.', 'busy');
+  if (status) return new PlannerError('The planner is having a moment. Try again in a minute.', 'busy');
+  return new PlannerError(OFFLINE, 'offline');
+}
+
 async function call(body: Record<string, unknown>): Promise<any> {
   if (__DEV__ && (await getFlag('dev.planner')) === 'local') return localPlanner(body);
+  // nothing leaves the phone without your yes, and only with a session
+  if (!(await aiAllowed())) throw new PlannerError(NEEDS_OK, 'consent');
+  if (!(await signedIn())) throw new PlannerError(SIGN_IN_AGAIN, 'auth');
   const lang = await getLanguage();
+  // invoke sends the session's access token as the Authorization header
   const invoke = supabase.functions.invoke('nura-plan', {
     body: { ...body, language: languageName(lang) },
     headers: { 'x-nura-device': await deviceId() },
   });
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new PlannerError('Nu took too long to answer.', 'busy')), TIMEOUT_MS));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new PlannerError('Nu took too long to answer.', 'busy')), TIMEOUT_MS);
+  });
   let res: Awaited<typeof invoke>;
   try {
     res = await Promise.race([invoke, timeout]);
   } catch (e) {
     if (e instanceof PlannerError) throw e;
-    throw new PlannerError('Nu couldn’t reach the planner. Check your connection and try again.', 'offline');
+    throw new PlannerError(OFFLINE, 'offline');
+  } finally {
+    clearTimeout(timer);
   }
-  if (res.error) {
-    const status = (res.error as any)?.context?.status as number | undefined;
-    if (status === 429) throw new PlannerError('Nu has planned a lot today. Try again tomorrow, or write the move yourself.', 'limit');
-    if (status && status >= 500) throw new PlannerError('The planner is having a moment. Try again in a minute.', 'busy');
-    throw new PlannerError('Nu couldn’t reach the planner. Check your connection and try again.', 'offline');
-  }
+  if (res.error) throw plannerError((res.error as any)?.context?.status as number | undefined);
   return res.data;
 }
 
