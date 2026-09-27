@@ -1,13 +1,15 @@
--- Nura — daily limits for the planner (supabase/functions/nura-plan).
+-- Nura — daily limits for the AI functions (supabase/functions/nura-plan,
+-- nura-coach).
 --
--- Paste into the Supabase SQL Editor and run once. The function calls
--- nura_ai_hit() with the service role; nobody else can read or call it.
--- Without this, the function still works, just with no daily limits (it
--- logs "usage limits are off").
+-- Paste into the Supabase SQL Editor and run once (running it again is
+-- harmless). The functions call nura_ai_hit() with the service role; nobody
+-- else can read or call it. This is required: the limits fail closed, so
+-- without it every call is refused (503, and the log says "usage limits
+-- unavailable, refusing").
 --
--- One row per key per day: 'd:<device id>' or a signed-in user's id, and
--- 'ip:<address>'. Only counts, never content — the goals people send are
--- not stored anywhere on the server.
+-- One row per key per day: 'u:<user id>' and 'ip:<address>' for planning,
+-- 'read:u:<user id>' and 'read-ip:<address>' for reads. Only counts, never
+-- content — the goals people send are not stored anywhere on the server.
 
 create table if not exists public.ai_usage (
   key  text    not null,

@@ -18,14 +18,16 @@
 // titles of today's open tasks, and the person's working notes — never the
 // raw event log. Nothing is stored here; only a per-key daily count is.
 //
-// Every request is size-checked, every answer is schema-checked before it
-// leaves (a bad shape is an error, never half an answer), and there are
-// daily limits, because the anon key ships inside the app.
+// Only a signed-in person gets through (the anon key ships inside the app,
+// so it proves nothing). Every request is size-checked, every answer is
+// schema-checked before it leaves (a bad shape is an error, never half an
+// answer), and there are daily limits per account and per IP. If the limits
+// can't be counted, nothing reaches the model.
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.128.0';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3.23.8';
-import { ACTIONS, KINDS, SCHEMAS, SYSTEM, userMessage, type Job } from './prompt.ts';
+import { ACTIONS, KINDS, LANGUAGES, SCHEMAS, SYSTEM, userMessage, type Job, type Language } from './prompt.ts';
 
 type Effort = 'low' | 'medium' | 'high';
 
@@ -33,22 +35,25 @@ type Effort = 'low' | 'medium' | 'high';
  *  gets adaptive thinking at the configured effort. */
 const thinks = (model: string) => !/^claude-haiku-/.test(model);
 
-/** Per job: which model, how hard it thinks (when it can), and how long it
- *  may answer — short, because the answers are small JSON. */
-const JOBS: Record<Job, { model: string; effort: Effort; maxTokens: number; thinkingMaxTokens: number }> = {
+/** Per job: which model, how hard it thinks (when it can), how long it may
+ *  answer (short, because the answers are small JSON), and when the whole
+ *  job must be back: a read under the app's 10 s wait, the rest under 60 s. */
+const JOBS: Record<Job, { model: string; effort: Effort; maxTokens: number; thinkingMaxTokens: number; deadlineMs: number }> = {
   read: {
     model: Deno.env.get('NURA_READ_MODEL') ?? 'claude-haiku-4-5-20251001',
-    effort: 'low', maxTokens: 400, thinkingMaxTokens: 2000,
+    effort: 'low', maxTokens: 400, thinkingMaxTokens: 2000, deadlineMs: 9_000,
   },
   suggest: {
     model: Deno.env.get('NURA_COACH_MODEL') ?? 'claude-haiku-4-5-20251001',
-    effort: (Deno.env.get('NURA_COACH_EFFORT') ?? 'low') as Effort, maxTokens: 900, thinkingMaxTokens: 3000,
+    effort: (Deno.env.get('NURA_COACH_EFFORT') ?? 'low') as Effort, maxTokens: 900, thinkingMaxTokens: 3000, deadlineMs: 50_000,
   },
   reflect: {
     model: Deno.env.get('NURA_REFLECT_MODEL') ?? 'claude-sonnet-5',
-    effort: (Deno.env.get('NURA_REFLECT_EFFORT') ?? 'medium') as Effort, maxTokens: 1000, thinkingMaxTokens: 4000,
+    effort: (Deno.env.get('NURA_REFLECT_EFFORT') ?? 'medium') as Effort, maxTokens: 1000, thinkingMaxTokens: 4000, deadlineMs: 50_000,
   },
 };
+/** Each try gets 45 s, with one retry; the deadlines above cap the total. */
+const TRY_MS = 45_000;
 /** `off` sends the weekly reflection as a normal call instead of a batch. */
 const REFLECT_BATCH = (Deno.env.get('NURA_REFLECT_BATCH') ?? 'on') !== 'off';
 
@@ -71,7 +76,8 @@ const CORS = {
 /* ---------------- what the app may send ---------------- */
 
 const text = (max: number) => z.string().trim().max(max);
-const language = text(40).default('English');
+// only the app's own languages; anything else (or nothing) is English
+const language = z.enum(LANGUAGES).catch('English');
 
 const Request = z.discriminatedUnion('op', [
   z.object({ op: z.literal('read'), text: text(1000).min(1), language }),
@@ -141,24 +147,58 @@ const ReflectAnswer = z.object({ notes: z.array(line(300)).max(8) });
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
-/** The signed-in user's id, if any (see nura-plan: the gateway has already
- *  verified the token; the anon key has no `sub`). */
-function userIdOf(req: Request): string | null {
-  const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+/** The signed-in person's id, or why there isn't one (see nura-plan: the
+ *  anon key passes the gateway, so the claims are checked here; getClaims
+ *  verifies the token and its expiry). Only a real, non-anonymous account
+ *  counts. */
+async function userOf(req: Request): Promise<{ id: string } | { status: 401 | 503 }> {
+  const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+  if (!token) return { status: 401 };
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof payload.sub === 'string' ? payload.sub : null;
-  } catch { return null; }
+    const { data, error } = await admin.auth.getClaims(token);
+    if (error) {
+      // the Auth server being unreachable isn't the caller's fault
+      const status = (error as { status?: number }).status ?? 0;
+      if (error.name === 'AuthRetryableFetchError' || status >= 500) {
+        console.error('[nura-coach] could not check the session:', error.message);
+        return { status: 503 };
+      }
+      return { status: 401 };
+    }
+    const c = data?.claims;
+    if (!c || c.role !== 'authenticated' || typeof c.sub !== 'string' || !c.sub || c.is_anonymous === true) return { status: 401 };
+    return { id: c.sub };
+  } catch (e) {
+    console.error('[nura-coach] could not check the session:', e);
+    return { status: 503 };
+  }
 }
 
-const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+/** The caller's address, for the second limit (see nura-plan). */
+function ipOf(req: Request): string {
+  const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0];
+  return ip?.trim().slice(0, 64) || 'unknown';
+}
 
-/** Counts one call against `key` for today; true when it's over `limit`.
- *  Fails open (with a log line) if supabase/ai-usage.sql hasn't been run. */
-async function over(key: string, limit: number): Promise<boolean> {
-  const { data, error } = await admin.rpc('nura_ai_hit', { k: key });
-  if (error) { console.warn('[nura-coach] usage limits are off:', error.message); return false; }
-  return typeof data === 'number' && data > limit;
+/** Counts one call against `key` for today. 'off' when it can't be counted
+ *  (supabase/ai-usage.sql not run, or the database erred): the caller must
+ *  then refuse, never call the model uncounted. */
+async function hit(key: string, limit: number): Promise<'ok' | 'over' | 'off'> {
+  try {
+    const { data, error } = await admin.rpc('nura_ai_hit', { k: key });
+    if (error || typeof data !== 'number') {
+      console.error('[nura-coach] usage limits unavailable, refusing:', error?.message ?? `got ${typeof data}`);
+      return 'off';
+    }
+    return data > limit ? 'over' : 'ok';
+  } catch (e) {
+    console.error('[nura-coach] usage limits unavailable, refusing:', e);
+    return 'off';
+  }
 }
 
 // A key made outside a workspace has to name one on every request: set
@@ -166,6 +206,8 @@ async function over(key: string, limit: number): Promise<boolean> {
 const WORKSPACE = Deno.env.get('ANTHROPIC_WORKSPACE_ID');
 const anthropic = new Anthropic({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
+  timeout: TRY_MS,
+  maxRetries: 1,
   ...(WORKSPACE ? { defaultHeaders: { 'anthropic-workspace-id': WORKSPACE } } : {}),
 });
 
@@ -174,7 +216,7 @@ class Failure extends Error {
 }
 
 /** One request's parameters — the same for a direct call and a batch entry. */
-function params(job: Job, data: Record<string, unknown>, lang: string) {
+function params(job: Job, data: Record<string, unknown>, lang: Language) {
   const { model, effort, maxTokens, thinkingMaxTokens } = JOBS[job];
   const think = thinks(model);
   return {
@@ -203,8 +245,8 @@ function answerText(msg: Anthropic.Message): string {
   return out.text;
 }
 
-async function ask(job: Job, data: Record<string, unknown>, lang: string): Promise<string> {
-  return answerText(await anthropic.messages.create(params(job, data, lang)));
+async function ask(job: Job, data: Record<string, unknown>, lang: Language, signal: AbortSignal): Promise<string> {
+  return answerText(await anthropic.messages.create(params(job, data, lang), { signal }));
 }
 
 function parse<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, raw: string): T {
@@ -215,23 +257,33 @@ function parse<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, raw: string): T {
   return parsed.data;
 }
 
-/** A batch entry's custom_id, derived from the device, so only the device
- *  that queued a reflection can collect it. Nothing is stored. */
-async function tagFor(device: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`nura-coach:${device}`));
+/** A batch entry's custom_id, derived from the account and the device, so
+ *  only the person and device that queued a reflection can collect it.
+ *  Nothing is stored. */
+async function tagFor(user: string, device: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`nura-coach:${user}:${device}`));
   return `r_${Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('').slice(0, 40)}`;
 }
 
-async function handle(body: Body, device: string) {
+/** When each op must be back: a read under the app's 10 s wait, a collect
+ *  under its 30 s, the rest under its 60 s. */
+const DEADLINE_MS: Record<Body['op'], number> = {
+  read: JOBS.read.deadlineMs,
+  suggest: JOBS.suggest.deadlineMs,
+  reflect_submit: JOBS.reflect.deadlineMs,
+  reflect_collect: 25_000,
+};
+
+async function handle(body: Body, user: string, device: string, signal: AbortSignal) {
   const lang = body.language;
   switch (body.op) {
     case 'read': {
-      const a = parse(ReadAnswer, await ask('read', { text: body.text }, lang));
+      const a = parse(ReadAnswer, await ask('read', { text: body.text }, lang, signal));
       return { kind: a.kind, items: a.kind === 'tasks' ? a.items : [], load: a.load, reply: a.reply };
     }
     case 'suggest': {
       const { op: _op, language: _l, ...data } = body;
-      const a = parse(SuggestAnswer, await ask('suggest', data, lang));
+      const a = parse(SuggestAnswer, await ask('suggest', data, lang, signal));
       // An id the model made up, or an hour already gone, is a wrong answer,
       // not a detail to drop.
       const ids = new Set(body.tasks.map(t => t.id));
@@ -244,23 +296,24 @@ async function handle(body: Body, device: string) {
       if (REFLECT_BATCH) {
         try {
           const batch = await anthropic.messages.batches.create({
-            requests: [{ custom_id: await tagFor(device), params: params('reflect', data, lang) }],
-          });
+            requests: [{ custom_id: await tagFor(user, device), params: params('reflect', data, lang) }],
+          }, { signal });
           return { batch: batch.id };
         } catch (e) {
           // Batches are half price but not essential: if the batch API
           // won't take it, answer now at the normal price instead.
-          if (e instanceof Anthropic.RateLimitError) throw e;
+          if (e instanceof Anthropic.RateLimitError || e instanceof Anthropic.APIUserAbortError) throw e;
           console.warn('[nura-coach] batch unavailable, reflecting directly:', e instanceof Anthropic.APIError ? e.status : e);
         }
       }
-      return parse(ReflectAnswer, await ask('reflect', data, lang));
+      return parse(ReflectAnswer, await ask('reflect', data, lang, signal));
     }
     case 'reflect_collect': {
-      const batch = await anthropic.messages.batches.retrieve(body.batch);
+      // (id, params, request options): the signal goes in the third
+      const batch = await anthropic.messages.batches.retrieve(body.batch, {}, { signal });
       if (batch.processing_status !== 'ended') return { pending: true };
-      const tag = await tagFor(device);
-      for await (const entry of await anthropic.messages.batches.results(body.batch)) {
+      const tag = await tagFor(user, device);
+      for await (const entry of await anthropic.messages.batches.results(body.batch, {}, { signal })) {
         if (entry.custom_id !== tag) continue;
         // errored, expired or canceled — or an answer that won't ever pass:
         // it's finished either way, so the app should stop asking (410).
@@ -281,6 +334,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
 
+  // a signed-in person, or nothing: the anon key alone gets a 401
+  const user = await userOf(req);
+  if ('status' in user) return json({ error: user.status === 401 ? 'auth' : 'server' }, user.status);
+
   let body: Body;
   try {
     const parsed = Request.safeParse(await req.json());
@@ -288,22 +345,33 @@ Deno.serve(async (req) => {
     body = parsed.data;
   } catch { return json({ error: 'request' }, 400); }
 
+  // the device only tells a person's phones apart for the weekly batch; the
+  // limits are the account's
   const device = (req.headers.get('x-nura-device') ?? '').slice(0, 64);
   if (!device && (body.op === 'reflect_submit' || body.op === 'reflect_collect')) return json({ error: 'request' }, 400);
-  const who = userIdOf(req) ?? `d:${device || 'unknown'}`;
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+  const ip = ipOf(req);
   const cheap = body.op === 'read' || body.op === 'reflect_collect';
-  const limited = cheap
-    ? await over(`read:${who}`, READS_PER_PERSON_PER_DAY) || await over(`read-ip:${ip}`, READS_PER_IP_PER_DAY)
-    : await over(who, PER_PERSON_PER_DAY) || await over(`ip:${ip}`, PER_IP_PER_DAY);
-  if (limited) return json({ error: 'limit' }, 429);
+  const limits = cheap
+    ? [[`read:u:${user.id}`, READS_PER_PERSON_PER_DAY], [`read-ip:${ip}`, READS_PER_IP_PER_DAY]] as const
+    : [[`u:${user.id}`, PER_PERSON_PER_DAY], [`ip:${ip}`, PER_IP_PER_DAY]] as const;
+  // the account first; the address second. Uncounted is refused.
+  for (const [key, limit] of limits) {
+    const n = await hit(key, limit);
+    if (n === 'off') return json({ error: 'limits' }, 503);
+    if (n === 'over') return json({ error: 'limit' }, 429);
+  }
 
   try {
-    return json(await handle(body, device));
+    return json(await handle(body, user.id, device, AbortSignal.timeout(DEADLINE_MS[body.op])));
   } catch (e) {
     if (e instanceof Failure) {
       if (e.code === 'shape') console.warn('[nura-coach] answer failed the check:', body.op);
       return json({ error: e.code }, e.status);
+    }
+    // past the deadline (ours, or a try's own timeout)
+    if (e instanceof Anthropic.APIUserAbortError || e instanceof Anthropic.APIConnectionTimeoutError) {
+      console.warn('[nura-coach] too slow:', body.op);
+      return json({ error: 'slow' }, 504);
     }
     if (e instanceof Anthropic.NotFoundError) return json({ error: 'gone' }, 404);
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'busy' }, 503);

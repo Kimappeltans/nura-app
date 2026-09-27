@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getFlag, setFlag } from './db';
+import { aiAllowed, noDashes, signedIn } from './ai';
 import { route } from './assistant';
 import { getLanguage, languageName } from './planner';
 import type { StateRead, Suggestion, SuggestionKind, WorkingNotes } from './learn/types';
@@ -28,12 +29,16 @@ import type { StateRead, Suggestion, SuggestionKind, WorkingNotes } from './lear
  * counts of accepted/dismissed suggestions. Never the raw event log.
  * Speech stays on the phone (voice.ts); only the transcript's text is read.
  *
+ * Nothing goes at all until you've said yes to AI help once (ai.ts), and
+ * only with a session: without either, a read is the phone's, suggestions
+ * are the phone's own, and no reflection is queued.
+ *
  * Every answer is checked here before anything uses it, the same way
  * planner.ts does: a wrong shape is an error, never half an answer.
  */
 
 export class CoachError extends Error {
-  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' | 'gone' = 'bad') { super(message); }
+  constructor(message: string, readonly kind: 'offline' | 'busy' | 'bad' | 'limit' | 'gone' | 'auth' | 'consent' = 'bad') { super(message); }
 }
 
 /** One of today's open tasks, as the coach sees it. */
@@ -192,9 +197,10 @@ export function localIsSure(text: string, local: StateRead, lang = 'en'): boolea
 
 const bad = (why: string) => new CoachError(`The coach answered in a shape Nura doesn’t understand (${why}).`);
 
+/** Every string the coach sends back: trimmed, without dashes, checked. */
 function line(v: unknown, max: number, what: string, allowEmpty = false): string {
   if (typeof v !== 'string') throw bad(what);
-  const s = v.trim();
+  const s = noDashes(v).trim();
   if (!s && !allowEmpty) throw bad(what);
   if (NEVER.test(s)) throw bad(`${what}: wording`);
   return s.slice(0, max);
@@ -335,7 +341,11 @@ const TIMEOUT_MS = { read: 10_000, suggest: 60_000, reflect_submit: 60_000, refl
 
 async function call(body: { op: keyof typeof TIMEOUT_MS } & Record<string, unknown>): Promise<any> {
   if (__DEV__ && (await getFlag('dev.coach')) === 'local') return localCoach(body);
+  // nothing leaves the phone without your yes, and only with a session
+  if (!(await aiAllowed())) throw new CoachError('AI help is off.', 'consent');
+  if (!(await signedIn())) throw new CoachError('Not signed in.', 'auth');
   const lang = await getLanguage();
+  // invoke sends the session's access token as the Authorization header
   const invoke = supabase.functions.invoke('nura-coach', {
     body: { ...body, language: languageName(lang) },
     headers: { 'x-nura-device': await deviceId() },
@@ -355,6 +365,7 @@ async function call(body: { op: keyof typeof TIMEOUT_MS } & Record<string, unkno
   }
   if (res.error) {
     const status = (res.error as any)?.context?.status as number | undefined;
+    if (status === 401) throw new CoachError('Not signed in.', 'auth');
     if (status === 429) throw new CoachError('The coach is at today’s limit.', 'limit');
     if (status === 404 || status === 410) throw new CoachError('That reflection is gone.', 'gone');
     if (status && status >= 500) throw new CoachError('The coach is having a moment.', 'busy');
@@ -363,10 +374,14 @@ async function call(body: { op: keyof typeof TIMEOUT_MS } & Record<string, unkno
   return res.data;
 }
 
+/** The model's reads, by language and text, so the same words are never
+ *  sent twice (the last few only). */
+const readCache = new Map<string, StateRead>();
+
 /**
  * What a typed or spoken sentence is, and how you seem. Always answers:
  * the phone's own read when it's sure, otherwise the model's when it can
- * be had, otherwise the phone's own anyway.
+ * be had (and you've said yes to AI help), otherwise the phone's own anyway.
  */
 export async function readInput(text: string): Promise<StateRead> {
   const s = text.trim().slice(0, 1000);
@@ -374,8 +389,14 @@ export async function readInput(text: string): Promise<StateRead> {
   try { lang = await getLanguage(); } catch { /* English, then */ }
   const local = localRead(s, lang);
   if (localIsSure(s, local, lang)) return local;
+  const key = `${lang}:${s}`;
+  const seen = readCache.get(key);
+  if (seen) return seen;
   try {
-    return readState(await call({ op: 'read', text: s }));
+    const r = readState(await call({ op: 'read', text: s }));
+    readCache.set(key, r);
+    if (readCache.size > 20) readCache.delete(readCache.keys().next().value!);
+    return r;
   } catch {
     return local;
   }
@@ -471,6 +492,8 @@ export async function maybeReflect(
   now = Date.now(),
 ): Promise<WorkingNotes | null> {
   try {
+    // AI help off: no batch queued or collected, and no try used up
+    if (!(__DEV__ && (await getFlag('dev.coach')) === 'local') && !(await aiAllowed())) return null;
     const previous = await getNotes();
     const q = await queued();
     if (q) {

@@ -66,12 +66,35 @@ address the app runs on to **Redirect URLs** (for example
 for the phone. Google sign-in, magic links and password resets come back to
 these; one that isn't listed is sent to the Site URL instead.
 
-Then paste `ai-usage.sql` into the SQL Editor and run it. It adds the daily
-limits for both functions. Without it they still work, with no limits (and
-a log line saying so).
+Then paste `ai-usage.sql` into the SQL Editor and run it (running it again
+is harmless). It adds the daily limits for both functions, and it is
+required: the limits fail closed, so without it (or if the database call
+errors) every `nura-plan` and `nura-coach` call is refused with a 503
+`limits` and a log line `usage limits unavailable, refusing`. Nothing
+reaches Claude uncounted.
 
-Both functions keep JWT verification on (the default). The app calls them
-with the anon key when signed out, or the session when signed in.
+### Who can call them
+
+Only a signed-in person. Both functions keep JWT verification on (the
+default), but the anon key ships inside the app and passes that check, so
+each function also checks the token's claims itself with
+`auth.getClaims()` (signature and expiry) and answers 401 unless
+`role` is `authenticated`, there is a `sub`, and the account isn't
+anonymous. The app sends the session's access token
+(`supabase.functions.invoke` does that on its own) and never calls them
+signed out. `nura-account` checks the session with `auth.getUser()`.
+
+The limits count per account (`u:<user id>`, `read:u:<user id>`) and, as a
+second key, per IP (`ip:…`, `read-ip:…`). The IP is `cf-connecting-ip` when
+the request carries it, otherwise the first `x-forwarded-for` entry, which
+a client can set itself; the account limit is the one that holds. The
+`x-nura-device` header is no longer used for limits, only to tell a
+person's devices apart for the weekly batch.
+
+Each Claude call has a 45 s timeout and one retry, and every job must be
+back before the app stops waiting: 50 s for planning, suggestions and the
+weekly notes, 9 s for a read (the app waits 10), 25 s for a batch collect.
+Past that the function answers 504 `slow`.
 
 ### Daily limits
 
@@ -99,9 +122,9 @@ All optional except `ANTHROPIC_API_KEY`.
 | `NURA_REFLECT_MODEL` | `claude-sonnet-5` | Weekly working notes |
 | `NURA_REFLECT_EFFORT` | `medium` | Thinking effort for the weekly notes |
 | `NURA_REFLECT_BATCH` | `on` | `off` sends the weekly notes as a normal call (full price, answered at once) |
-| `NURA_DAILY_LIMIT` | `80` | Planning counter: calls per device or account per day |
+| `NURA_DAILY_LIMIT` | `80` | Planning counter: calls per account per day |
 | `NURA_IP_DAILY_LIMIT` | `300` | Planning counter: calls per IP address per day |
-| `NURA_READ_DAILY_LIMIT` | `200` | Read counter: calls per device or account per day |
+| `NURA_READ_DAILY_LIMIT` | `200` | Read counter: calls per account per day |
 | `NURA_READ_IP_DAILY_LIMIT` | `600` | Read counter: calls per IP address per day |
 
 Haiku 4.5 doesn't take adaptive thinking or `effort`, so both functions
@@ -109,6 +132,14 @@ leave them out for any `claude-haiku-*` model and use short answers
 instead. Every other model gets adaptive thinking at the effort above.
 
 ## What each call sends
+
+Nothing leaves the phone until the person has said yes to AI help, once:
+the app asks the first time it matters (Find my first move on Plan a
+project, or the first sentence in Tell Nu the phone isn't sure about), and
+Settings, Language and voice, AI help turns it on or off (`src/ai.ts`, flag
+`ai.ok`). Without it, reads are the phone's own, suggestions are the
+phone's own, no weekly notes are queued, and the planner offers to write
+the first move by hand.
 
 Nothing is stored on the server: no goals, notes or titles, only a count per
 key per day (`ai-usage.sql`). What leaves the phone:
@@ -126,10 +157,15 @@ key per day (`ai-usage.sql`). What leaves the phone:
 
 Never the raw event log, never other task fields.
 
-The weekly batch is tied to the device that queued it: its `custom_id` is
-a hash of the device id, and `reflect_collect` only returns an answer whose
-`custom_id` matches the caller's device. Anthropic keeps batch results for
-29 days.
+The weekly batch is tied to the account and device that queued it: its
+`custom_id` is a hash of the user id and the device id, and
+`reflect_collect` only returns an answer whose `custom_id` matches the
+caller's. (A batch queued before this changed no longer matches; the app
+drops it and queues the next week's as usual.) Anthropic keeps batch
+results for 29 days.
+
+Every system prompt tells the model not to use em or en dashes, and the app
+takes out any that come back anyway (`noDashes` in `src/ai.ts`).
 
 ## Cost notes
 

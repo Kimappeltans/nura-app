@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useStore } from '../store';
 import { getDb, updateTask } from '../db';
 import { modelSuggestions, maybeReflect, type OutcomeCount, type TodayTask } from '../coach';
+import { aiAllowed } from '../ai';
 import { getProfile, profileSummary } from './signals';
 import { useSuggestions } from './useSuggestions';
 import type { Suggestion, SuggestionKind } from './types';
@@ -67,6 +68,7 @@ export function useCoach(limit = 2) {
     if (!tasks.length) return [];
     const profile = await getProfile();
     if (profile.days < 3) return [];                 // the phone's rules are enough until there's history
+    if (!(await aiAllowed())) return [];             // AI help off: the phone's own only, and nothing cached
     const list = await modelSuggestions(profileSummary(profile), { tasks });
     modelCache = { at: Date.now(), list };
     return list;
