@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,8 +6,9 @@ import * as Haptics from 'expo-haptics';
 import { Primary, Mica, Character, poseImage } from '../ui';
 import { useStore, useTheme } from '../store';
 import {
-  complete, notNow, dropTask, clearCrumbs, updateTask, getFlag, setFlag, logEvent, suggestions, type Pick,
+  notNow, dropTask, clearCrumbs, updateTask, getFlag, setFlag, logEvent, suggestions, type Pick,
 } from '../db';
+import { useTaskActions } from '../useTaskActions';
 import { reconcileNudges } from '../notifications';
 import { minutesUntil } from '../calendar';
 import { radius, type as T, copy } from '../theme';
@@ -56,7 +57,8 @@ function ago(ms: number) {
  */
 export default function Ra() {
   const t = useTheme();
-  const { now, nowRule, crumb, toNu, refresh, nextEvent, celebrate, energy, setEnergy, inbox, passOn, focusOn, showToast } = useStore();
+  const { now, nowRule, crumb, toNu, refresh, nextEvent, energy, setEnergy, inbox, passOn, focusOn, showToast } = useStore();
+  const { tick } = useTaskActions();
 
   const [options, setOptions] = useState(false);    // More options, open
   const [reminding, setReminding] = useState(false);
@@ -89,15 +91,20 @@ export default function Ra() {
     return () => { dead = true; };
   }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Done without a session (More options → Mark as done). Once only: a
+   *  second tap while the first is finishing does nothing. */
+  const finishing = useRef(false);
   const done = async () => {
-    if (!now) return;
-    const award = await complete(now.id);
-    await clearCrumbs(now.id);
-    celebrate(award);
-    await refresh(); await reconcileNudges();
-    // a project's move: what now — the next move, or enough for today
-    if (proj) return router.push({ pathname: '/project/[id]', params: { id: proj.project.id, after: 'done' } });
-    await toNu();     // finishing returns you to the water
+    if (!now || finishing.current) return;
+    finishing.current = true;
+    try {
+      await tick(now.id);
+      // a project's move: what now — the next move, or enough for today
+      if (proj) return router.push({ pathname: '/project/[id]', params: { id: proj.project.id, after: 'done' } });
+      await toNu();     // finishing returns you to the water
+    } finally {
+      finishing.current = false;
+    }
   };
 
   const later = async () => {
@@ -313,6 +320,7 @@ export default function Ra() {
               onChange={e => setEnergy(e)} format={e => ENERGY.find(x => x[0] === e)?.[1] ?? 'Okay'} />
           </View>
           <View style={{ marginTop: 10 }}>
+            <OptionRow label="Something else" onPress={() => { setOptions(false); somethingElse(); }} />
             {proj
               ? <OptionRow label="See the whole path" value={proj.project.title}
                   onPress={() => { setOptions(false); router.push({ pathname: '/project/[id]', params: { id: proj.project.id } }); }} />
@@ -331,7 +339,8 @@ export default function Ra() {
                 ))}
               </View>
             )}
-            <OptionRow label="Waiting on someone" onPress={() => { setOptions(false); waitingOnSomeone(); }} last />
+            <OptionRow label="Waiting on someone" onPress={() => { setOptions(false); waitingOnSomeone(); }} />
+            <OptionRow label="Mark as done" onPress={() => { setOptions(false); done(); }} last />
           </View>
           {proj && (
             <View style={{ paddingBottom: 10 }}>

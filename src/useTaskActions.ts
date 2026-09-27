@@ -1,7 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import { useStore } from './store';
-import { complete, pickForToday, notNow, dropTask, updateTask, type Task } from './db';
+import { complete, clearCrumbs, pickForToday, notNow, dropTask, updateTask, type Task } from './db';
+import { reconcileNudges } from './notifications';
 import { animateNext } from './ui';
+
+// tasks being finished right now, so a double tap on Done only finishes once
+const finishing = new Set<string>();
 
 /**
  * What you can do to a task from a list — tick it off, put it on Today or
@@ -13,12 +17,26 @@ export function useTaskActions() {
   const refresh = useStore(s => s.refresh);
 
   return {
-    /** Done: the reward shows, and the row leaves the list. */
+    /** Done: the reward shows, and the row leaves the list. Resolves with the
+     *  award, or null when it was already done (a second tap pays nothing). */
     tick: async (id: string) => {
-      const award = await complete(id);
-      useStore.getState().celebrate(award);
-      animateNext('remove');
-      await refresh();
+      if (finishing.has(id)) return null;
+      finishing.add(id);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const award = await complete(id);
+        await clearCrumbs(id);
+        // finished outside the timer: a session left running on it ends too
+        const { running, setRunning, celebrate } = useStore.getState();
+        if (running?.id === id) { setRunning(null); (globalThis as any).__nuraRunning?.(null); }
+        celebrate(award);
+        animateNext('remove');
+        await refresh();
+        await reconcileNudges();
+        return award;
+      } finally {
+        finishing.delete(id);
+      }
     },
     addToToday: async (task: Task) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

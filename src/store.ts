@@ -128,7 +128,8 @@ interface State {
   refresh: () => Promise<void>;
   finishOnboarding: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
-  celebrate: (award: Award) => void;
+  /** Show the reward. null (a task that was already done) shows nothing. */
+  celebrate: (award: Award | null) => void;
   dismissCelebration: () => void;
   showToast: (text: string) => void;
   dismissToast: () => void;
@@ -209,6 +210,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   celebrate: (award) => {
+    if (!award) return;
     const { light } = get();
     const oldRank = rankFor(light);
     const newRank = rankFor(light + award.total);

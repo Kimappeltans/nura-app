@@ -1,7 +1,7 @@
 import { goBack } from '../../src/nav';
 import { withTabs } from '../../src/components/WithTabs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,7 @@ import {
 } from '../../src/projects';
 import { askAgain, PlannerError } from '../../src/planner';
 import { grantLight } from '../../src/db';
+import { ask } from '../../src/notify';
 import { radius, type as T } from '../../src/theme';
 import { Mica, Primary, Ghost, Character, Eyebrow, Surface } from '../../src/ui';
 import { ActionSheet, type SheetAction } from '../../src/components/ActionSheet';
@@ -51,6 +52,8 @@ function Screen() {
   const { refresh, focusOn, toNu, showToast, celebrate } = useStore();
   const [after, setAfter] = useState(afterParam === 'done');
   const [data, setData] = useState<{ project: Project; steps: Step[] } | null>(null);
+  // no such project (a stale link): say so, not a blank screen
+  const [gone, setGone] = useState(false);
   const [steps, setSteps] = useState<EditStep[]>([]);
   const [current, setCurrent] = useState(-1);
   const [dirty, setDirty] = useState(false);
@@ -64,8 +67,9 @@ function Screen() {
   const [maybeDone, setMaybeDone] = useState<string | null>(null);   // the next move's task, held while we ask
 
   const load = useCallback(async () => {
-    const got = await getProject(id);
+    const got = id ? await getProject(id) : null;
     setData(got);
+    setGone(!got);
     if (!got) return;
     const open = got.steps.filter(s => s.state !== 'done');
     setSteps(open.map(toEdit));
@@ -131,10 +135,10 @@ function Screen() {
       leave();
       showToast('Finished. That was a whole project.');
     };
-    confirm('Finish this project?', 'It leaves your home screen. Everything you did stays in your wins.', 'Finish it', go);
+    confirm('Finish this project?', 'It leaves your home screen. Everything you did stays in your wins.', 'Finish it', false, go);
   };
 
-  const letGo = () => confirm('Let this project go?', 'It leaves your home screen. Nothing to explain.', 'Let it go', async () => {
+  const letGo = () => confirm('Let this project go?', 'It leaves your home screen. Nothing to explain.', 'Let it go', true, async () => {
     await letProjectGo(id);
     await refresh();
     leave();
@@ -147,20 +151,30 @@ function Screen() {
     { key: 'drop', glyph: '×', label: 'Let this project go', sub: 'gone, no explanation needed', tone: 'quiet', onPress: letGo },
   ];
 
-  if (!data) return <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}><Mica /></SafeAreaView>;
-
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, height: 48 }}>
       <Pressable onPress={() => leave()} hitSlop={12} style={{ flex: 1, paddingVertical: 8 }}>
         <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
       </Pressable>
-      {!after && (
+      {!after && !!data && (
         <Pressable onPress={() => { Haptics.selectionAsync(); setMenu(true); }} hitSlop={10}
           accessibilityLabel="More" style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
           <Text style={{ color: t.ink2, fontSize: 18, fontFamily: T.brand }}>···</Text>
         </Pressable>
       )}
     </View>
+  );
+
+  if (!data) return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
+      <Mica />
+      {header}
+      {gone && (
+        <Text style={{ color: t.ink, fontSize: 24, lineHeight: 28, fontFamily: T.display, letterSpacing: -0.8, paddingHorizontal: 20, paddingTop: 8 }}>
+          This project is gone.
+        </Text>
+      )}
+    </SafeAreaView>
   );
 
   const busyRow = busy && (
@@ -346,9 +360,9 @@ function Screen() {
   );
 }
 
-function confirm(title: string, body: string, yes: string, go: () => void) {
-  if (Platform.OS === 'web') { if (window.confirm(`${title}\n\n${body}`)) go(); return; }
-  Alert.alert(title, body, [{ text: 'Cancel', style: 'cancel' }, { text: yes, onPress: go }]);
+/** Ask first (src/notify.ts: the browser's confirm on the web, the native alert on the phone). */
+async function confirm(title: string, body: string, yes: string, destructive: boolean, go: () => void) {
+  if (await ask(title, body, yes, destructive)) go();
 }
 
 export default withTabs(ProjectScreen);

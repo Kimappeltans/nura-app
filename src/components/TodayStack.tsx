@@ -30,19 +30,24 @@ export const labelTint = (id: string | null | undefined, dark: boolean) => {
  * HOME'S STACK (guidelines/components/overview.md). Today as stacked cards:
  * the rest are stones behind, the one Nu found is in front — coral, with Nu
  * on its corner and Begin. Tap a stone to bring it to the front instead;
- * hold one for what you can do with it.
+ * hold one for what you can do with it. With nothing in front: a pick when
+ * Nu is holding tasks, the planner when the list is empty.
  */
-export function TodayStack({ front, back, from, fact, onBegin, onOpen, onPick, onHold, onPlan }: {
+export function TodayStack({ front, back, from, fact, waiting, onBegin, onOpen, onPick, onHold, onChoose, onPlan }: {
   front: Task | null;
   back: Task[];
   /** a project's name, when the front card is a project's move */
   from?: string | null;
   /** the facts behind the one in front (priority.ts → factLine) */
   fact?: string | null;
+  /** tasks are waiting, just none on Today: offer a pick, not the planner */
+  waiting?: boolean;
   onBegin: () => void;
   onOpen: (task: Task) => void;
   onPick: (task: Task) => void;
   onHold: (task: Task) => void;
+  /** Focus's "What feels doable now?" */
+  onChoose: () => void;
   onPlan: () => void;
 }) {
   const t = useTheme();
@@ -103,9 +108,11 @@ export function TodayStack({ front, back, from, fact, onBegin, onOpen, onPick, o
         </View>
       ) : (
         <View style={{ zIndex: 20, borderRadius: 28, backgroundColor: t.card, borderWidth: 1, borderColor: t.stroke, padding: 20, gap: 10 }}>
-          <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>Nothing to begin yet.</Text>
-          <Pressable onPress={onPlan} hitSlop={6}>
-            <Text style={{ color: dark ? t.nu : t.nu, fontSize: 14.5, fontFamily: T.display }}>Plan something bigger ›</Text>
+          <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>
+            {waiting ? 'Nothing picked yet.' : 'Nothing to begin yet.'}
+          </Text>
+          <Pressable onPress={waiting ? onChoose : onPlan} hitSlop={6} accessibilityRole="button">
+            <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>{waiting ? 'Pick one for today ›' : 'Plan something bigger ›'}</Text>
           </Pressable>
         </View>
       )}
