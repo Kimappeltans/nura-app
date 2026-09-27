@@ -50,7 +50,7 @@
     "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "^0.21.0",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/aes-js": "^3.1.4",
