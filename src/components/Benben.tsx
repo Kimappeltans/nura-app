@@ -34,6 +34,7 @@ const SUN = ['#FFF0D6', '#FFB067', '#FF7A3D'] as const;
  * for before any name means anything — and each name arrives with the thing
  * it names: Nu with the water, the Benben with the stone, Ra with the sun.
  * Then the story turns to you. The tap on Begin is what makes the stone rise.
+ * It ends without words: Nu and Ra say who they are, and the name comes up.
  */
 const BEATS = [
   'Before there was anything, the old Egyptians said, there was only water.',
@@ -43,11 +44,13 @@ const BEATS = [
   'The sun rose for the very first time, and its first light, Ra, touched the Benben.',
   'Where the light landed, the world could start.',
   'Your mind can feel like that water: plans, worries and half-finished things, all at once.',
-  'Nura holds all of it, like Nu. And like Ra, it lights up one thing you can start now.',
-  'Nu and Ra. Together: Nura.',
+  // the end: no words, the bubbles and the name say it
+  '',
 ] as const;
+/** what a screen reader hears at the end, where the screen has no words of its own */
+const ENDING_SAID = 'I’m Nu. I hold everything. I’m Ra. I pick one thing. Nura.';
 // what happens on which beat
-const NU_AT = 2, BEGIN_AT = 2, STONE_AT = 3, SUN_AT = 4, HELLO_AT = 7, NAME_AT = 8;
+const NU_AT = 2, BEGIN_AT = 2, STONE_AT = 3, SUN_AT = 4, HELLO_AT = 7, NAME_AT = 7;
 const CHAR_MS = 30, BEAT_PAUSE_MS = 950;
 
 /** Edge-to-edge water: two waves drifting at different speeds. The front
@@ -203,7 +206,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
   useEffect(() => {
     if (shown.current === beat) return;
     shown.current = beat;
-    announce(BEATS[beat]);
+    announce(BEATS[beat] || ENDING_SAID);
   }, [beat]);
 
   // what each beat does to the scene
@@ -244,7 +247,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       shimmering.current.start();
     }
     if (beat >= HELLO_AT) to(hello, 900);
-    if (beat >= NAME_AT) to(name, 900);
+    if (beat >= NAME_AT) to(name, 900, 700);
   }, [beat, still]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const last = beat === BEATS.length - 1;
@@ -260,6 +263,8 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
     // the story goes on by itself, except where it waits for Begin and at the end
     if (beat !== BEGIN_AT && !last) timer.current = setTimeout(next, still ? 1600 : BEAT_PAUSE_MS);
   };
+  // the wordless end is ready at once: Get started comes up with the name
+  useEffect(() => { if (!BEATS[beat]) setTyped(true); }, [beat]);
   const skip = () => {
     if (timer.current) clearTimeout(timer.current);
     if (!replay) logEvent('onboarding', undefined, { step: 'story_skipped', beat });
@@ -440,12 +445,12 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       {/* the words sit on the water */}
       <View style={{ position: 'absolute', left: ox + 24, right: ox + 24, bottom: insets.bottom + (ox ? 40 : 14), gap: 20 }}>
         <View style={{ minHeight: 158, justifyContent: 'flex-end', gap: 10 }}>
-          {beat > 0 && (
+          {beat > 0 && !!BEATS[beat] && (
             <Text numberOfLines={3} {...decorative} style={{
               color: 'rgba(242,244,251,0.66)', fontSize: 15, lineHeight: 20, textAlign: 'center',
             }}>{BEATS[beat - 1]}</Text>
           )}
-          <Typed key={beat} text={BEATS[beat]} still={still} onTyped={onTyped} />
+          {!!BEATS[beat] && <Typed key={beat} text={BEATS[beat]} still={still} onTyped={onTyped} />}
         </View>
         {/* out of a screen reader's way too until it shows */}
         <Animated.View style={{ opacity: cta, gap: 12 }} pointerEvents={waiting ? 'auto' : 'none'}
