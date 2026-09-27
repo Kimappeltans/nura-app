@@ -15,6 +15,10 @@ import Auth from '../src/screens/Auth';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
 import { DeskRoom, DeskColumn } from '../src/components/Desk';
+// the desktop's own rooms (a wide web window): src/desk
+import DeskHome from '../src/desk/DeskHome';
+import DeskTasks from '../src/desk/DeskTasks';
+import DeskCalendar from '../src/desk/DeskCalendar';
 import { STAGE, useDesk } from '../src/screen';
 
 /**
@@ -43,9 +47,9 @@ export default function Index() {
   if (desk) {
     return (
       <DeskRoom>
-        {tab === 'home' && <Home onTab={setTab} />}
-        {tab === 'tasks' && <Tasks />}
-        {tab === 'day' && <Calendar />}
+        {tab === 'home' && <DeskHome onTab={setTab} />}
+        {tab === 'tasks' && <DeskTasks />}
+        {tab === 'day' && <DeskCalendar />}
         {tab === 'you' && <You />}
       </DeskRoom>
     );

@@ -21,7 +21,7 @@ export const WIDE = 600;
 /** wider than this, and the app is the desktop layout */
 export const DESK = 900;
 /** the desktop's sidebar */
-export const SIDEBAR = 256;
+export const SIDEBAR = 224;
 /** a room's content, at most (Home, Your Tasks, Calendar) */
 export const ROOM_MAX = 1280;
 /** a pushed screen's content, at most (You, Settings, a task…) */

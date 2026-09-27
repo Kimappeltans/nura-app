@@ -156,3 +156,29 @@ sparkling clips (rule 1). Now: Done (Ra holding up a pebble).
   `--glyph-bg`, stroked in the label's colour for that light.
 - **Icons**: line icons, 1.7–1.8 stroke, round caps, `currentColor`. Tab
   icons are the ones in `TabBar.tsx`.
+
+## The desktop (a web window wider than 900)
+
+Code: `src/components/Desk.tsx` (the frame) and `src/desk/` (the rooms).
+Reference: the redesign preview of 27 September.
+
+- **Sidebar:** the wordmark, Home, Tasks, Calendar; You at the foot with
+  the running-session pill above it. Where you are is a soft fill.
+- **Header:** each room's name, what belongs beside it (the date, search,
+  the calendar's arrows and Week / Month), and Tell Nu on the right as a
+  field. Enter opens Tell Nu with the words; ⌘K goes to the field, N opens
+  Tell Nu anywhere.
+- **Home:** one screen, no header and no scrolling, so the next seven days
+  are always in view. The day at full size (the date on top, dot-matrix
+  time, the greeting, the sun's arc with Ra in its glow, done / this week /
+  someday); beside it Tell Nu, Today (Tomorrow once the day is over) and
+  Begin, or Nu resting at night; the next seven days underneath, each
+  opening the Calendar on that day. A long Today scrolls on its own.
+- **Tasks:** Nu on the surface of the water, Today / This week / Someday as
+  three lanes under it; a task's moves show under the pointer; J K pick,
+  X ticks, T W S send. Habits and projects as cards below.
+- **Calendar:** the week as hours (from Day starts to Day ends) or the month;
+  the picked day beside it with a small month, what's on it, and a line to
+  add a task (a day to come) or log what you did (today or a day gone by).
+- Every surface uses the room's palette, so all of it works in Light, Dark
+  and By the sun. Cards are a fill and a hairline, with a soft lift on cream.

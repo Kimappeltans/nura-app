@@ -1,17 +1,16 @@
 import type React from 'react';
 import { useEffect } from 'react';
 import { View, Text, Pressable, Image, Platform, useWindowDimensions } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { usePathname } from 'expo-router';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { Mica } from '../ui';
 import { MicaHosted, READ_MAX, SIDEBAR, ScreenWidth, useDesk } from '../screen';
 import { LivePill } from './LivePill';
+import { deskTokens, hasTellField } from '../desk/kit';
 import { Avatar } from './Avatar';
 import { TABS, goToTab } from './TabBar';
 
-const CORAL = '#FF6B35';
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 /**
@@ -32,99 +31,93 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.head.appendChild(style);
 }
 
-/** A row in the sidebar: the room's icon and name; where you are is ink, with the tab bar's coral dot. */
+/** A row in the sidebar: the room's icon and name; where you are is a soft fill, under the pointer a wash. */
 function NavRow({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) {
   const t = useTheme();
+  const k = deskTokens(t);
   return (
     <Pressable onPress={onPress} accessibilityRole="tab" aria-selected={on} accessibilityLabel={label}
       {...({ dataSet: { deskNav: '' } } as object)}
       style={(s) => {
         const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
         return {
-          height: 46, borderRadius: 23, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 18, paddingRight: 14,
-          // where you are is a soft fill; under the pointer, only a hairline
-          backgroundColor: on ? t.subtle : 'transparent',
-          borderWidth: 1, borderColor: !on && (pressed || hovered) ? t.strokeStrong : 'transparent',
+          minHeight: 48, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 12,
+          backgroundColor: on ? t.subtle : pressed || hovered ? k.wash : 'transparent',
         };
       }}>
-      {on && <View style={{ position: 'absolute', left: 7, width: 4, height: 4, borderRadius: 2, backgroundColor: CORAL }} />}
       {icon}
-      <Text style={{ color: on ? t.ink : t.ink2, fontSize: 15, fontFamily: on ? T.display : T.brand, letterSpacing: -0.2 }}>{label}</Text>
+      <Text style={{ color: on ? t.ink : t.ink2, fontSize: 16.5, fontFamily: on ? T.display : T.brand, letterSpacing: -0.2 }}>{label}</Text>
     </Pressable>
   );
 }
 
 /**
- * The tab bar, on a wide window: the wordmark, Tell Nu, the four rooms, and
- * a running session's pill at the foot.
+ * The tab bar, on a wide window: the wordmark, the three rooms, and You at
+ * the foot, with a running session's pill above it. Tell Nu is in each
+ * room's header (src/desk/kit.tsx); N opens it from anywhere, and so does
+ * ⌘K where there's no header to go to.
  */
 export function Sidebar() {
   const t = useTheme();
+  const k = deskTokens(t);
   const tab = useStore(s => s.tab);
   const path = usePathname();
-  // N opens Tell Nu, except while typing somewhere or with a modifier held
+  const inRoom = path === '/';
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'n' && e.key !== 'N') return;
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (e.repeat || useStore.getState().telling) return;
       const el = e.target as HTMLElement | null;
-      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
-      if (useStore.getState().telling) return;
-      e.preventDefault();
-      useStore.setState({ telling: true });
+      const typing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      // ⌘K: a room's header takes it (TellNuField); elsewhere it opens Tell Nu
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (hasTellField()) return;
+        e.preventDefault();
+        useStore.setState({ telling: true });
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
+      if (e.key === 'n' || e.key === 'N' || e.key === '/') {
+        e.preventDefault();
+        useStore.setState({ telling: true });
+        return;
+      }
+      // 1 2 3: the rooms
+      const room = ({ '1': 'home', '2': 'tasks', '3': 'day' } as const)[e.key as '1' | '2' | '3'];
+      if (room && inRoom) { e.preventDefault(); goToTab(room, path); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [inRoom, path]);
   return (
     <View role="navigation" style={{
-      width: SIDEBAR, paddingHorizontal: 16, paddingTop: 28, paddingBottom: 12,
-      borderRightWidth: 1, borderRightColor: t.stroke, backgroundColor: t.base,
+      width: SIDEBAR, paddingHorizontal: 12, paddingTop: 26, paddingBottom: 18,
+      borderRightWidth: 1, borderRightColor: t.stroke, backgroundColor: k.side,
     }}>
       <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
-        style={{ height: 22, width: 22 * 799 / 222, tintColor: t.ink, marginLeft: 12 }} />
+        style={{ height: 30, width: 30 * 799 / 222, tintColor: t.ink, marginLeft: 12, marginBottom: 34 }} />
 
-      {/* Tell Nu: the tab bar's +, kept quiet here so the room's one coral
-          thing (the front card, Begin) stays the only loud one. N opens it too. */}
-      <Pressable onPress={() => useStore.setState({ telling: true })}
-        accessibilityRole="button" accessibilityLabel="Tell Nu anything"
-        {...({ dataSet: { deskNav: '' } } as object)}
-        style={(s) => {
-          const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
-          return {
-            height: 46, borderRadius: 23, marginTop: 30, marginBottom: 22, flexDirection: 'row', alignItems: 'center', gap: 12,
-            paddingLeft: 16, paddingRight: 14, borderWidth: 1, borderColor: t.strokeStrong,
-            backgroundColor: pressed || hovered ? t.subtle : 'transparent',
-          };
-        }}>
-        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={t.ink} strokeWidth={2.2} strokeLinecap="round">
-          <Path d="M12 5v14M5 12h14" />
-        </Svg>
-        <Text style={{ flex: 1, color: t.ink, fontSize: 15, fontFamily: T.display, letterSpacing: -0.2 }}>Tell Nu</Text>
-        <Text style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand }}>N</Text>
-      </Pressable>
-
-      <View accessibilityRole="tablist" style={{ gap: 4 }}>
+      <View accessibilityRole="tablist" style={{ gap: 2 }}>
         {TABS.map(x => (
-          <NavRow key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab} onPress={() => goToTab(x.key, path)} icon={x.icon(x.key === tab ? t.ink : t.ink3)} />
+          <NavRow key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab} onPress={() => goToTab(x.key, path)} icon={x.icon(x.key === tab ? t.ink : t.ink2)} />
         ))}
-        <NavRow label="You" on={tab === 'you'} onPress={() => goToTab('you', path)} icon={<Avatar size={22} ring={tab === 'you'} />} />
       </View>
 
       <View style={{ flex: 1 }} />
       {/* a session left running with ⌄: tap to go back to it */}
-      <LivePill />
+      <View style={{ marginBottom: 8 }}><LivePill /></View>
+      <NavRow label="You" on={tab === 'you'} onPress={() => goToTab('you', path)} icon={<Avatar size={26} ring={tab === 'you'} />} />
     </View>
   );
 }
 
-/** A room beside the sidebar (app/index.tsx): the room gets the rest of the window. */
+/** A room beside the sidebar (app/index.tsx): the room gets the rest of the window, on one ground with the sidebar. */
 export function DeskRoom({ children }: { children: React.ReactNode }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.base }}>
+      <Mica />
       <Sidebar />
       <ScreenWidth.Provider value={width - SIDEBAR}>
         <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
@@ -165,8 +158,10 @@ export function readable<P extends object>(Screen: React.ComponentType<P>, max =
 
 /** The sidebar and a centred column, where a phone has the tab bar under a pushed screen (WithTabs). */
 export function DeskTabbed({ children }: { children: React.ReactNode }) {
+  const t = useTheme();
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.base }}>
+      <Mica />
       <Sidebar />
       <View style={{ flex: 1, minWidth: 0 }}>
         <DeskColumn>{children}</DeskColumn>
