@@ -99,6 +99,8 @@ interface State {
   telling: boolean;
   /** what Tell Nu opens with, if anything (then cleared) */
   tellDraft: string | null;
+  /** the day Tell Nu files things on unless the words name one: the Calendar's picked day (then cleared) */
+  tellDay: number | null;
   /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
   dayEndMin: number;
   setDayEnd: (min: number) => Promise<void>;
@@ -144,7 +146,7 @@ export const useStore = create<State>((set, get) => ({
     await db.setProfile(p);
     set({ profile: { ...get().profile, ...p } });
   },
-  session: null, authLoading: true, devSkipAuth: false, trial: 'night', tab: 'home', telling: false, tellDraft: null, dayEndMin: 21 * 60, dayStartMin: DAY_START_DEFAULT, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
+  session: null, authLoading: true, devSkipAuth: false, trial: 'night', tab: 'home', telling: false, tellDraft: null, tellDay: null, dayEndMin: 21 * 60, dayStartMin: DAY_START_DEFAULT, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
   setAppearance: async (appearance) => {
     await db.setFlag('appearance', appearance);
     set({ appearance });

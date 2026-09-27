@@ -33,9 +33,16 @@ function Profile() {
   const [sheet, setSheet] = useState<'picture' | null>(null);
   const nameInput = useRef<TextInput>(null);
 
-  // the profile can arrive after this screen (a reload on the web): take it when it does
+  // The profile can arrive after this screen (a reload on the web): take it
+  // when it does, but only into a field you haven't changed. Saving one field
+  // updates the profile, and that mustn't wipe the one you're typing in now.
+  const synced = useRef({ name: profile.name, pronouns: profile.pronouns, tagline: profile.tagline });
   useEffect(() => {
-    setName(profile.name); setPronouns(profile.pronouns); setAbout(profile.tagline);
+    const was = synced.current;
+    setName(v => (v === was.name ? profile.name : v));
+    setPronouns(v => (v === was.pronouns ? profile.pronouns : v));
+    setAbout(v => (v === was.tagline ? profile.tagline : v));
+    synced.current = { name: profile.name, pronouns: profile.pronouns, tagline: profile.tagline };
   }, [profile.name, profile.pronouns, profile.tagline]);
 
   // saved when a field is left, and when the screen is: what was typed is kept

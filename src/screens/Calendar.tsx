@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -88,6 +88,11 @@ export default function Calendar() {
     setEvents(await eventsBetween(from, to));
   }, [cursor]);
   useFocusEffect(useCallback(() => { load(); refresh(); }, [load]));
+  // something added or changed while this room is open (Tell Nu is a sheet
+  // over it, so the room never loses focus): the store's lists change, reload
+  const inbox = useStore(s => s.inbox);
+  const todayPicked = useStore(s => s.todayPicked);
+  useEffect(() => { load(); }, [inbox, todayPicked, load]);
 
   /** day -> what's on it, so the grid can show density at a glance */
   const byDay = useMemo(() => {
@@ -237,7 +242,7 @@ export default function Calendar() {
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something you did ›</Text>
           </Pressable>
         ) : (
-          <Pressable onPress={() => useStore.setState({ telling: true })} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
+          <Pressable onPress={() => useStore.setState({ telling: true, tellDay: picked.getTime() })} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something for this day ›</Text>
           </Pressable>
         )}

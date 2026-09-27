@@ -47,8 +47,18 @@ const backTo = (path: string) => (Platform.OS === 'web' ? `${window.location.ori
 
 const OFFLINE = 'Can’t reach Nura. Check your connection.';
 
-/** What went wrong, in plain words, for anything Supabase (or the network) throws back. */
+/** What went wrong, in plain words, for anything Supabase (or the network)
+ *  throws back. In a development build Supabase's own code (or message)
+ *  follows in brackets, so a failed sign-up on a phone says why. */
 export function plainAuthError(e: unknown): string {
+  const text = friendlyAuthError(e);
+  if (!__DEV__) return text;
+  const err = (e ?? {}) as { code?: string; message?: string; status?: number };
+  const raw = [err.code, err.status, err.code ? null : err.message].filter(Boolean).join(', ');
+  return raw ? `${text} (${raw})` : text;
+}
+
+function friendlyAuthError(e: unknown): string {
   const err = (e ?? {}) as { code?: string; message?: string; name?: string };
   const msg = (err.message ?? '').toLowerCase();
   if (isAuthRetryableFetchError(e) || err.name === 'AuthRetryableFetchError'
@@ -65,6 +75,8 @@ export function plainAuthError(e: unknown): string {
     case 'otp_expired': return 'This link has expired. Ask for a new one.';
     case 'same_password': return 'That’s your current password. Pick a new one.';
     case 'signup_disabled': return 'New accounts are closed for now.';
+    // Supabase's own mail only goes to the project's team until custom SMTP is set up
+    case 'email_address_not_authorized': return 'Nura can’t email this address yet. Try again later.';
     // a sign-in link for an address with no account (signInWithOtp, shouldCreateUser: false)
     case 'otp_disabled': return 'There’s no account with this email yet. Create one first.';
   }

@@ -147,16 +147,18 @@ export default function Root() {
   useEffect(() => { if (fontError) console.warn('[nura] fonts did not load', fontError); }, [fontError]);
   const fontsReady = fontsLoaded || !!fontError;
 
-  // An account is required: signed out past onboarding (a sign out, a
-  // deleted account, or a web address typed straight in), every screen but
-  // a password reset goes home, where app/index.tsx shows only the sign-in.
+  // An account is required: signed out (a sign out, a deleted account, or a
+  // web address typed straight in, before onboarding or after it), every
+  // screen but a password reset goes home, where app/index.tsx shows the
+  // onboarding or the sign-in. Onboarding itself never leaves home until the
+  // account exists.
   const session = useStore(s => s.session);
   const authLoading = useStore(s => s.authLoading);
   const devSkipAuth = useStore(s => s.devSkipAuth);
   const pathname = usePathname();
   const ready = fontsReady && !elsewhere;
   useEffect(() => {
-    if (!ready || authLoading || !onboarded || session || devSkipAuth) return;
+    if (!ready || authLoading || onboarded === null || session || devSkipAuth) return;
     if (pathname === '/' || pathname === '/reset') return;
     if (router.canDismiss()) router.dismissAll();
     router.replace('/');

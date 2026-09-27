@@ -62,6 +62,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [text, setText] = useState('');
   const [open, setOpen] = useState<'when' | 'long' | null>(null);
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
+  const [day, setDay] = useState<number | null>(null);        // opened from a day on the Calendar
   const [mins, setMins] = useState<number | null>(null);
   // what the model made of it, for the text it was read for (only messy text, only on ✓)
   const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
@@ -72,11 +73,14 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [room, setRoom] = useState(999);   // the height left for Nu
 
   useEffect(() => {
-    if (!visible) { setText(''); setOpen(null); setWhen(null); setMins(null); setSmart(null); setReading(false); setAsking(false); return; }
+    if (!visible) { setText(''); setOpen(null); setWhen(null); setDay(null); setMins(null); setSmart(null); setReading(false); setAsking(false); return; }
     getLanguage().then(setLang).catch(() => {});
     // opened with words already (a dev link, later the share sheet)
     const draft = useStore.getState().tellDraft;
     if (draft) { setText(draft); useStore.setState({ tellDraft: null }); }
+    // opened from a day on the Calendar: that day, unless the words say another
+    const onDay = useStore.getState().tellDay;
+    if (onDay != null) { setDay(onDay); useStore.setState({ tellDay: null }); }
   }, [visible]);
 
   // what Nu makes of it, as you type: the phone's own read, instant and
@@ -90,6 +94,8 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   // what you set with a tap wins over what was read from the words
   const withChoices = (d: Draft): Draft => ({
     ...d,
+    // the Calendar's day, like the When chips: a day, at 9, with no time shown
+    ...(when == null && day != null && !d.due_at ? { due_at: new Date(day).setHours(9, 0, 0, 0), has_time: false } : {}),
     ...(when != null ? { due_at: WHEN[when].due(), has_time: false } : {}),
     ...(mins != null ? { est_minutes: mins } : {}),
   });
