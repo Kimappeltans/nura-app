@@ -13,11 +13,10 @@ import { labelById } from '../labels';
 import { LabelGlyph } from './LabelIcon';
 import { useDictation } from '../voice';
 import { DotWave } from './DotWave';
-import { readInput, localRead, localIsSure } from '../coach';
+import { understand, understandLocal, SURE, UNSURE, type Understood } from '../understand';
 import { getLanguage } from '../planner';
 import { aiConsent, setAiConsent } from '../ai';
 import { AiConsent } from './AiConsent';
-import type { StateRead } from '../learn/types';
 import { useScreen, useDesk, COLUMN, DIALOG } from '../screen';
 
 /**
@@ -27,8 +26,11 @@ import { useScreen, useDesk, COLUMN, DIALOG } from '../screen';
  *   - one line is a task — dates, times, repeats and lengths read out of the
  *     sentence ("dentist friday at 10 for 30 min") and shown back;
  *   - several lines are a brain dump — each line its own task;
- *   - something open-ended ("work on the thesis") is a project, and goes to
- *     Nu's planner with the words already in it.
+ *   - a goal ("finish my website", "work on the thesis") is a project: ✓
+ *     goes straight to Nu's planner with the words already in it.
+ * Filler ("hello, I want to") comes off first, and the phone scores how
+ * sure it is (src/understand.ts): unsure, Claude reads it on ✓ (with your
+ * yes); very unsure, Nu asks one question instead of guessing.
  * When? and How long? set those in a tap; + Details opens the full composer.
  */
 export function CaptureSheet(props: { visible: boolean; onClose: () => void }) {
@@ -44,16 +46,16 @@ const WHEN = [
 const HOW_LONG = [5, 15, 30, 60];
 const CORAL_ON = '#FF6B35';
 
-/** What Nu makes of the lines, given a read of the one sentence (or none). */
-function readOf(lines: string[], coached: StateRead | null) {
+/** What Nu makes of the lines, given what the one line was understood as. */
+function readOf(lines: string[], u: Understood | null) {
   if (!lines.length) return null;
   if (lines.length > 1) return { kind: 'many' as const, drafts: lines.map(parseTask) };
   // one run-on sentence that was really several things
-  if (coached?.kind === 'tasks' && (coached.items?.length ?? 0) > 1) return { kind: 'many' as const, drafts: coached.items!.map(parseTask) };
-  if (coached?.kind === 'project') return { kind: 'project' as const, draft: parseTask(lines[0]) };
-  const intent = route(lines[0]);
-  if (intent.kind === 'vague') return { kind: 'project' as const, draft: intent.draft };
-  return { kind: 'task' as const, draft: intent.kind === 'create' ? intent.draft : parseTask(lines[0]) };
+  if (u?.items && u.items.length > 1) return { kind: 'many' as const, drafts: u.items.map(parseTask) };
+  const words = u?.text || lines[0];
+  if (u?.type === 'project') return { kind: 'project' as const, draft: parseTask(words) };
+  const intent = route(words);
+  return { kind: 'task' as const, draft: intent.kind === 'create' ? intent.draft : parseTask(words) };
 }
 
 function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -64,8 +66,8 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [when, setWhen] = useState<number | null>(null);      // index into WHEN
   const [day, setDay] = useState<number | null>(null);        // opened from a day on the Calendar
   const [mins, setMins] = useState<number | null>(null);
-  // what the model made of it, for the text it was read for (only messy text, only on ✓)
-  const [smart, setSmart] = useState<{ text: string; read: StateRead } | null>(null);
+  // what the model made of it, for the text it was read for (only when the phone isn't sure, only on ✓)
+  const [smart, setSmart] = useState<{ text: string; u: Understood } | null>(null);
   const [reading, setReading] = useState(false);
   const [asking, setAsking] = useState(false);   // AI help, asked the first time it matters
   const [lang, setLang] = useState('en');
@@ -86,10 +88,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   // what Nu makes of it, as you type: the phone's own read, instant and
   // free. The model is only asked when you tap ✓ (add, below).
   const lines = useMemo(() => text.split('\n').map(s => s.trim()).filter(Boolean), [text]);
-  const sentence = lines.length === 1 && lines[0].split(/\s+/).length >= 4 ? lines[0] : null;
-  const local = useMemo(() => (sentence ? localRead(sentence, lang) : null), [sentence, lang]);
-  const coached = smart && smart.text === sentence ? smart.read : local;
-  const read = useMemo(() => readOf(lines, coached), [lines, coached]);
+  const one = lines.length === 1 ? lines[0] : null;
+  const local = useMemo(() => (one ? understandLocal(one, lang) : null), [one, lang]);
+  const u = smart && smart.text === one ? smart.u : local;
+  const read = useMemo(() => readOf(lines, u), [lines, u]);
 
   // what you set with a tap wins over what was read from the words
   const withChoices = (d: Draft): Draft => ({
@@ -108,23 +110,28 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   const add = async () => {
     if (!read || reading) return;
-    // a sentence the phone isn't sure of: ask the model once, on ✓, and only
+    // a line the phone isn't sure of: ask the model once, on ✓, and only
     // with your yes. If it reads differently (several things, a project, a
-    // reply from Nu), show that first; the next ✓ puts it down.
-    if (sentence && local && smart?.text !== sentence && !localIsSure(sentence, local, lang)) {
+    // reply from Nu), show that first; the next ✓ goes on with it.
+    // A goal skips this: the planner reads it anyway (and can still say it's
+    // one task), so there's one ask for AI help, not two in a row.
+    if (read.kind !== 'project' && one && local && smart?.text !== one && local.confidence >= UNSURE && local.confidence < SURE) {
       const ok = await aiConsent();
       if (ok === 'ask') return setAsking(true);
       if (ok === 'yes') {
         setReading(true);
-        const r = await readInput(sentence).catch(() => null);
+        const r = await understand(one, lang).catch(() => null);
         setReading(false);
         if (r) {
-          setSmart({ text: sentence, read: r });
+          setSmart({ text: one, u: r });
           const next = readOf(lines, r);
-          if (next?.kind !== read.kind || (r.source === 'model' && !!r.reply)) return;
+          if (next?.kind !== read.kind) return;
+          if (r.read.source === 'model' && !!r.read.reply) return;
         }
       }
     }
+    // a goal: ✓ is planning it, straight away
+    if (read.kind === 'project') return plan();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (read.kind === 'many') {
       for (const d of read.drafts) await save(withChoices(d));
@@ -138,9 +145,21 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   };
 
   const plan = () => {
-    const goal = lines.join(' ');
+    const goal = (smart?.text === one ? smart?.u.text : local?.text) || lines.join(' ');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
-    setTimeout(() => router.push({ pathname: '/project/new', params: { goal } }), 250);
+    // auto: the planner starts on the goal, no second screen to confirm it
+    setTimeout(() => router.push({ pathname: '/project/new', params: { goal, auto: '1' } }), 250);
+  };
+
+  /** A goal you'd rather keep as one task. */
+  const asTask = async () => {
+    if (!read || read.kind !== 'project') return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await save(withChoices(read.draft));
+    showToast('Put down');
+    await refresh();
+    onClose();
   };
 
   const details = () => {
@@ -160,11 +179,6 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
       },
     }), 250);
   };
-
-  const readback = read?.kind === 'task' ? describe(withChoices(read.draft))
-    : read?.kind === 'many' ? `${read.drafts.length} separate things`
-    : read?.kind === 'project' ? 'That sounds bigger than one task.'
-    : '';
 
   const Chip = ({ label, on, onPress, icon }: { label: string; on?: boolean; onPress: () => void; icon?: React.ReactNode }) => (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button" accessibilityState={{ selected: on }}
@@ -248,13 +262,21 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
             {HOW_LONG.map(m => <Chip key={m} label={`${m} min`} on={mins === m} onPress={() => { setMins(mins === m ? null : m); setOpen(null); }} />)}
           </View>
         )}
-        {!!coached?.reply && coached.source === 'model' && (
-          <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 12, fontFamily: T.brand }}>{coached.reply}</Text>
+        {!!u?.read.reply && u.read.source === 'model' && read?.kind !== 'project' && (
+          <Text style={{ color: t.nu, fontSize: 14, lineHeight: 20, marginTop: 12, fontFamily: T.brand }}>{u.read.reply}</Text>
         )}
+        {/* a goal: ✓ plans it; keeping it as one task is the quiet way */}
         {read?.kind === 'project' && (
-          <Pressable onPress={plan} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 12 }}>
-            <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Plan it with Nu ›</Text>
-          </Pressable>
+          <View style={{ marginTop: 14, gap: 8, alignItems: 'flex-start' }}>
+            <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display }}>A project. Tap ✓ and Nu plans it.</Text>
+            <Pressable onPress={asTask} hitSlop={8} accessibilityRole="button">
+              <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand }}>Just add it as a task</Text>
+            </Pressable>
+          </View>
+        )}
+        {/* not sure what it is: one question, not a guess */}
+        {read?.kind === 'task' && u?.type === 'unclear' && !!u.question && (
+          <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display, marginTop: 14 }}>{u.question}</Text>
         )}
 
         {/* your voice, in dots */}
@@ -280,7 +302,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
             </Pressable>
           ) : <View style={{ width: 54 }} />}
           <Pressable onPress={add} disabled={!read || reading} accessibilityRole="button"
-            accessibilityLabel={read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it'}
+            accessibilityLabel={read?.kind === 'many' ? `Add all ${read.drafts.length}` : read?.kind === 'project' ? 'Plan it with Nu' : 'Add it'}
             accessibilityState={{ disabled: !read || reading, busy: reading }}
             style={({ pressed }) => ({
               width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',

@@ -391,6 +391,19 @@ export async function readInput(text: string): Promise<StateRead> {
   try { lang = await getLanguage(); } catch { /* English, then */ }
   const local = localRead(s, lang);
   if (localIsSure(s, local, lang)) return local;
+  return (await readByModel(s)) ?? local;
+}
+
+/**
+ * The model's read of a sentence, whatever the phone thinks of it — for
+ * understand.ts, which decides by its own confidence when to ask. null when
+ * it can't be had (AI off, signed out, offline, over the limit, a bad answer).
+ */
+export async function readByModel(text: string): Promise<StateRead | null> {
+  const s = text.trim().slice(0, 1000);
+  if (!s) return null;
+  let lang = 'en';
+  try { lang = await getLanguage(); } catch { /* English, then */ }
   const key = `${lang}:${s}`;
   const seen = readCache.get(key);
   if (seen) return seen;
@@ -400,7 +413,7 @@ export async function readInput(text: string): Promise<StateRead> {
     if (readCache.size > 20) readCache.delete(readCache.keys().next().value!);
     return r;
   } catch {
-    return local;
+    return null;
   }
 }
 

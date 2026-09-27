@@ -1,5 +1,5 @@
 import { goBack } from '../../src/nav';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,10 +35,13 @@ type Phase =
  *
  * You say or type what you're trying to move forward. Nu decides whether
  * it's one task (and offers to just add it) or a project; for a project it
- * asks at most one question — which you can skip — and then shows a
- * possible path: what done means, the guesses it made, a small first move,
- * and a few later steps. All of it is editable, and nothing is saved until
- * you keep it.
+ * asks at most one question — which you can skip — and then shows the
+ * first move, at full size, with Start with this. The whole path (what
+ * done means, Nu's guesses, the later steps) is one tap away, editable, and
+ * nothing is saved until you keep it.
+ *
+ * From Tell Nu (auto), the goal is already said: planning starts at once,
+ * with no screen to confirm the words and no second button to press.
  *
  * Nu's screen, so Nu's navy whatever mode you came from.
  */
@@ -52,10 +55,14 @@ function NewProject() {
 
 function Screen() {
   const t = useTheme();
-  const params = useLocalSearchParams<{ goal?: string }>();
+  const params = useLocalSearchParams<{ goal?: string; auto?: string }>();
   const { refresh, focusOn, showToast } = useStore();
   const [goal, setGoal] = useState(params.goal ?? '');
-  const [phase, setPhase] = useState<Phase>({ at: 'goal' });
+  // from Tell Nu: the goal is said, so Nu starts on it
+  const auto = params.auto === '1' && !!params.goal?.trim();
+  const [phase, setPhase] = useState<Phase>(auto ? { at: 'thinking', line: 'Nu is looking for a way in…' } : { at: 'goal' });
+  // the first move at full size; the whole path behind See the whole plan
+  const [whole, setWhole] = useState(false);
   const [answer, setAnswer] = useState('');
   const [notes, setNotes] = useState<Note[]>([]);
 
@@ -78,6 +85,7 @@ function Screen() {
       key: editKey(), title: s.title, first_action: s.first_action, why: s.why, est_minutes: s.est_minutes, edited: false,
     })));
     setCurrent(plan.current);
+    setWhole(!plan.steps.length);
     setPhase({ at: 'path', plan });
   };
 
@@ -103,6 +111,12 @@ function Screen() {
       if (r.plan) showPlan({ ...r.plan, reply: r.plan.reply || r.reply });
     } catch (e) { fail(e, send); }
   };
+
+  // from Tell Nu: plan the goal as soon as the screen is up, once
+  const started = useRef(false);
+  useEffect(() => {
+    if (auto && !started.current) { started.current = true; send(); }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = async (withNotes: Note[]) => {
     setNotes(withNotes);
@@ -133,6 +147,7 @@ function Screen() {
     setGuesses([]);
     setSteps([]);
     setCurrent(-1);
+    setWhole(true);
     setPhase({ at: 'path', plan: { title: g, done_means: '', assumptions: [], reply: '', steps: [], current: -1 } });
   };
 
@@ -202,7 +217,24 @@ function Screen() {
         </View>
       );
 
-      case 'path': return (
+      case 'path': {
+        // the move now, at full size: the rest of the plan is one tap away
+        const move = steps[Math.max(0, current)];
+        if (!whole && move) return (
+          <View style={{ gap: 12, paddingTop: 28 }}>
+            <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand }}>{title.toUpperCase()}</Text>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.4 }}>{move.title}</Text>
+            {!!move.first_action && move.first_action !== move.title && (
+              <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{move.first_action}</Text>
+            )}
+            {!!move.est_minutes && <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>About {move.est_minutes} min</Text>}
+            <Pressable onPress={() => { Haptics.selectionAsync(); setWhole(true); }} hitSlop={8} accessibilityRole="button"
+              style={{ alignSelf: 'flex-start', marginTop: 10 }}>
+              <Text style={{ color: t.nu, fontSize: 15, fontFamily: T.display }}>See the whole plan ›</Text>
+            </Pressable>
+          </View>
+        );
+        return (
         <View style={{ gap: 16 }}>
           <TextInput value={title} onChangeText={setTitle} placeholder="Name it" placeholderTextColor={t.ink3} multiline
             style={{ color: t.ink, fontSize: 26, lineHeight: 32, fontFamily: T.display, letterSpacing: -0.5, padding: 0 }} />
@@ -243,7 +275,8 @@ function Screen() {
           </View>
 
         </View>
-      );
+        );
+      }
 
       case 'error': return (
         <View style={{ gap: 14, paddingTop: 20 }}>
@@ -284,8 +317,8 @@ function Screen() {
       );
       case 'path': return (
         <>
-          <Primary label="Just give me the first move" tone="ra" disabled={!steps.length || saving} onPress={() => keep(true)} />
-          <Ghost label="Keep this path for later" onPress={() => keep(false)} />
+          <Primary label="Start with this" tone="ra" disabled={!steps.length || saving} onPress={() => keep(true)} />
+          <Ghost label="Keep it for later" onPress={() => keep(false)} />
         </>
       );
       case 'error': return (
@@ -304,7 +337,12 @@ function Screen() {
       <StatusBar style={t.statusBar} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, height: 48 }}>
-          <Pressable onPress={() => (phase.at === 'goal' || phase.at === 'thinking' ? leave() : setPhase({ at: 'goal' }))}
+          <Pressable onPress={() => {
+            // the whole plan folds back to the first move; otherwise out
+            if (phase.at === 'path' && whole && phase.plan.steps.length) return setWhole(false);
+            if (auto || phase.at === 'goal' || phase.at === 'thinking') return leave();
+            setPhase({ at: 'goal' });
+          }}
             hitSlop={12} style={{ flex: 1, paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
           </Pressable>
@@ -315,7 +353,9 @@ function Screen() {
         </ScrollView>
         {!!footer && <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, gap: 10 }}>{footer}</View>}
       </KeyboardAvoidingView>
-      <AiConsent visible={asking} onAnswer={answerAsk} onClose={() => setAsking(false)} />
+      {/* closed without an answer: back to the goal, so the screen isn't left thinking */}
+      <AiConsent visible={asking} onAnswer={answerAsk}
+        onClose={() => { setAsking(false); if (phase.at === 'thinking') setPhase({ at: 'goal' }); }} />
     </SafeAreaView>
   );
 }
