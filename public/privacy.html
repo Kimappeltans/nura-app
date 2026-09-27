@@ -25,10 +25,10 @@
   <div class="wrap prose">
     <span class="kicker">Privacy</span>
     <h1>Your data, <span class="mh">in plain words.</span></h1>
-    <p class="updated">Effective 26 September 2026</p>
+    <p class="updated">Effective 27 September 2026</p>
 
-    <h2>Who we are</h2>
-    <p>Nura is made by Kim Appeltans, one person, not a company. Questions about your data, or a request to see, change or delete it: write to <a href="mailto:kimappel@bu.edu">kimappel@bu.edu</a>.</p>
+    <h2>Who's responsible</h2>
+    <p>Nura is made and run by Kim Appeltans, an individual living in Massachusetts, USA, not a company. Kim decides how your data is used and is responsible for it (the "controller" under the GDPR). Questions about your data, or a request to see, change or delete it: write to <a href="mailto:kimappel@me.com">kimappel@me.com</a>.</p>
 
     <h2>What we collect with an account</h2>
     <p>You need an account to use Nura. You can sign in with an email and password, with Google, or with Apple on iPhone. The account holds:</p>
@@ -41,36 +41,42 @@
 
     <h2>What syncs, and what stays on your device</h2>
     <p><b>Synced to your account:</b> your tasks, your habits and your habit history, so they reach your other devices.</p>
-    <p><b>Kept only on your device</b> (the phone, or this browser's storage on the web): your projects, your profile photo, pronouns and the rest of your profile, your settings, and the activity log of what you started and finished and when.</p>
+    <p><b>Kept only on your device</b> (the phone, or this browser's storage on the web): your projects, your profile photo, pronouns and the rest of your profile, your settings, the activity log of what you started and finished and when, and what Nura works out from it to make suggestions. We never receive these.</p>
 
     <h2>AI features, only if you allow them</h2>
-    <p>Some features use Claude, an AI model made by Anthropic. They run only after you say yes in the app, and you can turn them off any time in Settings. When they're off, nothing is sent to the AI. When they're on, this is what each one sends:</p>
+    <p>Some features use Claude, an AI model made by Anthropic. They're off until you say yes in the app. When they're off, nothing is sent to the AI. When they're on, this is what each one sends:</p>
     <ul>
       <li><b>Reading what you typed or said:</b> the one sentence, and only when your device isn't sure what you meant. If it is sure, nothing is sent.</li>
       <li><b>Suggestions for today:</b> today's open tasks (title, length and priority, at most 30), a numbers-only summary of how you work, your working notes and the local hour.</li>
       <li><b>Your weekly working notes:</b> last week's notes, a numbers-only summary of the week, and how many suggestions you took or passed on. At most once a week.</li>
       <li><b>Planning a project:</b> the goal, your answer to Nu's question and, when you ask for another look, the project's steps, notes and recent history.</li>
     </ul>
-    <p>Never your full activity log, and never any other part of your tasks. Each request also carries a random ID for your device, used for the daily limits below.</p>
-    <p>Requests go from your device to our functions on Supabase, and from there to Anthropic. We don't store what you send on our servers. Anthropic handles it under its commercial terms: it doesn't train its models on it by default, and keeps it only for a limited time that Anthropic sets. Weekly notes run as a batch, and Anthropic keeps batch results for up to 29 days. <a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy policy</a></p>
+    <p>Never your full activity log, and never any other part of your tasks. Speech is turned into text before anything is read, so no audio goes to the AI. Each request also carries a random ID for your device, so the weekly notes come back to the device that asked for them.</p>
+    <p><b>How you seem.</b> When Nura reads a sentence, it also notes whether your words say how you are: calm, busy, overwhelmed or low. Usually they don't, and it notes nothing. This comes only from the words you used, first on your device and, for a sentence it isn't sure about, from the AI. It's never a diagnosis. It's used only in that moment, so Nu can answer with one short, kind line. It isn't shown as a label, kept, synced or used for anything else.</p>
+    <p><b>Working notes.</b> Once a week, the AI writes a few sentences about what tends to help you, such as the times of day that go well, from the numbers above. They're kept on your device and shape your suggestions.</p>
+    <p>Requests go from your device to our functions on Supabase, and from there to Anthropic. We don't store what you send on our servers, only the daily counts below. Anthropic handles it under its <a href="https://www.anthropic.com/legal/commercial-terms">commercial terms</a>: it doesn't train its models on it, and keeps it only for a limited time that Anthropic sets. Weekly notes run as a batch, and Anthropic keeps batch results for up to 29 days. See <a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy policy</a>.</p>
+    <p><b>Turning it off:</b> in Settings, open Language and voice and switch off AI help. From then on nothing more is sent, and Nura uses your device's own reading and suggestions.</p>
 
     <h2>Who handles data for us</h2>
     <ul>
       <li><b>Supabase</b> runs the accounts, the synced database and the functions that talk to the AI. Our database is in the United States, on Amazon Web Services in Oregon.</li>
       <li><b>Anthropic</b> runs the AI features, if you allow them.</li>
-      <li><b>Netlify</b> hosts this site and the web app, and keeps the emails left for early access.</li>
+      <li><b>Netlify</b> hosts this site and the web app, and keeps the emails left to hear when the iPhone app is out.</li>
       <li><b>Google and Apple</b> sign you in, if you choose them.</li>
     </ul>
-    <p>Each of them keeps short technical logs, such as the time and IP address of a request, to keep their service running and secure. Nobody else gets your data. If you live outside the United States, your data is handled there.</p>
+    <p>Each of them keeps short technical logs, such as the time and IP address of a request, to keep their service running and secure. Nobody else gets your data.</p>
+
+    <h2>Data sent to the United States</h2>
+    <p>Nura is run from the United States, and your data is stored and processed there. If you live in the EU, the EEA, the UK or Switzerland, these transfers rely on the Standard Contractual Clauses in our providers' data processing terms: Supabase, Anthropic and Netlify. Write to us for a copy.</p>
 
     <h2>IP addresses and daily limits</h2>
-    <p>To keep the AI features fair and affordable, we count AI requests per account, per device and per IP address, each day. We store only the count, the day and that account ID, device ID or IP address. Never what was sent. Old counts are deleted.</p>
+    <p>To keep the AI features fair and affordable, we count AI requests per account and per IP address, each day. We store only the count, the day and that account ID or IP address. Never what was sent. Old counts are deleted.</p>
 
-    <h2>Why we use it</h2>
+    <h2>Why we use it, and on what legal basis</h2>
     <ul>
-      <li>Your account and synced data: to give you the service you signed up for.</li>
-      <li>The AI features: because you allowed them. You can take that back any time.</li>
-      <li>Daily limits and logs: to keep Nura working, safe and affordable.</li>
+      <li><b>Your account, sync and support:</b> to give you the service you signed up for (performing our contract with you).</li>
+      <li><b>The AI features, the calendar on iPhone and the email for the iPhone app:</b> because you said yes (consent). You can take it back any time, and that doesn't undo what was done before. For the AI, switch off AI help in Settings.</li>
+      <li><b>Daily limits, logs and security:</b> to keep Nura working, safe and affordable (our legitimate interests). You can object to this.</li>
     </ul>
 
     <h2>How long we keep things</h2>
@@ -79,20 +85,25 @@
       <li><b>What's on your device:</b> until you log out there, which clears it, or remove the app or the browser's data for Nura.</li>
       <li><b>What the AI sees:</b> not kept by us. Anthropic keeps it for a limited time, as above.</li>
       <li><b>Daily counts:</b> only while they're needed for the limits.</li>
-      <li><b>Early access emails:</b> until you ask us to remove yours.</li>
+      <li><b>Emails left to hear about the iPhone app:</b> until you ask us to remove yours.</li>
     </ul>
 
     <h2>Deleting your account</h2>
     <p>In the app, open Profile and choose Delete account. Your account and everything it synced (tasks, habits and habit history) are deleted from our servers for good. What's kept only on a device stays there until you log out on it or remove the app. You can also write to us and we'll delete it for you.</p>
 
     <h2>Your rights</h2>
-    <p>You can ask to see, correct, delete or take a copy of your data. Much of it you can do yourself: change things in the app, delete your account on Profile, and save your activity log in Settings, Your data, Export activity log. For anything else, write to <a href="mailto:kimappel@bu.edu">kimappel@bu.edu</a> and we'll answer within a month. You can also complain to the data protection authority where you live.</p>
-    <p><b>California:</b> we don't sell or share your personal information, and we don't use it for ads.</p>
+    <p>You can ask to see your data, correct it, delete it, limit how we use it, take a copy to use elsewhere, or object to how we use it. Where you gave consent, you can take it back any time.</p>
+    <p>Much of it you can do yourself: change things in the app, save a copy in Settings, Your data, Export activity log, and delete your account on Profile. For anything else, write to <a href="mailto:kimappel@me.com">kimappel@me.com</a>. We'll answer within one month.</p>
+    <p>You can also complain to the data protection authority where you live.</p>
+
+    <h2>No automated decisions</h2>
+    <p>Nura makes no decisions about you based only on automated processing that have legal or similarly significant effects (GDPR Article 22). Suggestions and plans are only offers, and you decide.</p>
 
     <h2>What Nura doesn't do</h2>
     <ul>
       <li>No ads, no analytics and no tracking across other apps or websites.</li>
-      <li>No selling of your data.</li>
+      <li>No selling or sharing of your personal information, as California law defines them, and no use of it for ads.</li>
+      <li>No training of AI models on your data.</li>
       <li>No streaks, scores or anything else built to keep you hooked.</li>
     </ul>
 
@@ -108,7 +119,7 @@
     <p>If this page changes, the date at the top changes too. For a change that matters, we'll tell you in the app or by email first.</p>
 
     <h2>Contact</h2>
-    <p>Kim Appeltans, <a href="mailto:kimappel@bu.edu">kimappel@bu.edu</a>. See also the <a href="terms.html">terms</a> and <a href="support.html">support</a>.</p>
+    <p>Kim Appeltans, Massachusetts, USA: <a href="mailto:kimappel@me.com">kimappel@me.com</a>. See also the <a href="terms.html">terms</a> and <a href="support.html">support</a>.</p>
   </div>
 </section>
 </main>
