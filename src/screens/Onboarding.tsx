@@ -12,6 +12,7 @@ import RemindAsk from './RemindAsk';
 import ProfileStep from './ProfileStep';
 import OneRises from './OneRises';
 import Auth from './Auth';
+import { landsOnSignIn, landedOnSignIn } from '../account';
 
 /**
  * From opening the app to starting one real task in about a minute
@@ -22,8 +23,9 @@ import Auth from './Auth';
  *                        something, and says what.
  *   3. BRAIN DUMP     — "What's on your mind?" Nu, learned by using it.
  *   4. REMINDERS      — only if "remembering" was picked, iPhone only.
- *   5. PROFILE        — "Create your profile", now that there's a list to
- *                        keep. Skippable; not shown when already signed in.
+ *   5. PROFILE        — "Create your profile", now that there are tasks to
+ *                        keep. Required; not shown when already signed in.
+ *                        With email, it waits on the confirmation link.
  *   6. ONE RISES      — your tasks sink, the sun rises, Ra suggests one and
  *                        you can pick another. Start it.
  *
@@ -41,7 +43,9 @@ export default function Onboarding() {
   const toNu = useStore(s => s.toNu);
   const session = useStore(s => s.session);
 
-  const [step, setStep] = useState<Step>('welcome');
+  // straight after a log out, the sign-in, not the welcome (src/account.ts)
+  const [step, setStep] = useState<Step>(() => (landsOnSignIn() ? 'auth' : 'welcome'));
+  useEffect(() => { landedOnSignIn(); }, []);
   const [picks, setPicks] = useState<Blocker[]>([]);
   const [rise, setRise] = useState<{ tasks: Task[]; pick: Task; rule: PickRule } | null>(null);
   const t0 = useRef(Date.now());
@@ -112,7 +116,10 @@ export default function Onboarding() {
   };
 
   if (step === 'auth') {
-    return <Auth onClose={finishOnboarding} onBack={() => setStep('welcome')} beforeRedirect={resumeAfterGoogle('auth')} />;
+    return (
+      <Auth onBack={() => setStep('welcome')} beforeRedirect={resumeAfterGoogle('auth')}
+        onClose={async () => { await setFlag('onb.resume', ''); await finishOnboarding(); }} />
+    );
   }
 
   if (step === 'blockers') {
@@ -150,6 +157,7 @@ export default function Onboarding() {
   if (step === 'profile') {
     return (
       <ProfileStep beforeRedirect={resumeAfterGoogle('profile')} onDone={async () => {
+        await setFlag('onb.resume', '');   // set while it waited on the email
         await log('profile', { signedIn: !!useStore.getState().session });
         afterProfile();
       }} />

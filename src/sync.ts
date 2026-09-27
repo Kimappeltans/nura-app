@@ -19,6 +19,8 @@ import { supabase } from './supabase';
 const TABLES = ['task', 'habit', 'habit_log'] as const;
 
 let syncing = false;
+/** the pass under way, so a log out can wait for it (pushNow) */
+let inFlight: Promise<boolean> | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Safe to call after every local mutation — see store.ts's refresh(). */
@@ -27,23 +29,52 @@ export function scheduleSync() {
   debounceTimer = setTimeout(() => { runSync(); }, 5000);
 }
 
-export async function runSync() {
+/** True when a whole push and pull went through. */
+export async function runSync(): Promise<boolean> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session || syncing) return;
+  if (!session || syncing) return false;
   syncing = true;
-  try {
-    const pushCursor = Number((await getFlag('sync.push_cursor')) ?? 0);
-    const pullCursor = Number((await getFlag('sync.pull_cursor')) ?? 0);
-    const pushedMax = await pushAll(session.user.id, pushCursor);
-    const pulledMax = await pullAll(session.user.id, pullCursor);
-    if (pushedMax > pushCursor) await setFlag('sync.push_cursor', String(pushedMax));
-    if (pulledMax > pullCursor) await setFlag('sync.pull_cursor', String(pulledMax));
-  } catch {
-    // offline/transient — next trigger point (sign-in, foreground, next
-    // debounced mutation) retries from the same cursors, nothing is lost
-  } finally {
-    syncing = false;
-  }
+  const pass = (async () => {
+    try {
+      const pushCursor = Number((await getFlag('sync.push_cursor')) ?? 0);
+      const pullCursor = Number((await getFlag('sync.pull_cursor')) ?? 0);
+      const pushedMax = await pushAll(session.user.id, pushCursor);
+      const pulledMax = await pullAll(session.user.id, pullCursor);
+      if (pushedMax > pushCursor) await setFlag('sync.push_cursor', String(pushedMax));
+      if (pulledMax > pullCursor) await setFlag('sync.pull_cursor', String(pulledMax));
+      return true;
+    } catch (e) {
+      // offline/transient — next trigger point (sign-in, foreground, next
+      // debounced mutation) retries from the same cursors, nothing is lost.
+      // Said in the console, so one that isn't transient (a refused row)
+      // doesn't go unseen.
+      console.warn('[nura] sync did not finish', e);
+      return false;
+    } finally {
+      syncing = false;
+    }
+  })();
+  inFlight = pass;
+  return pass;
+}
+
+/**
+ * Everything on this device into the account, now: waits for a pass that's
+ * already running, then runs one more (or the first adoption, for a device
+ * that never finished one). True when it all went through. Used before a
+ * log out clears the device (src/account.ts).
+ */
+/** Resolves once no pass is running (a log out waits on this before it clears the device). */
+export async function syncIdle() {
+  if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+  if (inFlight) await inFlight;
+}
+
+export async function pushNow(): Promise<boolean> {
+  if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+  if (inFlight) await inFlight;
+  if (!(await hasAdopted())) { await adoptLocalData(); return hasAdopted(); }
+  return runSync();
 }
 
 /**
@@ -59,18 +90,25 @@ export async function adoptLocalData() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session || syncing) return;
   syncing = true;
-  try {
-    const pushedMax = await pushAll(session.user.id, 0);
-    const pulledMax = await pullAll(session.user.id, 0);
-    const cursor = String(Math.max(pushedMax, pulledMax));
-    await setFlag('sync.push_cursor', cursor);
-    await setFlag('sync.pull_cursor', cursor);
-    await setFlag('sync.adopted', '1');
-  } catch {
-    // leave sync.adopted unset — retried on the next SIGNED_IN/foreground pass
-  } finally {
-    syncing = false;
-  }
+  const pass = (async () => {
+    try {
+      const pushedMax = await pushAll(session.user.id, 0);
+      const pulledMax = await pullAll(session.user.id, 0);
+      const cursor = String(Math.max(pushedMax, pulledMax));
+      await setFlag('sync.push_cursor', cursor);
+      await setFlag('sync.pull_cursor', cursor);
+      await setFlag('sync.adopted', '1');
+      return true;
+    } catch (e) {
+      // leave sync.adopted unset — retried on the next SIGNED_IN/foreground pass
+      console.warn('[nura] first sync did not finish', e);
+      return false;
+    } finally {
+      syncing = false;
+    }
+  })();
+  inFlight = pass;
+  await pass;
 }
 
 export async function hasAdopted() {
