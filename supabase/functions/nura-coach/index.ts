@@ -184,6 +184,14 @@ function ipOf(req: Request): string {
   return ip?.trim().slice(0, 64) || 'unknown';
 }
 
+/** Counts older than 30 days are deleted (privacy.html promises it). Runs on
+ *  the first count of a key each day, so it happens daily without a cron. */
+async function forgetOldCounts() {
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const { error } = await admin.from('ai_usage').delete().lt('day', cutoff);
+  if (error) console.error('[nura-coach] could not delete old usage counts:', error.message);
+}
+
 /** Counts one call against `key` for today. 'off' when it can't be counted
  *  (supabase/ai-usage.sql not run, or the database erred): the caller must
  *  then refuse, never call the model uncounted. */
@@ -194,6 +202,7 @@ async function hit(key: string, limit: number): Promise<'ok' | 'over' | 'off'> {
       console.error('[nura-coach] usage limits unavailable, refusing:', error?.message ?? `got ${typeof data}`);
       return 'off';
     }
+    if (data === 1) void forgetOldCounts();
     return data > limit ? 'over' : 'ok';
   } catch (e) {
     console.error('[nura-coach] usage limits unavailable, refusing:', e);

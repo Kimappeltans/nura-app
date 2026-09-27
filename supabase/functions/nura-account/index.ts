@@ -29,6 +29,10 @@ Deno.serve(async req => {
   // the anon key is a valid JWT too, but it isn't a person: only a real session gets past here
   if (error || !user) return reply(401, { error: 'Sign in first.' });
 
+  // the daily AI counts keyed to this account go too (privacy.html promises it)
+  const { error: counts } = await admin.from('ai_usage').delete().in('key', [`u:${user.id}`, `read:u:${user.id}`]);
+  if (counts) console.error('[nura-account] could not delete usage counts:', counts.message);
+
   const { error: del } = await admin.auth.admin.deleteUser(user.id);
   if (del) return reply(500, { error: del.message });
   return reply(200, { deleted: true });

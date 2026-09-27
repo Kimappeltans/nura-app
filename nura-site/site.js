@@ -54,7 +54,7 @@ if (signup) {
       });
       if (!r.ok) throw new Error(r.status);
       signup.hidden = true;
-      state.className = 'form-state ok'; state.textContent = "You're on the list. We'll write when early access opens.";
+      state.className = 'form-state ok'; state.textContent = "Thanks. We'll write when the iPhone app is out.";
     } catch {
       btn.disabled = false;
       state.textContent = "That didn't go through. Please try again in a moment.";
