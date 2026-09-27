@@ -1,26 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
-import { View, Text, Pressable, TextInput, ActivityIndicator, Platform, Alert } from 'react-native';
-import { useTheme } from '../store';
-import { Primary, IconCheck, Character } from '../ui';
+import { View, Text, Pressable, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { useStore, useTheme } from '../store';
+import { Primary, Ghost, Character } from '../ui';
 import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
-import { useAuthActions } from '../useAuthActions';
-import { AppleGlyph, GoogleGlyph } from './Auth';
+import { useAuthActions, useConfirmWait } from '../useAuthActions';
+import { AppleGlyph, GoogleGlyph, Legal } from './Auth';
 
 /**
  * "Create your profile" — onboarding step 3, straight after the brain dump.
  *
  * Asked here rather than first because now there is something to keep: the
- * list you just wrote. Apps that ask for an account before showing anything
+ * tasks you just wrote. Apps that ask for an account before showing anything
  * lose people at the door; asking once the work exists is the same moment
  * Duolingo asks, after the first lesson.
  *
  * Light, like the sign-in screen (Kim preferred it to navy here): an
  * account is a different kind of moment from the questions around it.
  *
- * No back arrow on the first view: the list is already saved, and going
- * back to an empty brain dump would only invite writing it twice.
+ * No back arrow on the first view: the tasks are already saved, and going
+ * back to an empty brain dump would only invite writing them twice.
+ *
+ * Email with "Confirm email" on: made, but no session until the link in the
+ * email is opened, so the step waits on "Check your email" (Resend, or a
+ * different address) and carries on by itself once the session arrives
+ * (useConfirmWait). The tasks from the brain dump are local and stay.
  *
  * Not skippable: an account is required (Kim, 26 September; see Auth.tsx
  * for the App Store side of that). The same three doors as the sign-in screen (Auth.tsx), via
@@ -29,15 +34,14 @@ import { AppleGlyph, GoogleGlyph } from './Auth';
  */
 type Mode = 'choose' | 'email';
 
-const PERKS = ['Backed up, so nothing gets lost', 'The same list on every device'];
-
 export default function ProfileStep({ onDone, beforeRedirect }: {
   onDone: () => void;
-  /** remember where onboarding was, before the web page leaves for Google */
+  /** remember where onboarding was, before the web page leaves for Google
+   *  or while it waits on the confirmation link (a reload picks up from there) */
   beforeRedirect?: () => Promise<void>;
 }) {
   const t = useTheme();
-  const { busy, formError, setFormError, withApple, withGoogle, withPassword } = useAuthActions(onDone, { beforeRedirect });
+  const { busy, formError, setFormError, withApple, withGoogle, withPassword, resend } = useAuthActions(onDone, { beforeRedirect });
   const [mode, setMode] = useState<Mode>('choose');
   const [creating, setCreating] = useState(true);
   const [name, setName] = useState('');
@@ -45,16 +49,34 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [focused, setFocused] = useState<string | null>(null);
+  /** made, waiting on the link in the email */
+  const [pending, setPending] = useState<{ email: string; password: string } | null>(null);
+  const [sent, setSent] = useState(false);
+  const session = useStore(s => s.session);
+
+  // the link opened: signed in, so onboarding carries on where it was (once)
+  const went = useRef(false);
+  useConfirmWait(pending);
+  useEffect(() => {
+    if (!pending || !session || went.current) return;
+    went.current = true;
+    onDone();
+  }, [pending, session]);
 
   const submit = async () => {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onDone();
     if (r === 'check-email') {
-      const body = `We sent a link to ${email}. Confirm it any time. You can carry on now.`;
-      // react-native-web's Alert does nothing, so the browser's own stands in
-      if (Platform.OS === 'web') { window.alert(`Check your email\n\n${body}`); onDone(); return; }
-      Alert.alert('Check your email', body, [{ text: 'OK', onPress: onDone }]);
+      setSent(false);
+      setPending({ email: email.trim(), password });
+      beforeRedirect?.();
     }
+  };
+  const again = async () => {
+    if (pending && await resend(pending.email)) setSent(true);
+  };
+  const otherEmail = () => {
+    setPending(null); setEmail(''); setFormError(null); setCreating(true); setMode('email');
   };
 
   const field = (id: string) => ({
@@ -85,13 +107,33 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
 
   const toEmail = (asNew: boolean) => { setCreating(asNew); setFormError(null); setMode('email'); };
 
+  if (pending) {
+    return (
+      <OnbFrame step={3} onBack={() => { setPending(null); setFormError(null); }}
+        title="Check your email"
+        footer={(
+          <>
+            <Ghost label={busy === 'resend' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
+            <FooterLink label="Use a different email" onPress={otherEmail} />
+          </>
+        )}>
+        <View style={{ flex: 1, gap: 8, marginTop: 18 }}>
+          <Text style={{ color: t.ink, fontSize: 17, lineHeight: 23, fontFamily: T.brand }}>{pending.email}</Text>
+          <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23 }}>Open the link in the email to finish.</Text>
+          {!!formError && <Text style={{ color: '#D14343', fontSize: 14, lineHeight: 19, marginTop: 6 }}>{formError}</Text>}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 'auto', paddingTop: 26 }}>
+            <Character name="nu-idle" size={176} />
+            <Character name="ra-wave" size={176} />
+          </View>
+        </View>
+      </OnbFrame>
+    );
+  }
+
   return (
     <>
       <OnbFrame step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined}
         title={creating ? 'Create your profile' : 'Sign in'}
-        sub={creating
-          ? 'Keep your list safe and use Nura on any device.'
-          : 'Your list comes with you.'}
         footer={mode === 'choose' ? (
           <>
             {Platform.OS === 'ios' && (
@@ -109,18 +151,8 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
           </>
         )}>
         {mode === 'choose' ? (
-          <View style={{ flex: 1, gap: 12, marginTop: 26 }}>
-            {PERKS.map(p => (
-              <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.raWash, alignItems: 'center', justifyContent: 'center' }}>
-                  <IconCheck size={17} color={t.raDeep} />
-                </View>
-                <Text style={{ color: t.ink, fontSize: 16, lineHeight: 22, flex: 1 }}>{p}</Text>
-              </View>
-            ))}
-            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginTop: 14 }}>
-              By continuing you agree to the Terms and Privacy Policy. No marketing email.
-            </Text>
+          <View style={{ flex: 1, marginTop: 18 }}>
+            <Legal style={{ fontSize: 13, lineHeight: 18 }} />
             {/* one size for both: the two images fill their frames alike, so
                 equal boxes read as equal characters. At the bottom, standing
                 on the buttons, and still after a hello — a looping float

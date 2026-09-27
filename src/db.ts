@@ -68,8 +68,11 @@ let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_dbPromise) return _dbPromise;
-  _dbPromise = openDb();
-  return _dbPromise;
+  const opening = openDb();
+  _dbPromise = opening;
+  // a failed open is not kept: the next call (Try again, app/_layout.tsx) opens afresh
+  opening.catch(() => { if (_dbPromise === opening) _dbPromise = null; });
+  return opening;
 }
 
 // Web only. The browser keeps nura.db in one OPFS file that only one tab can
@@ -1464,4 +1467,28 @@ export async function getBlockers(): Promise<Blocker[]> {
 }
 export async function setBlockers(b: Blocker[]) {
   await setFlag('onb.blockers', JSON.stringify(b));
+}
+
+/* ---------------- this device, cleared (src/account.ts) ---------------- */
+
+/**
+ * Everything a person put on this device, gone: every table, and every
+ * app_state key except the ones in `keep` (the device's own, like its id and
+ * appearance; a key ending in '.' keeps everything under it). Run on log out,
+ * and before a different account takes over the device.
+ */
+export async function wipeLocalData(keep: readonly string[]) {
+  const db = await getDb();
+  const tables = (await db.getAllAsync<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'app_state'`,
+  )).map(r => r.name);
+  // rows that point at other rows go first, in case foreign keys are enforced
+  const children = ['project_step', 'project_event', 'habit_log', 'nudge', 'breadcrumb', 'event'];
+  const order = [...children.filter(n => tables.includes(n)), ...tables.filter(n => !children.includes(n))];
+  const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+  const kept = keep.map(k => (k.endsWith('.') ? `k LIKE ${quote(`${k}%`)}` : `k = ${quote(k)}`));
+  await db.execAsync([
+    ...order.map(n => `DELETE FROM "${n.replace(/"/g, '""')}";`),
+    `DELETE FROM app_state${kept.length ? ` WHERE NOT (${kept.join(' OR ')})` : ''};`,
+  ].join('\n'));
 }

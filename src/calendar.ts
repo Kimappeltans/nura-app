@@ -85,26 +85,29 @@ export async function setFocusCalendar(id: string | null) {
  */
 export async function nextEvent(lookaheadMs = 4 * 3600_000): Promise<UpcomingEvent | null> {
   if (Platform.OS === 'web') return null;
-  if (!(await hasCalendarPermission())) return null;
+  // a calendar that won't answer is no constraint, never a failed refresh()
+  try {
+    if (!(await hasCalendarPermission())) return null;
 
-  const ids = await shownCalendarIds();
-  if (!ids.length) return null;
+    const ids = await shownCalendarIds();
+    if (!ids.length) return null;
 
-  const now = Date.now();
-  const events = await Calendar.getEventsAsync(
-    ids, new Date(now), new Date(now + lookaheadMs),
-  );
-  const upcoming = events
-    .filter(e => !e.allDay)
-    .map(e => ({
-      id: e.id, title: e.title || 'Busy',
-      startsAt: new Date(e.startDate as string).getTime(),
-      endsAt: new Date(e.endDate as string).getTime(),
-    }))
-    .filter(e => e.startsAt > now)
-    .sort((a, b) => a.startsAt - b.startsAt);
+    const now = Date.now();
+    const events = await Calendar.getEventsAsync(
+      ids, new Date(now), new Date(now + lookaheadMs),
+    );
+    const upcoming = events
+      .filter(e => !e.allDay)
+      .map(e => ({
+        id: e.id, title: e.title || 'Busy',
+        startsAt: new Date(e.startDate as string).getTime(),
+        endsAt: new Date(e.endDate as string).getTime(),
+      }))
+      .filter(e => e.startsAt > now)
+      .sort((a, b) => a.startsAt - b.startsAt);
 
-  return upcoming[0] ?? null;
+    return upcoming[0] ?? null;
+  } catch { return null; }
 }
 
 /**
@@ -114,20 +117,22 @@ export async function nextEvent(lookaheadMs = 4 * 3600_000): Promise<UpcomingEve
  */
 export async function todayEvents(): Promise<UpcomingEvent[]> {
   if (Platform.OS === 'web') return [];
-  if (!(await hasCalendarPermission())) return [];
-  const ids = await shownCalendarIds();
-  if (!ids.length) return [];
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const end = new Date(); end.setHours(23, 59, 59, 999);
-  const events = await Calendar.getEventsAsync(ids, start, end);
-  return events
-    .filter(e => !e.allDay)
-    .map(e => ({
-      id: e.id, title: e.title || 'Busy',
-      startsAt: new Date(e.startDate as string).getTime(),
-      endsAt: new Date(e.endDate as string).getTime(),
-    }))
-    .sort((a, b) => a.startsAt - b.startsAt);
+  try {
+    if (!(await hasCalendarPermission())) return [];
+    const ids = await shownCalendarIds();
+    if (!ids.length) return [];
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    const events = await Calendar.getEventsAsync(ids, start, end);
+    return events
+      .filter(e => !e.allDay)
+      .map(e => ({
+        id: e.id, title: e.title || 'Busy',
+        startsAt: new Date(e.startDate as string).getTime(),
+        endsAt: new Date(e.endDate as string).getTime(),
+      }))
+      .sort((a, b) => a.startsAt - b.startsAt);
+  } catch { return []; }
 }
 
 /** Every non-all-day event in an arbitrary window — what the month grid draws. */

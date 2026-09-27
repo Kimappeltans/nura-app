@@ -1,17 +1,17 @@
 import { useTheme, useStore } from '../store';
 import { setFlag } from '../db';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform, Alert,
+  View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
-import { Primary, Mica, Character } from '../ui';
-import { useAuthActions } from '../useAuthActions';
-import { notify } from '../notify';
+import { Primary, Ghost, Mica, Character } from '../ui';
+import { useAuthActions, useConfirmWait } from '../useAuthActions';
+import { openLink } from '../links';
 
 /* --- brand glyphs, drawn rather than shipped as logo files ---------------- */
 
@@ -31,6 +31,20 @@ export function GoogleGlyph() {
       <Path fill="#FBBC05" d="M11.5 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.7-4.5l-7.1-5.5C2.9 17 2 20.4 2 24s.9 7 2.4 10z" />
       <Path fill="#EA4335" d="M24 10.4c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 4.1 29.9 2 24 2 15.5 2 8.1 6.9 4.4 14l7.1 5.5c1.8-5.3 6.7-9.1 12.5-9.1z" />
     </Svg>
+  );
+}
+
+/** "By continuing you agree to the Terms and Privacy Policy.", the two names opening the pages. */
+export function Legal({ style }: { style?: object }) {
+  const t = useTheme();
+  const link = { color: t.ink2, fontFamily: T.brand, textDecorationLine: 'underline' } as const;
+  return (
+    <Text style={[{ color: t.ink3, fontSize: 12.5, lineHeight: 17 }, style]}>
+      By continuing you agree to the{' '}
+      <Text accessibilityRole="link" onPress={() => openLink('terms')} style={link}>Terms</Text>
+      {' '}and{' '}
+      <Text accessibilityRole="link" onPress={() => openLink('privacy')} style={link}>Privacy Policy</Text>.
+    </Text>
   );
 }
 
@@ -91,6 +105,10 @@ export default function Auth(
   const [confirm, setConfirm] = useState('');
   const [creating, setCreating] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
+  /** made, waiting on the link in the email: "Check your email" */
+  const [pending, setPending] = useState<{ email: string; password: string } | null>(null);
+  const [sent, setSent] = useState(false);
+  const session = useStore(s => s.session);
 
   // A plain grey border everywhere reads as inert. The bottom edge lights up
   // coral on focus instead — a small, cheap signal that the field is live.
@@ -103,15 +121,32 @@ export default function Auth(
   const onFieldFocus = (id: string) => () => setFocused(id);
   const onFieldBlur = () => setFocused(null);
 
-  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword } = useAuthActions(onClose, { beforeRedirect });
+  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, resend } = useAuthActions(onClose, { beforeRedirect });
+
+  // the link opened: signed in, so on (onboarding carries on; at the gate
+  // app/index.tsx swaps this screen for the app by itself)
+  const went = useRef(false);
+  useConfirmWait(pending);
+  useEffect(() => {
+    if (!pending || !session || went.current) return;
+    went.current = true;
+    onClose();
+  }, [pending, session]);
 
   const submit = async () => {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onClose();
     if (r === 'check-email') {
-      notify('Almost there', 'Check your email to confirm your account, then sign in.',
-        () => { setCreating(false); setMode('choose'); });
+      setSent(false);
+      setPending({ email: email.trim(), password });
+      beforeRedirect?.();   // in onboarding, a reload picks up from here
     }
+  };
+  const again = async () => {
+    if (pending && await resend(pending.email)) setSent(true);
+  };
+  const otherEmail = () => {
+    setPending(null); setEmail(''); setFormError(null); setCreating(true); setMode('email');
   };
 
   const Social = ({ id, label, glyph, dark }: {
@@ -145,7 +180,11 @@ export default function Auth(
 
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
           {/* back to the welcome screen in onboarding; as the gate there's nowhere to go back to */}
-          {onBack ? (
+          {pending ? (
+            <Pressable onPress={() => { setPending(null); setFormError(null); }} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
+              <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
+            </Pressable>
+          ) : onBack ? (
             <Pressable onPress={onBack} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
               <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
             </Pressable>
@@ -159,12 +198,28 @@ export default function Auth(
               color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
               letterSpacing: -0.9, marginTop: 14, textAlign: 'center',
             }}>
-              {creating ? 'Create your account.' : 'Welcome back.'}
+              {pending ? 'Check your email.' : creating ? 'Create your account.' : 'Welcome back.'}
             </Text>
 
             <View style={{ height: 24 }} />
 
-            {mode === 'choose' ? (
+            {pending ? (
+              <View style={{ gap: 12 }}>
+                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 23, fontFamily: T.brand, textAlign: 'center' }}>
+                  {pending.email}
+                </Text>
+                <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, textAlign: 'center', marginBottom: 8 }}>
+                  Open the link in the email to finish.
+                </Text>
+                {!!formError && (
+                  <Text style={{ color: '#D14343', fontSize: 13.5, lineHeight: 18, textAlign: 'center' }}>{formError}</Text>
+                )}
+                <Ghost label={busy === 'resend' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
+                <Pressable onPress={otherEmail} hitSlop={10} accessibilityRole="button">
+                  <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center', marginTop: 4 }}>Use a different email</Text>
+                </Pressable>
+              </View>
+            ) : mode === 'choose' ? (
               <View style={{ gap: 11 }}>
                 {/* Apple first, and always present on iOS — Guideline 4.8. */}
                 {Platform.OS === 'ios' && (
@@ -253,36 +308,29 @@ export default function Auth(
 
                 <Pressable onPress={() => setMode('choose')} hitSlop={10}>
                   <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center' }}>
-                    Use Apple or Google instead
+                    {Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'}
                   </Text>
                 </Pressable>
               </View>
             )}
 
-            {creating && (
-              <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17, textAlign: 'center', marginTop: 16 }}>
-                No inbox clutter, no productivity guilt emails. Your tasks stay yours.
-              </Text>
-            )}
-
             <View style={{ flex: 1, minHeight: 20 }} />
 
-            <Pressable onPress={() => {
-              setCreating(c => !c); setMode('choose');
-              setFormError(null); setPassword(''); setConfirm('');
-            }} hitSlop={10}>
-              <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
-                {creating ? 'Already have an account? ' : 'New to Nura? '}
-                <Text style={{ color: t.raDeep, fontFamily: T.brand }}>
-                  {creating ? 'Sign in' : 'Create an account'}
+            {!pending && (
+              <Pressable onPress={() => {
+                setCreating(c => !c); setMode('choose');
+                setFormError(null); setPassword(''); setConfirm('');
+              }} hitSlop={10}>
+                <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
+                  {creating ? 'Already have an account? ' : 'New to Nura? '}
+                  <Text style={{ color: t.raDeep, fontFamily: T.brand }}>
+                    {creating ? 'Sign in' : 'Create an account'}
+                  </Text>
                 </Text>
-              </Text>
-            </Pressable>
+              </Pressable>
+            )}
 
-
-            <Text style={{ color: t.ink3, fontSize: 12.5, textAlign: 'center', lineHeight: 17, marginTop: 14 }}>
-              By continuing you agree to the Terms and Privacy Policy.
-            </Text>
+            {!pending && <Legal style={{ textAlign: 'center', marginTop: 14 }} />}
 
             {/* development only, and only at the gate: in without an account
                 (remembered in the flag `dev.skipAuth`; compiled out of release builds) */}

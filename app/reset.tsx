@@ -8,6 +8,7 @@ import { supabase } from '../src/supabase';
 import { notify } from '../src/notify';
 import { radius, type as T } from '../src/theme';
 import { Primary, Mica } from '../src/ui';
+import { plainAuthError } from '../src/useAuthActions';
 
 /**
  * A new password, from the link in the reset email (useAuthActions →
@@ -43,9 +44,9 @@ function Reset() {
     if (password.length < 8) return setError('Password needs at least 8 characters.');
     if (password !== confirm) return setError('Passwords don’t match.');
     setBusy(true);
-    const { error: e } = await supabase.auth.updateUser({ password });
+    const { error: e } = await supabase.auth.updateUser({ password }).catch(x => ({ error: x }));
     setBusy(false);
-    if (e) return setError(e.message);
+    if (e) return setError(plainAuthError(e));
     notify('Password changed', 'You’re signed in with the new one.', () => router.replace('/'));
   };
 
