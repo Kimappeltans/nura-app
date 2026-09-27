@@ -5,14 +5,13 @@ import { useState } from 'react';
 import { View, Text, TextInput, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Primary, Ghost, Mica } from '../src/ui';
+import { Primary, Mica } from '../src/ui';
 import { useStore, useTheme } from '../src/store';
 import { retroCapture } from '../src/db';
 import { radius, type as T } from '../src/theme';
 
 /**
- * The evening anchor asks the wrong question. Not "what will you do" but
- * "what did you actually do?"
+ * Add what you did: the things that got done and never got written down.
  *
  * An ADHD day usually contains real work that never got logged, which is exactly
  * why the day feels empty. Backdating it repairs the record instead of arguing
@@ -20,15 +19,15 @@ import { radius, type as T } from '../src/theme';
  * still work.
  */
 function Retro() {
-  // Opened from the 20:00 reminder it's the afternoon being asked about; from
-  // the link in Nu it can be any time of day, so the question follows the
-  // clock, and what you log is dated to the middle of that stretch.
+  // Opened from the 20:00 reminder it's the afternoon; from the Calendar it
+  // can be any time of day, so what you log is dated to the middle of the
+  // stretch that's just gone.
   const since = (() => {
     const h = new Date().getHours();
     const at = (hh: number) => new Date().setHours(hh, 0, 0, 0);
-    if (h < 12) return { phrase: 'this morning', backdate: Math.min(Date.now(), at(Math.max(0, h - 1))) };
-    if (h < 17) return { phrase: 'so far today', backdate: at(Math.max(12, h - 1)) };
-    return { phrase: 'since lunch', backdate: at(15) };
+    if (h < 12) return { backdate: Math.min(Date.now(), at(Math.max(0, h - 1))) };
+    if (h < 17) return { backdate: at(Math.max(12, h - 1)) };
+    return { backdate: at(15) };
   })();
 
   const t = useTheme();
@@ -57,8 +56,9 @@ function Retro() {
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24, gap: 14 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ color: t.ink, fontSize: 27, fontFamily: T.display, lineHeight: 35, letterSpacing: -0.6 }}>
-          What did you actually do{'\n'}{since.phrase}?
+        {/* a plain title, not a question to answer for yourself */}
+        <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+          Add what you did
         </Text>
         <Text style={{ color: t.ink3, fontSize: 14, lineHeight: 20 }}>One per line.</Text>
 
@@ -77,8 +77,7 @@ function Retro() {
 
         {/* the button sits right under the field it acts on, not across a gap */}
         <View style={{ gap: 10, marginTop: 2 }}>
-          <Primary label="Log it all" tone="ra" onPress={save} />
-          <Ghost label="Nothing comes to mind" onPress={() => goBack()} />
+          <Primary label="Log it all" tone="ra" onPress={save} disabled={!text.trim()} />
         </View>
       </ScrollView>
     </SafeAreaView>

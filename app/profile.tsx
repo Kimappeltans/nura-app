@@ -7,7 +7,6 @@ import { View, Text, Pressable, ScrollView, TextInput, type TextInputProps } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useStore } from '../src/store';
-import { rankFor } from '../src/reward';
 import { deleteAccount } from '../src/account';
 import { type as T } from '../src/theme';
 import { Mica } from '../src/ui';
@@ -27,7 +26,7 @@ import { Sheet } from '../src/components/Sheet';
  */
 function Profile() {
   const t = useTheme();
-  const { light, total, session, profile } = useStore();
+  const { session, profile } = useStore();
   const [name, setName] = useState(profile.name);
   const [pronouns, setPronouns] = useState(profile.pronouns);
   const [about, setAbout] = useState(profile.tagline);
@@ -50,8 +49,6 @@ function Profile() {
   }, []);
   useEffect(() => save, [save]);
 
-  const rank = rankFor(light);
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
@@ -68,21 +65,18 @@ function Profile() {
         {/* ---- who ---- */}
         <View style={{ alignItems: 'center', marginTop: 4 }}>
           <AvatarButton size={112} onPress={() => setSheet('picture')} />
-          <Pressable onPress={() => nameInput.current?.focus()} disabled={!!name.trim()}
-            style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', columnGap: 8, marginTop: 14 }}>
-            <Text style={{ color: name.trim() ? t.ink : t.ink3, fontSize: 30, lineHeight: 34, fontFamily: T.display, letterSpacing: -1.2 }}>
-              {name.trim() || 'Your name'}
-            </Text>
-            {!!pronouns.trim() && <Text style={{ color: t.ink3, fontSize: 15 }}>{pronouns.trim()}</Text>}
-          </Pressable>
+          {/* your name, big, once there is one (the field below is where it's written) */}
+          {!!name.trim() && (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', columnGap: 8, marginTop: 14 }}>
+              <Text style={{ color: t.ink, fontSize: 30, lineHeight: 34, fontFamily: T.display, letterSpacing: -1.2 }}>{name.trim()}</Text>
+              {!!pronouns.trim() && <Text style={{ color: t.ink3, fontSize: 15 }}>{pronouns.trim()}</Text>}
+            </View>
+          )}
           {!!about.trim() && (
             <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21, marginTop: 6, textAlign: 'center', maxWidth: 300 }}>
               {about.trim()}
             </Text>
           )}
-          <Text style={{ color: t.ink3, fontSize: 13, marginTop: 10, fontVariant: ['tabular-nums'] }}>
-            {rank.name} · {light} light · {total} done
-          </Text>
         </View>
 
         <Group title="About you">

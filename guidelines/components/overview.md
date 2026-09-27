@@ -1,7 +1,7 @@
 # Components
 
 The parts every screen is built from. The reference for how each one looks is
-`design/nura-journey-blend-v5.html`. Resist adding a new visual weight — if a
+`../nura-design/nura-journey-blend-v5.html`. Resist adding a new visual weight — if a
 screen needs more, it needs a More options sheet, not another button style.
 
 ## Buttons
@@ -53,7 +53,7 @@ After the day ends, Ra sits down at the horizon (ra-rest).
 
 ## Your Tasks: the water
 
-Everything sinks, one thing rises (`design/nura-journey-blend-v6.html`,
+Everything sinks, one thing rises (`../nura-design/nura-journey-blend-v6.html`,
 option C). The two-tone title ("Your Tasks / 1 now, 8 held."), a search
 button top right, then the one Nu found above the water — Home's front card a
 size down, the only thing here you can Begin. Then the surface: the story's

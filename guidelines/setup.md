@@ -20,10 +20,10 @@ For HTML mockups:
 
 ## Reference boards
 
-`design/nura-journey-blend-v5.html` is self-contained (characters, icons and
+`../nura-design/nura-journey-blend-v5.html` is self-contained (characters, icons and
 wordmark are embedded; only the font loads from Google). Append `#sun`,
 `#light` or `#dark` to open it in one appearance, and `&only=N` to show one
-screen edge to edge — that is how `design/export/` is rendered with headless
+screen edge to edge — that is how `../nura-design/export/` is rendered with headless
 Chrome.
 
 ## Running it

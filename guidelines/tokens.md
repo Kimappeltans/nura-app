@@ -1,7 +1,7 @@
 # Tokens
 
 The CSS block below is the source of truth for the reference board
-(`design/nura-journey-blend-v5.html`) and must match `src/theme.ts`. Change
+(`../nura-design/nura-journey-blend-v5.html`) and must match `src/theme.ts`. Change
 one, change the other.
 
 ```css

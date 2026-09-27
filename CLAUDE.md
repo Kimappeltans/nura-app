@@ -3,7 +3,8 @@
 Before changing any screen, component, colour or copy, read
 `guidelines/Guidelines.md` — it is the design source of truth, and it routes
 to tokens, styles and components. The reference board is
-`design/nura-journey-blend-v5.html` (exports in `design/export/`).
+`../nura-design/nura-journey-blend-v5.html` (exports in `../nura-design/export/`;
+the design files live next to the app folder, not in it).
 
 The short version, for when you're in a hurry:
 

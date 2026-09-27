@@ -8,6 +8,7 @@ import { nuTheme } from '../src/theme';
 import Home from '../src/screens/Home';
 import Tasks from '../src/screens/Tasks';
 import Calendar from '../src/screens/Calendar';
+import You from '../src/screens/You';
 import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
 import Auth from '../src/screens/Auth';
@@ -41,6 +42,7 @@ export default function Index() {
         {tab === 'home' && <Home onTab={setTab} />}
         {tab === 'tasks' && <Tasks />}
         {tab === 'day' && <Calendar />}
+        {tab === 'you' && <You />}
       </View>
       {/* over Your Tasks' deep water the bar is Nu's navy */}
       <PinnedPalette.Provider value={tab === 'tasks' ? nuTheme : null}><TabBar /></PinnedPalette.Provider>

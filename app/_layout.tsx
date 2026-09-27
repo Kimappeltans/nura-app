@@ -18,7 +18,6 @@ import Loading from '../src/screens/Loading';
 import { CaptureSheet } from '../src/components/CaptureSheet';
 import { keepNameFrom } from '../src/useAuthActions';
 import { COLUMN, isWide } from '../src/screen';
-import { AppMenu } from '../src/components/AppMenu';
 
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
@@ -197,7 +196,6 @@ export default function Root() {
       {/* Above everything, including the native modals — a reward that appears
           behind the screen you earned it on is not a reward. */}
       <TellNu />
-      <MoreSheet />
       <Celebrate />
       <Toast />
       </WebColumn>
@@ -205,11 +203,6 @@ export default function Root() {
   );
 }
 
-/** More, from the tab bar's You, over whichever screen you're on. */
-function MoreSheet() {
-  const open = useStore(s => s.moreOpen);
-  return <AppMenu visible={open} onClose={() => useStore.setState({ moreOpen: false })} />;
-}
 
 /** Tell Nu, over whichever screen you're on — opened by the tab bar's round button. */
 function TellNu() {

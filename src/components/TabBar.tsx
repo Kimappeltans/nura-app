@@ -58,7 +58,6 @@ export function TabBar() {
   };
   const insets = useSafeAreaInsets();
   const running = useStore(s => s.running);
-  const moreOpen = useStore(s => s.moreOpen);
   const dark = t.key === 'nu';
 
   const Slot = ({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) => (
@@ -82,8 +81,8 @@ export function TabBar() {
         paddingBottom: Math.max(insets.bottom, 10), borderTopWidth: 1, borderTopColor: t.stroke, backgroundColor: t.base,
       }}>
         {TABS.slice(0, 2).map(x => (
-          <Slot key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab && !moreOpen}
-            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab && !moreOpen ? t.ink : t.ink3)} />
+          <Slot key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab}
+            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab ? t.ink : t.ink3)} />
         ))}
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); useStore.setState({ telling: true }); }}
@@ -100,11 +99,12 @@ export function TabBar() {
           </Pressable>
         </View>
         {TABS.slice(2).map(x => (
-          <Slot key={x.key} label={x.label} on={x.key === tab && !moreOpen}
-            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab && !moreOpen ? t.ink : t.ink3)} />
+          <Slot key={x.key} label={x.label} on={x.key === tab}
+            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab ? t.ink : t.ink3)} />
         ))}
-        <Slot label="You" on={moreOpen} onPress={() => useStore.setState({ moreOpen: true })}
-          icon={<Avatar size={22} ring={moreOpen} />} />
+        {/* You is a tab like the others: your screen, not a popup */}
+        <Slot label="You" on={tab === 'you'} onPress={() => onTab('you')}
+          icon={<Avatar size={22} ring={tab === 'you'} />} />
       </View>
     </View>
   );

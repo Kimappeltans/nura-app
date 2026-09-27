@@ -4,12 +4,12 @@ Read this file first — it routes to everything else in this kit. Follow these
 as instructions when generating or changing any screen, component or copy,
 not as background reading.
 
-**The reference is `design/nura-journey-blend-v5.html`** — a day with Nu and
+**The reference is `../nura-design/nura-journey-blend-v5.html`** — a day with Nu and
 Ra, from 7:12 to 11:50 PM, with the By the sun / Light / Dark switch at the
-top. Exported screens are in `design/export/Journey blended v5/`. Your Tasks, which v5 left out, is option C on
-`design/nura-journey-blend-v6.html` ("everything sinks, one thing rises"). When this
+top. Exported screens are in `../nura-design/export/Journey blended v5/`. Your Tasks, which v5 left out, is option C on
+`../nura-design/nura-journey-blend-v6.html` ("everything sinks, one thing rises"). When this
 file and an older mockup disagree, this file and that board win. Older boards
-(`design/nura-direction-e.html`, `nura-journey.html`, blend v1–v4, the files
+(`../nura-design/nura-direction-e.html`, `nura-journey.html`, blend v1–v4, the files
 in `~/Downloads/Nura directions*`) are history, not reference.
 
 ## What Nura is
@@ -87,7 +87,7 @@ is extra.", "You did it together."
 | `styles.md` | How they compose: two-tone headlines, numbers, flat surfaces, appearance |
 | `components/overview.md` | The parts: buttons, stack, day's path, timer ring, month of suns, pill, sheets, tab bar, characters |
 | `setup.md` | Fonts and build notes |
-| `design/nura-journey-blend-v5.html` | The reference board — open it in a browser |
+| `../nura-design/nura-journey-blend-v5.html` | The reference board — open it in a browser |
 | `design-system/index.html` | **Out of date** (Poppins, glows). Kept for the old screenshots only. |
 
 ## Onboarding and the story

@@ -44,7 +44,7 @@ export interface Running {
 }
 
 /** the three rooms — see components/TabBar.tsx */
-export type Tab = 'home' | 'tasks' | 'day';
+export type Tab = 'home' | 'tasks' | 'day' | 'you';
 
 interface State {
   mode: db.Mode;
@@ -97,8 +97,6 @@ interface State {
   tab: Tab;
   /** Tell Nu is open — the tab bar's round button, on every screen that has it */
   telling: boolean;
-  /** More (profile, settings, wins…) is open: the tab bar's You */
-  moreOpen: boolean;
   /** what Tell Nu opens with, if anything (then cleared) */
   tellDraft: string | null;
   /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
@@ -145,7 +143,7 @@ export const useStore = create<State>((set, get) => ({
     await db.setProfile(p);
     set({ profile: { ...get().profile, ...p } });
   },
-  session: null, authLoading: true, devSkipAuth: false, trial: 'night', tab: 'home', telling: false, moreOpen: false, tellDraft: null, dayEndMin: 21 * 60, dayStartMin: DAY_START_DEFAULT, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
+  session: null, authLoading: true, devSkipAuth: false, trial: 'night', tab: 'home', telling: false, tellDraft: null, dayEndMin: 21 * 60, dayStartMin: DAY_START_DEFAULT, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
   setAppearance: async (appearance) => {
     await db.setFlag('appearance', appearance);
     set({ appearance });
