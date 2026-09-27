@@ -10,6 +10,7 @@ import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
 import { plannerState, currentDecision, getNextActions, ruleOf, type PlannerState } from './nextActions';
 import type { PlannerDecision } from './next';
+import type { HabitView } from './habits';
 
 export interface Celebration { award: Award; line: string; at: number; rankUp: Rank | null }
 
@@ -70,6 +71,10 @@ interface State {
   /** tasks that are a project's current move — Nu lists them under the
    *  project, not a second time in "everything else" */
   moveIds: string[];
+  /** your habits, on then paused, with each one's count and today's tick (src/habits.ts) */
+  habits: HabitView[];
+  /** reload just the habits after ticking or changing one, and sync */
+  refreshHabits: () => Promise<void>;
   wins: db.Task[];
   total: number;
   light: number;
@@ -154,7 +159,7 @@ async function planned(given?: { projects?: ProjectSummary[] }): Promise<{
 
 export const useStore = create<State>((set, get) => ({
   mode: 'nu', energy: 'steady', now: null, nowRule: null, nowDecision: null, decisions: [], crumb: null,
-  inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
+  inbox: [], todayPicked: [], projects: [], moveIds: [], habits: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '', pronouns: '', avatar: '' },
   saveProfile: async (p) => {
@@ -246,17 +251,22 @@ export const useStore = create<State>((set, get) => ({
     set({ dayStartMin: min, daylight: isDaylight(get().dayEndMin) });
   },
 
+  refreshHabits: async () => {
+    set({ habits: await db.habitRows() });
+    if (get().session) scheduleSync();
+  },
+
   refresh: async () => {
     // projects first: reading them reconciles each step with its task (a
     // move ticked off anywhere is a step done), so the lists below agree
     const projects = await activeProjects();
     const moveIds = projects.map(p => p.current?.task_id).filter((x): x is string => !!x);
-    const [mode, pick, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look] =
+    const [mode, pick, inbox, todayPicked, wins, total, light, today, momentum, grid, energy, crumb, onboarded, upcoming, agenda, profile, look, habits] =
       await Promise.all([
         db.getMode(), planned({ projects }), db.inbox(), db.todayList(), db.wins(), db.totalWins(),
         db.totalLight(), db.todayLight(),
         db.momentum(), db.dailyCounts(), db.getEnergy(), db.latestCrumb(), db.hasOnboarded(),
-        nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'),
+        nextEvent(), todayEvents(), db.getProfile(), db.getFlag('appearance'), db.habitRows(),
       ]);
     const end = Number(await db.getFlag('day.end'));
     const dayEndMin = Number.isFinite(end) && end > 0 ? end : 21 * 60;
@@ -264,7 +274,7 @@ export const useStore = create<State>((set, get) => ({
     dayStart = Number.isFinite(start) && start > 0 ? start : DAY_START_DEFAULT;
     // 'nura' was Dark's name before By the sun
     const appearance: Appearance = look === 'light' || look === 'sun' ? look : look === 'dark' || look === 'nura' ? 'dark' : 'sun';
-    set({ dayEndMin, dayStartMin: dayStart, appearance, daylight: isDaylight(dayEndMin), mode, ...pick, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    set({ dayEndMin, dayStartMin: dayStart, appearance, daylight: isDaylight(dayEndMin), mode, ...pick, inbox, todayPicked, projects, moveIds, habits, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action

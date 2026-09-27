@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { award as rollAward, type RewardReason, type Award } from './reward';
 import { guessLabel, type LabelId } from './labels';
 import { guessActivity, activityById, type ActivityId } from './activities';
+import { habitViews, todayToggle, HABIT_ON, HABIT_PAUSED, HABIT_LET_GO, LOG_TAKEN_BACK, type HabitView } from './habits';
 
 /**
  * Local-first. Nothing leaves the device.
@@ -171,8 +172,8 @@ async function openDb() {
       created_at INTEGER NOT NULL,
       active     INTEGER NOT NULL DEFAULT 1
     );
-    -- append-only, same spirit as the event table — one row per time the
-    -- habit actually happened, never edited, never decremented.
+    -- one row per day the habit happened. Never deleted: a tick taken back
+    -- the same day is marked did_minimum = -1, so the undo syncs too.
     CREATE TABLE IF NOT EXISTS habit_log (
       id          TEXT PRIMARY KEY,
       habit_id    TEXT NOT NULL REFERENCES habit(id),
@@ -1147,10 +1148,12 @@ export interface Habit {
   action: string;
   minimum: string | null;
   created_at: number;
+  /** 1 on, 0 paused, -1 let go (src/habits.ts) */
   active: number;
   updated_at: number | null;
 }
 
+/** did_minimum: 0 done, 1 the bad-day version, -1 taken back the same day (src/habits.ts) */
 export interface HabitLog { id: string; habit_id: string; at: number; did_minimum: number; updated_at: number | null }
 
 export async function createHabit(cue: string, action: string, minimum?: string): Promise<Habit> {
@@ -1166,16 +1169,54 @@ export async function createHabit(cue: string, action: string, minimum?: string)
   return h;
 }
 
+/** Every habit still yours, on and paused (not the ones let go). */
 export async function listHabits(): Promise<Habit[]> {
   const db = await getDb();
-  return db.getAllAsync<Habit>('SELECT * FROM habit WHERE active = 1 ORDER BY created_at ASC');
+  return db.getAllAsync<Habit>('SELECT * FROM habit WHERE active >= 0 ORDER BY created_at ASC');
 }
 
-/** Not a delete — a habit that isn't working gets paused, not marked as a
+export async function getHabit(id: string): Promise<Habit | null> {
+  const db = await getDb();
+  return db.getFirstAsync<Habit>('SELECT * FROM habit WHERE id = ? AND active >= 0', id);
+}
+
+/** Your Tasks' habit rows: each habit with how many days it happened and
+ *  whether today's done (src/habits.ts). */
+export async function habitRows(now = Date.now()): Promise<HabitView[]> {
+  const db = await getDb();
+  const [habits, logs] = await Promise.all([
+    listHabits(),
+    db.getAllAsync<Omit<HabitLog, 'id' | 'updated_at'>>(
+      'SELECT habit_id, at, did_minimum FROM habit_log WHERE did_minimum != ?', LOG_TAKEN_BACK),
+  ]);
+  return habitViews(habits, logs, now);
+}
+
+export async function updateHabit(id: string, cue: string, action: string, minimum?: string) {
+  const db = await getDb();
+  await db.runAsync('UPDATE habit SET cue = ?, action = ?, minimum = ?, updated_at = ? WHERE id = ?',
+    cue.trim(), action.trim(), minimum?.trim() || null, Date.now(), id);
+  await markActed('habit');
+}
+
+/** Not a delete: a habit that isn't working gets paused, not marked as a
  *  failure. Its log stays, so turning it back on doesn't lose the history. */
 export async function pauseHabit(id: string) {
   const db = await getDb();
-  await db.runAsync('UPDATE habit SET active = 0, updated_at = ? WHERE id = ?', Date.now(), id);
+  await db.runAsync('UPDATE habit SET active = ?, updated_at = ? WHERE id = ?', HABIT_PAUSED, Date.now(), id);
+}
+
+export async function resumeHabit(id: string) {
+  const db = await getDb();
+  await db.runAsync('UPDATE habit SET active = ?, updated_at = ? WHERE id = ?', HABIT_ON, Date.now(), id);
+  await markActed('habit');
+}
+
+/** Let it go: off the list on every device. Marked, not deleted, since sync
+ *  carries rows and never a delete (HABIT_LET_GO in src/habits.ts). */
+export async function letGoHabit(id: string) {
+  const db = await getDb();
+  await db.runAsync('UPDATE habit SET active = ?, updated_at = ? WHERE id = ?', HABIT_LET_GO, Date.now(), id);
 }
 
 export async function logHabit(habitId: string, didMinimum = false) {
@@ -1185,6 +1226,22 @@ export async function logHabit(habitId: string, didMinimum = false) {
     'INSERT INTO habit_log (id, habit_id, at, did_minimum, updated_at) VALUES (?,?,?,?,?)',
     uid(), habitId, at, didMinimum ? 1 : 0, at);
   await markActed('habit');
+}
+
+/** Tick today on or off (src/habits.ts todayToggle). True when it's done now. */
+export async function toggleHabitToday(habitId: string): Promise<boolean> {
+  const db = await getDb();
+  const now = Date.now();
+  const start = new Date(now).setHours(0, 0, 0, 0);
+  const today = await db.getAllAsync<HabitLog>(
+    'SELECT * FROM habit_log WHERE habit_id = ? AND at >= ? ORDER BY at ASC', habitId, start);
+  const step = todayToggle(today, now);
+  if (step.kind === 'add') return logHabit(habitId).then(() => true);
+  for (const id of step.ids) {
+    await db.runAsync('UPDATE habit_log SET did_minimum = ?, updated_at = ? WHERE id = ?', step.to, now, id);
+  }
+  await markActed('habit');
+  return step.done;
 }
 
 /** Every log for a habit in the last `days` — the raw material for

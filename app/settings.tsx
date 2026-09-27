@@ -16,7 +16,7 @@ import { signOut } from '../src/account';
 import { type as T } from '../src/theme';
 import {
   Mica, IconChevron, IconCheck, IconBell, IconCalendar, IconClock, IconSun,
-  IconSunrise, IconSunset, IconMoon, IconTimer, IconCup, IconPhone, IconTasks, IconTray,
+  IconSunrise, IconSunset, IconMoon, IconTimer, IconCup, IconPhone, IconTasks, IconTray, IconRepeat,
   IconLayers, IconCalendarPlus, IconContrast, IconGlobe, IconSpeaker, IconBubble, IconShield, IconExport,
   IconHelp, IconPlay, IconRestart,
 } from '../src/ui';
@@ -210,6 +210,8 @@ function Tasks() {
   return (
     <Card>
       <Row icon={IconTray} title="One pass through your backlog" onPress={() => router.push('/triage')} />
+      <Divider />
+      <Row icon={IconRepeat} title="Add a habit" onPress={() => router.push('/habit')} />
     </Card>
   );
 }

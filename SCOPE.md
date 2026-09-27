@@ -41,7 +41,8 @@ engine · first physical action · micro-steps (one level) · the focus timer ·
 reminders that soften and stop · breadcrumbs · the evening log · no overdue
 state, anywhere · light that only rises · the characters and 36 activity
 scenes · local-first, with an account required (26 September) · read-only calendar · the on-device
-sentence parser.
+sentence parser · habits (unfrozen by Kim on 27 September: a Habits section in
+Your Tasks, a tick for today, a count that only rises, no streaks).
 
 ## Fix — build now (no Xcode needed)
 
@@ -120,7 +121,8 @@ a way to export the event log for the 14-day review. No dashboard in the app.
 
 ## Freeze — keep working, no new work until the loop is proven
 
-- **Habits** — outside the core loop and half-built (no edit, no un-pause).
+- ~~**Habits**~~: unfrozen by Kim on 27 September and finished (see Keep and
+  decision 3). No longer frozen.
 - **Tide, Wins, and the two progress ladders** (nine ranks and seven growth
   stages on the same light total). They overlap; revisit after testing.
 - **Accounts and sync**: required since 26 September (Kim): nobody uses
@@ -252,7 +254,14 @@ development build.
    already reads every calendar on the phone, Google and Outlook accounts
    included. The six work apps (Asana, Notion, Slack, Jira, Linear, Microsoft
    To Do) are open; until Kim decides, they and "Give it to someone" stay.
-3. **Habits** — agreed: frozen, left working.
+3. **Habits**: frozen on 24 September, left working. **Unfrozen on 27
+   September (Kim)** and finished: a HABITS section in Your Tasks, first under
+   the water with "+ New habit"; each habit a row with its name and one value
+   (a tick when done today, which you can take back the same day, otherwise
+   how many times it has happened, a count that only rises); a sheet with
+   Done today or Undo, Edit, Pause or Resume (paused ones sit at the bottom),
+   and Let it go. "Add a habit" is back in Settings. Still no streaks, and a
+   missed day takes nothing away.
 4. **The two progress ladders** — agreed: keep both until testing.
 5. **You choose; Nura suggests.** After using the app, Kim found that Ra
    pushed a single task on the user and that Nu's overview was too busy.

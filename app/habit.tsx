@@ -1,12 +1,13 @@
-import { useTheme } from '../src/store';
+import { useTheme, useStore } from '../src/store';
 import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { createHabit } from '../src/db';
+import { createHabit, getHabit, updateHabit } from '../src/db';
 import { radius, type as T } from '../src/theme';
 import { StatusBar } from 'expo-status-bar';
 import { Mica, Primary } from '../src/ui';
@@ -14,19 +15,33 @@ import { Moving } from '../src/components/Moving';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 
 /**
- * A new habit — cue, tiny action, and an honest fallback for a bad day.
+ * A new habit, or one you're changing (?id=): cue, tiny action, and an
+ * honest fallback for a bad day.
  *
  * Deliberately not "set a time and a repeat rule": that's what a
  * recurring task is for, and it's already a tap away on Compose. This
  * form only accepts the shape that actually builds automaticity — an
  * existing moment in your day, and something small enough to survive it.
  */
-function NewHabit() {
+function HabitForm() {
   const t = useTheme();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const refreshHabits = useStore(s => s.refreshHabits);
   const [cue, setCue] = useState('');
   const [action, setAction] = useState('');
   const [minimum, setMinimum] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // editing: the habit's own words in the fields
+  useEffect(() => {
+    if (!id) return;
+    let dead = false;
+    getHabit(id).then(h => {
+      if (dead || !h) return;
+      setCue(h.cue); setAction(h.action); setMinimum(h.minimum ?? '');
+    });
+    return () => { dead = true; };
+  }, [id]);
 
   const canSave = cue.trim().length > 0 && action.trim().length > 0;
 
@@ -34,17 +49,20 @@ function NewHabit() {
     if (!canSave || busy) return;
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await createHabit(cue, action, minimum);
+    if (id) await updateHabit(id, cue, action, minimum);
+    else await createHabit(cue, action, minimum);
+    await refreshHabits();
     goBack();
   };
 
+  // 300: what the account keeps of each (supabase/schema.sql)
   const field = (label: string, value: string, onChange: (v: string) => void, placeholder: string) => (
     <View style={{ gap: 8 }}>
       <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginLeft: 4 }}>{label.toUpperCase()}</Text>
       <TextInput
         value={value} onChangeText={onChange}
         placeholder={placeholder} placeholderTextColor={t.ink3}
-        multiline
+        multiline maxLength={300}
         style={{
           color: t.ink, fontSize: 16.5, lineHeight: 22, padding: 14,
           backgroundColor: t.card, borderRadius: radius.lg,
@@ -86,7 +104,7 @@ function NewHabit() {
                 <Moving name="ra-rays" style={{ width: 124, height: 132 }} />
               </View>
               <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 10, textAlign: 'center' }}>
-                New habit
+                {id ? 'Edit habit' : 'New habit'}
               </Text>
             </View>
 
@@ -94,7 +112,7 @@ function NewHabit() {
             {field('I will', action, setAction, 'revise one paragraph')}
             {field('On a bad day (optional)', minimum, setMinimum, 'read one sentence')}
 
-            <Primary label={busy ? 'Saving…' : 'Add habit'} tone="ra" onPress={save} disabled={!canSave} />
+            <Primary label={busy ? 'Saving…' : id ? 'Save' : 'Add habit'} tone="ra" onPress={save} disabled={!canSave} />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -102,4 +120,4 @@ function NewHabit() {
   );
 }
 
-export default inWorld('nu', withTabs(NewHabit));
+export default inWorld('nu', withTabs(HabitForm));

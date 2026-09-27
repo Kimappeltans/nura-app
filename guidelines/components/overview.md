@@ -58,9 +58,13 @@ option C). The two-tone title ("Your Tasks / 1 now, 8 held."), a search
 button top right, then the one Nu found above the water — Home's front card a
 size down, the only thing here you can Begin. Then the surface: the story's
 wave, with Nu floating on it. Underwater, everything else, deeper the later it
-is: TODAY (with Sort ›), THIS WEEK, PROJECTS, SOMEDAY — each depth fainter.
-The water is `--subtle` by day and `--layer` (navy) at night. Rows are the
-task row below.
+is: HABITS (with + New habit), TODAY (with Sort ›), THIS WEEK, PROJECTS,
+SOMEDAY — each depth fainter. Habits come first: they come round every day, so
+they sit at today's depth. The water is `--subtle` by day and `--layer` (navy)
+at night. Rows are the task row below; a habit's row is the same, with the
+repeat glyph and, on the right, a coral tick when it's done today (tap to take
+it back) or how many times it has happened ("12 times", "New"; paused ones sit
+last, fainter, saying Paused). No streaks, no week that empties.
 
 ## Focus and More options
 

@@ -5,7 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useStore, useTheme, PinnedPalette } from '../store';
-import { search as searchTasks, type Task } from '../db';
+import { search as searchTasks, toggleHabitToday, pauseHabit, resumeHabit, letGoHabit, type Task } from '../db';
+import type { HabitView } from '../habits';
+import { HabitRow } from '../components/HabitRow';
+import { HabitSheet } from '../components/HabitSheet';
 import { byPlan, reasonFor } from '../next';
 import { type as T, nuTheme, type Theme } from '../theme';
 import { Mica, Character } from '../ui';
@@ -30,7 +33,9 @@ const INK_NU = '#1B1830';
  * The one thing Nu found floats above the water, coral, with Begin — the only
  * thing here you can start. Everything else is held underwater, deeper the
  * later it is: Today just under the surface, This week lower, projects, then
- * Someday deepest and faintest. Nu sits on the surface, holding all of it.
+ * Someday deepest and faintest. Habits come first, just under the surface:
+ * they come round every day, so they're held at today's depth, and they're
+ * what gets ticked most. Nu sits on the surface, holding all of it.
  * Tap a task to look at it, hold it for what you can do with it.
  * (The earlier versions are src/legacy/Tasks.tsx and the git history.)
  */
@@ -43,7 +48,8 @@ export default function Tasks() {
   const lane: ViewStyle = desk
     ? { width: '100%', maxWidth: ROOM_MAX + 80, alignSelf: 'center', paddingHorizontal: 40 }
     : { paddingHorizontal: 24 };
-  const { inbox, todayPicked, projects, now, nowDecision, decisions, focusOn, toRa } = useStore();
+  const { inbox, todayPicked, projects, habits, refreshHabits, now, nowDecision, decisions, focusOn, toRa } = useStore();
+  const [habit, setHabit] = useState<HabitView | null>(null);   // the habit's sheet (tap or hold)
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Task[]>([]);
@@ -92,6 +98,18 @@ export default function Tasks() {
   const rows = (xs: Task[], faint: 0 | 1 | 2) => xs.map(x => (
     <HeldRow key={x.id} task={x} faint={faint} meta={projectOf.get(x.id)} onPress={() => setPeek(x)} onHold={() => setHeld(x)} />
   ));
+
+  // habits: every day, so at today's depth, first
+  const habitDo = (fn: (id: string) => Promise<unknown>) => async (v: HabitView) => { await fn(v.habit.id); await refreshHabits(); };
+  const tickHabit = habitDo(toggleHabitToday);
+  const habitsSec = (
+    <>
+      {label(habits.length ? `HABITS · ${habits.length}` : 'HABITS', { label: '+ New habit', onPress: () => router.push('/habit') }, sea)}
+      {habits.map(v => (
+        <HabitRow key={v.habit.id} view={v} onPress={() => setHabit(v)} onTick={() => tickHabit(v)} />
+      ))}
+    </>
+  );
 
   // underwater, deeper the later it is
   const todaySec = water.today.length > 0 && (
@@ -247,17 +265,19 @@ export default function Tasks() {
                     const left = water.today.length ? todaySec : weekSec;
                     const right = water.today.length ? <>{weekSec}{somedaySec}</> : somedaySec;
                     const both = !!(water.today.length ? water.week.length + water.someday.length : water.week.length && water.someday.length);
+                    // habits at the top of the left column, above Today
                     return both ? (
                       <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start' }}>
-                        <View style={{ flex: 1, minWidth: 0 }}>{left}</View>
+                        <View style={{ flex: 1, minWidth: 0 }}>{habitsSec}{left}</View>
                         <View style={{ flex: 1, minWidth: 0 }}>{right}</View>
                       </View>
-                    ) : <>{todaySec}{weekSec}{somedaySec}</>;
+                    ) : <>{habitsSec}{todaySec}{weekSec}{somedaySec}</>;
                   })()}
                   <View style={{ marginTop: 24 }}>{projSec}</View>
                 </View>
               ) : (
                 <>
+                  {habitsSec}
                   {todaySec}
                   {weekSec}
                   {projSec}
@@ -272,6 +292,8 @@ export default function Tasks() {
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />
+      <HabitSheet view={habit} onClose={() => setHabit(null)} onTick={tickHabit}
+        onPause={habitDo(pauseHabit)} onResume={habitDo(resumeHabit)} onLetGo={habitDo(letGoHabit)} />
     </SafeAreaView>
   );
 }
