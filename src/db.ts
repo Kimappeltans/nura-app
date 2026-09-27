@@ -464,15 +464,38 @@ async function spawnNext(t: Task) {
 // completeStep() below, so finishing a 5-minute micro-step banks the smaller
 // 'step' reward ("Chipped.") instead of silently defaulting to the full
 // task-completion reward it was getting before.
-export async function complete(id: string, partial = false, reason?: RewardReason) {
+//
+// Finishing only counts once. A double tap on Done, a tick from a list while
+// the timer's Done lands, a notification action: the second call finds the
+// task already done (or dropped), changes nothing and returns null, so it
+// pays no light, logs nothing and spawns no second repeat. The state change
+// and the next repeat are one transaction. Calls queue behind each other,
+// because the transaction is a plain BEGIN on the one connection (the web
+// has no exclusive transactions): a second BEGIN while one is open would
+// fail, and its ROLLBACK would undo the first.
+let finishing: Promise<unknown> = Promise.resolve();
+
+export function complete(id: string, partial = false, reason?: RewardReason): Promise<Award | null> {
+  const run = finishing.then(() => completeOnce(id, partial, reason));
+  finishing = run.catch(() => {});
+  return run;
+}
+
+async function completeOnce(id: string, partial: boolean, reason?: RewardReason): Promise<Award | null> {
   const db = await getDb();
   const before = await getTask(id);
   const now = Date.now();
-  await db.runAsync(
-    'UPDATE task SET state = ?, completed_at = ?, updated_at = ? WHERE id = ?',
-    'done', now, now, id,
-  );
-  if (before?.repeat_rule) await spawnNext(before);
+  let changed = 0;
+  await db.withTransactionAsync(async () => {
+    const r = await db.runAsync(
+      `UPDATE task SET state = 'done', completed_at = ?, updated_at = ?
+        WHERE id = ? AND state NOT IN ('done','dropped')`,
+      now, now, id,
+    );
+    changed = r.changes;
+    if (changed && before?.repeat_rule) await spawnNext(before);
+  });
+  if (!changed) return null;
   // Time spent counts. Stopping early still logs a win, and still pays — this
   // is the single most important behaviour in the app.
   await logEvent('completed', id, { partial });
@@ -787,11 +810,13 @@ export async function tasksBetween(fromMs: number, toMs: number) {
       ORDER BY due_at ASC`, fromMs, toMs);
 }
 
-export async function inbox(limit = 50) {
+/** Everything Nu is holding that isn't on Today. All of it: Nu's promise is
+ *  everything you're carrying, so the oldest are never cut off (SCOPE fix 10). */
+export async function inbox() {
   const db = await getDb();
   return db.getAllAsync<Task>(
     `SELECT * FROM task WHERE state = 'inbox' AND parent_id IS NULL
-      ORDER BY created_at DESC LIMIT ?`, limit);
+      ORDER BY created_at DESC`);
 }
 
 export async function wins(limit = 100) {
@@ -959,7 +984,7 @@ export async function steps(parentId: string) {
  * Returns the award for the step, or for the parent if finishing the step
  * finished the whole thing — the bigger moment is the one worth celebrating.
  */
-export async function completeStep(stepId: string): Promise<Award> {
+export async function completeStep(stepId: string): Promise<Award | null> {
   const db = await getDb();
   const stepAward = await complete(stepId, false, 'step');
   const st = await getTask(stepId);
@@ -967,7 +992,7 @@ export async function completeStep(stepId: string): Promise<Award> {
   const left = await db.getFirstAsync<{ n: number }>(
     `SELECT COUNT(*) AS n FROM task WHERE parent_id = ? AND state NOT IN ('done','dropped')`,
     st.parent_id);
-  if ((left?.n ?? 0) === 0) return complete(st.parent_id);
+  if ((left?.n ?? 0) === 0) return (await complete(st.parent_id)) ?? stepAward;
   return stepAward;
 }
 

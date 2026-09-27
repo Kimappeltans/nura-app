@@ -37,7 +37,7 @@ const INK_NU = '#1B1830';
 export default function Tasks() {
   const t = useTheme();
   const { width } = useScreen();
-  const { inbox, todayPicked, projects, now, focusOn, agenda, dayEndMin } = useStore();
+  const { inbox, todayPicked, projects, now, focusOn, toRa, agenda, dayEndMin } = useStore();
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Task[]>([]);
@@ -154,10 +154,18 @@ export default function Tasks() {
                     })()}
                   </View>
                 </View>
+              ) : inbox.length > 0 ? (
+                // tasks are waiting, none on Today: a pick (Focus's "What feels doable now?"), not the planner
+                <View style={{ borderRadius: 28, backgroundColor: t.card, borderWidth: 1, borderColor: t.stroke, padding: 20, gap: 10 }}>
+                  <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>Nothing picked yet.</Text>
+                  <Pressable onPress={toRa} hitSlop={6} accessibilityRole="button">
+                    <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Pick one for today ›</Text>
+                  </Pressable>
+                </View>
               ) : (
                 <View style={{ borderRadius: 28, backgroundColor: t.card, borderWidth: 1, borderColor: t.stroke, padding: 20, gap: 10 }}>
                   <Text style={{ color: t.ink, fontSize: 20, fontFamily: T.display, letterSpacing: -0.6 }}>Nothing to begin yet.</Text>
-                  <Pressable onPress={() => router.push('/project/new')} hitSlop={6}>
+                  <Pressable onPress={() => router.push('/project/new')} hitSlop={6} accessibilityRole="button">
                     <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Plan something bigger ›</Text>
                   </Pressable>
                 </View>
@@ -224,19 +232,18 @@ export default function Tasks() {
         )}
       </ScrollView>
 
-      {/* two ways to add something bigger, always in view at the foot of the water */}
+      {/* planning something bigger, always in view at the foot of the water
+          (habits are frozen: no new ones, SCOPE.md) */}
       {!searching && (
         <LinearGradient pointerEvents="box-none" colors={['rgba(7,15,36,0)', 'rgba(7,15,36,0.94)']} locations={[0, 0.4]}
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 12 }}>
-          {([['Plan a project', '/project/new'], ['New habit', '/habit']] as const).map(([name, to]) => (
-            <Pressable key={to} onPress={() => router.push(to)} accessibilityRole="button"
-              style={({ pressed }) => ({
-                flex: 1, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1, borderColor: sea.strokeStrong, backgroundColor: pressed ? sea.subtle : sea.layer,
-              })}>
-              <Text style={{ color: sea.ink, fontSize: 14.5, fontFamily: T.display }}>{name}</Text>
-            </Pressable>
-          ))}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', paddingHorizontal: 24, paddingTop: 26, paddingBottom: 12 }}>
+          <Pressable onPress={() => router.push('/project/new')} accessibilityRole="button"
+            style={({ pressed }) => ({
+              flex: 1, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1, borderColor: sea.strokeStrong, backgroundColor: pressed ? sea.subtle : sea.layer,
+            })}>
+            <Text style={{ color: sea.ink, fontSize: 14.5, fontFamily: T.display }}>Plan a project</Text>
+          </Pressable>
         </LinearGradient>
       )}
 

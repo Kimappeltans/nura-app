@@ -7,15 +7,18 @@ import { type as T } from '../theme';
 import { formatDue } from './DatePicker';
 import { Sheet } from './Sheet';
 import { Primary, Ghost } from '../ui';
+import { useTaskActions } from '../useTaskActions';
 
 /**
  * A task, at a glance, in a sheet: what it is, when, how long, which project
  * — and the two things you'd do next: Edit it, or Start focus on it.
- * "More actions" opens the task's action sheet (priority, later, let go).
+ * "Mark as done" finishes it without a session; "More actions" opens the
+ * task's action sheet (priority, later, let go).
  */
 export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose: () => void; onMore?: (task: Task) => void }) {
   const t = useTheme();
   const { projects, todayPicked, focusOn } = useStore();
+  const { tick } = useTaskActions();
   if (!task) return <Sheet visible={false} onClose={onClose}><View /></Sheet>;
 
   const project = projects.find(p => p.current?.task_id === task.id)?.project.title;
@@ -50,11 +53,16 @@ export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose
           onPress={() => { onClose(); router.push({ pathname: '/task/[id]', params: { id: task.id } }); }} />
         <Primary label="Start focus" tone="ra" style={{ flex: 1 }} onPress={() => { onClose(); focusOn(task.id); }} />
       </View>
-      {onMore && (
-        <Pressable onPress={() => { onClose(); onMore(task); }} hitSlop={8} style={{ alignSelf: 'center', paddingTop: 14 }}>
-          <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>More actions…</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 28, paddingTop: 14 }}>
+        <Pressable onPress={() => { onClose(); tick(task.id); }} hitSlop={8} accessibilityRole="button">
+          <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>Mark as done</Text>
         </Pressable>
-      )}
+        {onMore && (
+          <Pressable onPress={() => { onClose(); onMore(task); }} hitSlop={8} accessibilityRole="button">
+            <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.brand }}>More actions…</Text>
+          </Pressable>
+        )}
+      </View>
     </Sheet>
   );
 }

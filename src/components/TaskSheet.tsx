@@ -10,19 +10,20 @@ import type { Task } from '../db';
 
 /**
  * Hold a task: its priority, and what else you can do with it — focus on it,
- * put it on Today or take it off, open its details, move it out of the way,
- * let it go. Shown by any list of tasks; `task` null hides it.
+ * mark it done, put it on Today or take it off, open its details, move it out
+ * of the way, let it go. Shown by any list of tasks; `task` null hides it.
  */
 export function TaskSheet({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const t = useTheme();
   const focusOn = useStore(s => s.focusOn);
-  const { addToToday, takeOffToday, setPriority, later, letGo } = useTaskActions();
+  const { tick, addToToday, takeOffToday, setPriority, later, letGo } = useTaskActions();
   // the priority shown changes the moment it's tapped, before the store catches up
   const [priority, setShown] = useState(task?.priority ?? 0);
   useEffect(() => { setShown(task?.priority ?? 0); }, [task?.id, task?.priority]);
 
   const actions: SheetAction[] = task ? [
     { key: 'focus', glyph: '▶', label: 'Focus on this now', onPress: () => focusOn(task.id) },
+    { key: 'done', glyph: '✓', label: 'Mark as done', onPress: () => tick(task.id) },
     task.state === 'inbox'
       ? { key: 'today', glyph: '+', label: 'Add to Today', onPress: () => addToToday(task) }
       : { key: 'today', glyph: '−', label: 'Take off Today', sub: 'back into everything else', onPress: () => takeOffToday(task) },
@@ -33,7 +34,7 @@ export function TaskSheet({ task, onClose }: { task: Task | null; onClose: () =>
   ] : [];
 
   return (
-    <ActionSheet visible={!!task} title={task?.title ?? ''} actions={actions} dismissLabel="Done" onDismiss={onClose}>
+    <ActionSheet visible={!!task} title={task?.title ?? ''} actions={actions} dismissLabel="Close" onDismiss={onClose}>
       {!!task && (
         <View style={{ marginTop: 14 }}>
           <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8 }}>PRIORITY</Text>

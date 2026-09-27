@@ -44,7 +44,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const compact = useWindowDimensions().height < 740;
   const head = compact ? 30 : 34;
   const t = useTheme();
-  const { inbox, todayPicked, projects, now, focusOn, wins, profile, agenda, dayEndMin } = useStore();
+  const { inbox, todayPicked, projects, now, focusOn, toRa, wins, profile, agenda, dayEndMin } = useStore();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
 
@@ -165,6 +165,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
             onOpen={setPeek}
             onPick={x => setPickedId(x.id)}
             onHold={setHeld}
+            waiting={still.length > 0}
+            onChoose={toRa}
             onPlan={() => router.push('/project/new')} />
         </View>
 
