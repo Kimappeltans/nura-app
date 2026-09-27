@@ -17,6 +17,7 @@ import { PathEditor, editKey, type EditStep } from '../../src/components/PathEdi
 import { MicButton, HearIt } from '../../src/components/Voice';
 import { AiConsent } from '../../src/components/AiConsent';
 import { aiConsent, setAiConsent } from '../../src/ai';
+import { readable } from '../../src/components/Desk';
 
 /** Close this sheet — or, opened from a link with nothing under it, go home. */
 const leave = () => (goBack());
@@ -41,7 +42,7 @@ type Phase =
  *
  * Nu's screen, so Nu's navy whatever mode you came from.
  */
-export default function NewProject() {
+function NewProject() {
   return (
     <PinnedMode.Provider value="nu">
       <Screen />
@@ -318,3 +319,6 @@ function Screen() {
     </SafeAreaView>
   );
 }
+
+/** On a wide web window, in a readable column (src/components/Desk.tsx). */
+export default readable(NewProject);

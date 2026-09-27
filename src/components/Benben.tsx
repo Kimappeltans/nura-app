@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Image, Animated, Easing, AccessibilityInfo, Platform } from 'react-native';
+import { View, Text, Pressable, Image, Animated, Easing, AccessibilityInfo, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -7,7 +7,7 @@ import Svg, { Path, Defs, RadialGradient, LinearGradient as SvgGradient, Stop, R
 import { type as T, radius } from '../theme';
 import { Primary, poseImage } from '../ui';
 import { logEvent } from '../db';
-import { useScreen } from '../screen';
+import { useScreen, useDesk } from '../screen';
 
 const stone = require('../../assets/brand/nura-logo-tight.webp');
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
@@ -171,6 +171,11 @@ function Bubble({ text, tone, style }: { text: string; tone: 'nu' | 'ra'; style:
  */
 export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSignIn?: () => void; replay?: boolean }) {
   const { width: W, height: H } = useScreen();
+  // a wide web window: the sky and the sea run the whole width, and the story
+  // (the stone, Nu, Ra, the sun, the words) sits on a stage of W in the middle
+  const winW = useWindowDimensions().width;
+  const full = useDesk() ? winW : W;
+  const ox = (full - W) / 2;
   const insets = useSafeAreaInsets();
   const [still, setStill] = useState(false);
   const [beat, setBeat] = useState(0);
@@ -279,10 +284,10 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       {/* the glow around the sun — sized to the screen, with the gradient
           placed on the sun: a view bigger than the screen can be scrolled
           sideways on the web */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: dawn }}>
-        <Svg width={W} height={H}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: full, height: H, opacity: dawn }}>
+        <Svg width={full} height={H}>
           <Defs>
-            <RadialGradient id="sunglow" gradientUnits="userSpaceOnUse" cx={sunCx} cy={sunCy} r={W * 0.7}>
+            <RadialGradient id="sunglow" gradientUnits="userSpaceOnUse" cx={sunCx + ox} cy={sunCy} r={W * 0.7}>
               <Stop offset="0" stopColor="#FFE2B8" stopOpacity="0.6" />
               <Stop offset="0.2" stopColor="#FFB067" stopOpacity="0.32" />
               <Stop offset="0.5" stopColor="#FF8A5C" stopOpacity="0.12" />
@@ -293,10 +298,10 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
         </Svg>
       </Animated.View>
       {/* a warmer halo where Ra arrives */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: raIn }}>
-        <Svg width={W} height={H}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: full, height: H, opacity: raIn }}>
+        <Svg width={full} height={H}>
           <Defs>
-            <RadialGradient id="rahalo" gradientUnits="userSpaceOnUse" cx={raCx} cy={raCy} r={charS * 0.9}>
+            <RadialGradient id="rahalo" gradientUnits="userSpaceOnUse" cx={raCx + ox} cy={raCy} r={charS * 0.9}>
               <Stop offset="0" stopColor="#FFD2A8" stopOpacity="0.45" />
               <Stop offset="1" stopColor="#FF8A5C" stopOpacity="0" />
             </RadialGradient>
@@ -307,7 +312,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
 
       {/* the sun, rising out of the sea behind the stone */}
       <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: sunCx - sunD / 2, top: sunTop, width: sunD, height: sunD,
+        position: 'absolute', left: sunCx - sunD / 2 + ox, top: sunTop, width: sunD, height: sunD,
         // once Ra says hello, Ra is the sun: the disc steps back to a glow, so there's one sun, not two
         opacity: Animated.multiply(
           dawn.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
@@ -321,7 +326,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
 
       {/* Ra's light landing on the stone */}
       <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: 0, top: 0, width: W, height: H,
+        position: 'absolute', left: ox, top: 0, width: W, height: H,
         opacity: raIn.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 0.45] }),
       }}>
         <Svg width={W} height={H}>
@@ -331,7 +336,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
 
       {/* Ra, the sun's first light: arrives just after the sun, then waves */}
       <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: raLeft, top: raTop, width: charS, height: charS,
+        position: 'absolute', left: raLeft + ox, top: raTop, width: charS, height: charS,
         opacity: raIn,
         transform: [
           { translateY: raIn.interpolate({ inputRange: [0, 1], outputRange: [charS * 0.6, 0] }) },
@@ -346,7 +351,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
 
       {/* the stone, and Nu, under and then through the surface */}
       <Animated.View style={{
-        position: 'absolute', top: stoneDown, left: stoneLeft,
+        position: 'absolute', top: stoneDown, left: stoneLeft + ox,
         transform: [{ translateY: stoneUp.interpolate({ inputRange: [0, 1], outputRange: [0, stoneRisen - stoneDown] }) }],
       }}>
         <Image source={stone} style={{ width: stoneW, height: stoneH }} resizeMode="contain" accessibilityLabel="The Benben stone" />
@@ -358,7 +363,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
         }} />
       </Animated.View>
       <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: nuLeft, top: nuUnder, width: charS, height: charS,
+        position: 'absolute', left: nuLeft + ox, top: nuUnder, width: charS, height: charS,
         transform: [{ translateY: nuUp.interpolate({ inputRange: [0, 1], outputRange: [0, nuSurfaced - nuUnder] }) }],
       }}>
         <Animated.Image source={poseImage('nu-surface')} resizeMode="contain"
@@ -368,7 +373,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       </Animated.View>
 
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: waterY - 30, bottom: 0 }}>
-        <Water width={W} height={H - waterY + 30} still={still} />
+        <Water width={full} height={H - waterY + 30} still={still} />
       </View>
 
       {/* the sunrise on the water: warm near the surface */}
@@ -379,7 +384,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
           under the sun, wider than it is tall — no edges, and it only
           brightens and dims with the water, so its shape never changes */}
       <Animated.View pointerEvents="none" style={{
-        position: 'absolute', left: 0, top: 0, width: W, height: H,
+        position: 'absolute', left: ox, top: 0, width: W, height: H,
         opacity: Animated.multiply(dawn, shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] })),
       }}>
         <Svg width={W} height={H}>
@@ -394,11 +399,11 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
         </Svg>
       </Animated.View>
       {/* Nu + Ra: who they are, and the name */}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: hello }}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: hello }}>
         <Bubble tone="nu" text={"I’m Nu.\nI hold everything."} style={{ left: nuLeft + 8, top: nuSurfaced - 46 }} />
         <Bubble tone="ra" text={"I’m Ra.\nI pick one thing."} style={{ right: W - raLeft - 6, top: raTop + charS * 0.12 }} />
       </Animated.View>
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: W, height: H, opacity: name }}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ox, top: 0, width: W, height: H, opacity: name }}>
         <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
           style={{ position: 'absolute', left: (W - nameW) / 2, top: waterY + 28, width: nameW, height: nameW * 222 / 799, tintColor: '#FFF3EA' }} />
       </Animated.View>
@@ -415,7 +420,7 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
       )}
 
       {/* the words sit on the water */}
-      <View style={{ position: 'absolute', left: 24, right: 24, bottom: insets.bottom + 14, gap: 20 }}>
+      <View style={{ position: 'absolute', left: ox + 24, right: ox + 24, bottom: insets.bottom + (ox ? 40 : 14), gap: 20 }}>
         <View style={{ minHeight: 158, justifyContent: 'flex-end', gap: 10 }}>
           {beat > 0 && (
             <Text numberOfLines={3} importantForAccessibility="no" style={{

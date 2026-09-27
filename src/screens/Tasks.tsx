@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -16,7 +16,7 @@ import { HeldRow, taskValue } from '../components/HeldRow';
 import { LabelGlyph } from '../components/LabelIcon';
 import { byPriority } from './Home';
 import type { LabelId } from '../labels';
-import { useScreen } from '../screen';
+import { useScreen, useDesk, ROOM_MAX } from '../screen';
 import { Tide, Bubbles } from '../components/Tide';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -37,6 +37,12 @@ const INK_NU = '#1B1830';
 export default function Tasks() {
   const t = useTheme();
   const { width } = useScreen();
+  // a wide web window: the room's content in a centred lane, the water the
+  // whole width, and underwater in two columns (src/components/Desk.tsx)
+  const desk = useDesk();
+  const lane: ViewStyle = desk
+    ? { width: '100%', maxWidth: ROOM_MAX + 80, alignSelf: 'center', paddingHorizontal: 40 }
+    : { paddingHorizontal: 24 };
   const { inbox, todayPicked, projects, now, focusOn, toRa, agenda, dayEndMin } = useStore();
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
@@ -85,6 +91,54 @@ export default function Tasks() {
     <HeldRow key={x.id} task={x} faint={faint} meta={projectOf.get(x.id)} onPress={() => setPeek(x)} onHold={() => setHeld(x)} />
   ));
 
+  // underwater, deeper the later it is
+  const todaySec = water.today.length > 0 && (
+    <>
+      {label(`TODAY · ${water.today.length}`, { label: 'Sort ›', onPress: () => router.push('/triage') }, sea)}
+      {rows(water.today, 0)}
+    </>
+  );
+  const weekSec = water.week.length > 0 && (
+    <>
+      {label(`THIS WEEK · ${water.week.length}`, undefined, sea)}
+      {rows(water.week, 1)}
+    </>
+  );
+  const somedaySec = water.someday.length > 0 && (
+    <>
+      {label(`SOMEDAY · ${water.someday.length}`, undefined, sea)}
+      {rows(water.someday, 2)}
+    </>
+  );
+  const project = (p: (typeof projects)[number]) => (
+    <Pressable key={p.project.id} onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })}
+      accessibilityRole="button" accessibilityLabel={p.project.title}
+      style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: sea.stroke, opacity: pressed ? 0.7 : 1 })}>
+      {/* the path, as dots lit by the moves done */}
+      <View style={{ width: 30, flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+        {Array.from({ length: Math.min(p.total, 6) }, (_, i) => (
+          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < p.done ? CORAL : 'transparent', borderWidth: 1.2, borderColor: i < p.done ? CORAL : sea.strokeStrong }} />
+        ))}
+      </View>
+      <Text numberOfLines={1} style={{ flex: 1, color: sea.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{p.project.title}</Text>
+      <Text style={{ color: sea.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
+        {p.total - p.done}<Text style={{ color: sea.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>left</Text>
+      </Text>
+    </Pressable>
+  );
+  const projHalf = Math.ceil(projects.length / 2);
+  const projSec = projects.length > 0 && (
+    <>
+      {label(`PROJECTS · ${projects.length}`, undefined, sea)}
+      {desk && projects.length > 1 ? (
+        <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start' }}>
+          <View style={{ flex: 1, minWidth: 0 }}>{projects.slice(0, projHalf).map(project)}</View>
+          <View style={{ flex: 1, minWidth: 0 }}>{projects.slice(projHalf).map(project)}</View>
+        </View>
+      ) : projects.map(project)}
+    </>
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
@@ -92,7 +146,7 @@ export default function Tasks() {
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* the room, and search */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 14 }}>
+        <View style={[{ flexDirection: 'row', alignItems: 'center', paddingTop: desk ? 40 : 14 }, lane]}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Your Tasks</Text>
           </View>
@@ -109,7 +163,7 @@ export default function Tasks() {
         </View>
 
         {searching ? (
-          <View style={{ paddingHorizontal: 24, paddingTop: 18 }}>
+          <View style={[{ paddingTop: 18 }, lane]}>
             <SearchBar value={q} onChange={setQ} placeholder="Search tasks and projects" />
             {!!q.trim() && label(`${hits.length} MATCH${hits.length === 1 ? '' : 'ES'}`)}
             {rows(hits, 0)}
@@ -117,7 +171,7 @@ export default function Tasks() {
         ) : (
           <>
             {/* above the water: the one Nu found (Home's front card, a size down), held up by Nu */}
-            <View style={{ marginHorizontal: 24, marginTop: 20, zIndex: 2 }}>
+            <View style={[{ marginHorizontal: 24, marginTop: 20, zIndex: 2 }, desk && { marginHorizontal: 0, marginTop: 28, width: '100%', maxWidth: 560, alignSelf: 'center' }]}>
               {water.pick ? (
                 <View style={{ borderRadius: 28, backgroundColor: CORAL, paddingHorizontal: 18, paddingVertical: 16,
                   shadowColor: '#FF8A5C', shadowOpacity: 0.4, shadowRadius: 25, shadowOffset: { width: 0, height: 0 } }}>
@@ -179,7 +233,7 @@ export default function Tasks() {
 
             {/* underwater: everything Nu is holding, deeper the later it is */}
             <PinnedPalette.Provider value={sea}>
-            <View style={{ flexGrow: 1, marginTop: -1, paddingHorizontal: 24, paddingTop: 34, paddingBottom: 96 }}>
+            <View style={{ flexGrow: 1, marginTop: -1, paddingHorizontal: desk ? 0 : 24, paddingTop: 34, paddingBottom: 96 }}>
               <LinearGradient colors={['#1C4A78', '#153E6A', '#102749', '#070F24']} locations={[0, 0.18, 0.55, 1]}
                 style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
               <Bubbles width={width} />
@@ -187,43 +241,28 @@ export default function Tasks() {
               <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - 58, top: -71, zIndex: 3 }}>
                 <Character name="nu-surface" size={116} motion="bob" />
               </View>
-              {water.today.length > 0 && (
-                <>
-                  {label(`TODAY · ${water.today.length}`, { label: 'Sort ›', onPress: () => router.push('/triage') }, sea)}
-                  {rows(water.today, 0)}
-                </>
-              )}
-              {water.week.length > 0 && (
-                <>
-                  {label(`THIS WEEK · ${water.week.length}`, undefined, sea)}
-                  {rows(water.week, 1)}
-                </>
-              )}
-              {projects.length > 0 && (
-                <>
-                  {label(`PROJECTS · ${projects.length}`, undefined, sea)}
-                  {projects.map(p => (
-                    <Pressable key={p.project.id} onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })}
-                      accessibilityRole="button" accessibilityLabel={p.project.title}
-                      style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: sea.stroke, opacity: pressed ? 0.7 : 1 })}>
-                      {/* the path, as dots lit by the moves done */}
-                      <View style={{ width: 30, flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-                        {Array.from({ length: Math.min(p.total, 6) }, (_, i) => (
-                          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < p.done ? CORAL : 'transparent', borderWidth: 1.2, borderColor: i < p.done ? CORAL : sea.strokeStrong }} />
-                        ))}
+              {desk ? (
+                <View style={lane}>
+                  {(() => {
+                    // two columns: Today, and everything else; projects under both
+                    const left = water.today.length ? todaySec : weekSec;
+                    const right = water.today.length ? <>{weekSec}{somedaySec}</> : somedaySec;
+                    const both = !!(water.today.length ? water.week.length + water.someday.length : water.week.length && water.someday.length);
+                    return both ? (
+                      <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1, minWidth: 0 }}>{left}</View>
+                        <View style={{ flex: 1, minWidth: 0 }}>{right}</View>
                       </View>
-                      <Text numberOfLines={1} style={{ flex: 1, color: sea.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{p.project.title}</Text>
-                      <Text style={{ color: sea.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
-                        {p.total - p.done}<Text style={{ color: sea.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>left</Text>
-                      </Text>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-              {water.someday.length > 0 && (
+                    ) : <>{todaySec}{weekSec}{somedaySec}</>;
+                  })()}
+                  {projects.length > 0 && <View style={{ marginTop: 24 }}>{projSec}</View>}
+                </View>
+              ) : (
                 <>
-                  {label(`SOMEDAY · ${water.someday.length}`, undefined, sea)}
-                  {rows(water.someday, 2)}
+                  {todaySec}
+                  {weekSec}
+                  {projSec}
+                  {somedaySec}
                 </>
               )}
             </View>
@@ -236,10 +275,10 @@ export default function Tasks() {
           (habits are frozen: no new ones, SCOPE.md) */}
       {!searching && (
         <LinearGradient pointerEvents="box-none" colors={['rgba(7,15,36,0)', 'rgba(7,15,36,0.94)']} locations={[0, 0.4]}
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', paddingHorizontal: 24, paddingTop: 26, paddingBottom: 12 }}>
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 24, paddingTop: 26, paddingBottom: desk ? 20 : 12 }}>
           <Pressable onPress={() => router.push('/project/new')} accessibilityRole="button"
             style={({ pressed }) => ({
-              flex: 1, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+              flex: desk ? undefined : 1, width: desk ? 320 : undefined, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
               borderWidth: 1, borderColor: sea.strokeStrong, backgroundColor: pressed ? sea.subtle : sea.layer,
             })}>
             <Text style={{ color: sea.ink, fontSize: 14.5, fontFamily: T.display }}>Plan a project</Text>

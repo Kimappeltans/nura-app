@@ -11,6 +11,7 @@ import { canSpeak } from '../voice';
 import { type as T } from '../theme';
 import { Mica, IconGear, IconChevron } from '../ui';
 import { Avatar } from '../components/Avatar';
+import { READ_MAX, useDesk } from '../screen';
 
 /**
  * YOU, the fourth tab. A screen like the other tabs (a tab opens a place,
@@ -44,11 +45,14 @@ export default function You() {
   const week = wins.filter(w => (w.completed_at ?? 0) >= weekStart).length;
   const focus = focusMin == null ? null : Math.round(focusMin);
   const go = (path: Parameters<typeof router.push>[0]) => { Haptics.selectionAsync(); router.push(path); };
+  // a wide web window: a readable column in the middle of the room
+  const desk = useDesk();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }, desk && { width: '100%', maxWidth: READ_MAX, alignSelf: 'center', paddingTop: 48 }]}
+        showsVerticalScrollIndicator={false}>
 
         {/* you, and the gear */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 }}>

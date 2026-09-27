@@ -10,6 +10,7 @@ import { eventsBetween, type UpcomingEvent } from '../calendar';
 import { type as T } from '../theme';
 import { Mica, IconChevron } from '../ui';
 import { Suggestions } from '../components/Suggestions';
+import { ROOM_MAX, useDesk } from '../screen';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -111,6 +112,9 @@ export default function Calendar() {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
   };
 
+  // a wide web window: the month beside the picked day (src/components/Desk.tsx)
+  const desk = useDesk();
+  const cell = desk ? 62 : 48;
   const wins = useStore(s => s.wins);
   const flow = useMemo(() => {
     const doneThatDay = wins.filter(w => w.completed_at && sameDay(new Date(w.completed_at), picked) && !dayTasks.some(x => x.id === w.id));
@@ -121,12 +125,8 @@ export default function Calendar() {
     ].sort((a, b) => (a.timed === b.timed ? a.at - b.at : a.timed ? -1 : 1));
   }, [dayEvents, dayTasks, wins, picked]);
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
-      <Mica />
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-
+  const month = (
+    <>
         {/* two-tone: the month, then the year — and the arrows */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8, marginTop: 6 }}>
           <View style={{ flex: 1 }}>
@@ -159,7 +159,7 @@ export default function Calendar() {
         {/* a month of suns: each day's sun as big as what got done; a quiet day is just its number */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
           {cells.map((d, i) => {
-            if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, height: 48 }} />;
+            if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, height: cell }} />;
             const date = new Date(cursor.getFullYear(), cursor.getMonth(), d);
             const n = doneOn.get(iso(date)) ?? 0;
             const on = byDay.get(iso(date));
@@ -173,8 +173,8 @@ export default function Calendar() {
               <Pressable key={i} onPress={() => { Haptics.selectionAsync(); setPicked(date); }}
                 accessibilityRole="button" accessibilityState={{ selected: isSel }}
                 accessibilityLabel={`${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${n ? `, ${n} done` : ''}`}
-                style={{ width: `${100 / 7}%`, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-                {lit && <MiniSun n={n} />}
+                style={{ width: `${100 / 7}%`, height: cell, alignItems: 'center', justifyContent: 'center' }}>
+                {lit && <MiniSun n={n} cell={cell} />}
                 <View style={{
                   width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
                   // only the picked day and today are ringed; an empty day is just its number
@@ -187,12 +187,27 @@ export default function Calendar() {
             );
           })}
         </View>
-
+    </>
+  );
+  const day = (
+    <>
         {/* the picked day, two-tone, then its flow */}
-        <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.8, marginHorizontal: 8, marginTop: 24, marginBottom: 8 }}>
-          {picked.toLocaleDateString(undefined, { weekday: 'long' })} {picked.getDate()}
-          <Text style={{ color: t.mute ?? t.ink3 }}>{doneOn.get(iso(picked)) ? ` · ${doneOn.get(iso(picked))} done` : ''}</Text>
-        </Text>
+        {desk ? (
+          // two-tone, like the month beside it: the day, then what got done
+          <View style={{ marginHorizontal: 8, marginBottom: 18 }}>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+              {picked.toLocaleDateString(undefined, { weekday: 'long' })} {picked.getDate()}
+            </Text>
+            {!!doneOn.get(iso(picked)) && (
+              <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{doneOn.get(iso(picked))} done</Text>
+            )}
+          </View>
+        ) : (
+          <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.8, marginHorizontal: 8, marginTop: 24, marginBottom: 8 }}>
+            {picked.toLocaleDateString(undefined, { weekday: 'long' })} {picked.getDate()}
+            <Text style={{ color: t.mute ?? t.ink3 }}>{doneOn.get(iso(picked)) ? ` · ${doneOn.get(iso(picked))} done` : ''}</Text>
+          </Text>
+        )}
         <View style={{ marginHorizontal: 8, borderTopWidth: 1, borderTopColor: t.stroke }}>
           {flow.map(it => (
             <Pressable key={it.id} disabled={!it.task} onPress={() => it.task && router.push({ pathname: '/task/[id]', params: { id: it.task.id } })}
@@ -226,7 +241,20 @@ export default function Calendar() {
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something for this day ›</Text>
           </Pressable>
         )}
+    </>
+  );
 
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
+      <Mica />
+
+      <ScrollView contentContainerStyle={desk ? { paddingHorizontal: 40, paddingTop: 34, paddingBottom: 40 } : { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        {desk ? (
+          <View style={{ width: '100%', maxWidth: ROOM_MAX, alignSelf: 'center', flexDirection: 'row', gap: 56, alignItems: 'flex-start' }}>
+            <View style={{ flex: 1.15, minWidth: 0, maxWidth: 600 }}>{month}</View>
+            <View style={{ flex: 1, minWidth: 0, paddingTop: 6 }}>{day}</View>
+          </View>
+        ) : <>{month}{day}</>}
       </ScrollView>
     </SafeAreaView>
   );

@@ -22,7 +22,7 @@ import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
 import { CaptureSheet } from '../src/components/CaptureSheet';
 import { keepNameFrom } from '../src/useAuthActions';
-import { COLUMN, isWide } from '../src/screen';
+import { COLUMN, isDesk, isWide } from '../src/screen';
 import { type as T } from '../src/theme';
 
 // An unsigned simulator build has no keychain access, so expo-notifications
@@ -370,15 +370,17 @@ function TellNu() {
 }
 
 /**
- * On a wide web window (a laptop, a desktop), Nura is a phone-width column in
- * the middle, on the room's own ground, instead of stretching the day's path
- * and the front card across the screen (src/screen.ts). Phones, and narrow
- * windows, get the app as it is.
+ * On a middling web window (a small tablet, half a laptop), Nura is a
+ * phone-width column in the middle, on the room's own ground, instead of
+ * stretching the day's path and the front card across the screen
+ * (src/screen.ts). Wider, it's the desktop layout: a sidebar and rooms that
+ * use the width (src/components/Desk.tsx). Phones, and narrow windows, get
+ * the app as it is.
  */
 function WebColumn({ children }: { children: React.ReactNode }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  if (!isWide(width)) return <>{children}</>;
+  if (!isWide(width) || isDesk(width)) return <>{children}</>;
   return (
     <View style={{ flex: 1, backgroundColor: t.base, alignItems: 'center' }}>
       <View style={{ flex: 1, width: COLUMN, overflow: 'hidden', borderLeftWidth: 1, borderRightWidth: 1, borderColor: t.stroke }}>

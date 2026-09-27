@@ -18,7 +18,7 @@ import { getLanguage } from '../planner';
 import { aiConsent, setAiConsent } from '../ai';
 import { AiConsent } from './AiConsent';
 import type { StateRead } from '../learn/types';
-import { useScreen, COLUMN } from '../screen';
+import { useScreen, useDesk, COLUMN, DIALOG } from '../screen';
 
 /**
  * TELL NU ANYTHING — the one way in. "Add a task" and "Say it" used to be
@@ -173,7 +173,10 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   // Tell Nu listens as soon as it opens (v5, 7:14); Aa is for typing instead
   const insets = useSafeAreaInsets();
-  const { width } = useScreen();
+  // a wide web window: a centred dialog over the room, not the whole screen
+  const desk = useDesk();
+  const screen = useScreen();
+  const width = desk ? DIALOG : screen.width;
   const [typing, setTyping] = useState(false);
   const base = useRef('');
   const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
@@ -202,9 +205,15 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
   const tail = listening && words.length > 3 ? 2 : 0;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: t.base }}>
-      <View style={{ flex: 1, width: '100%', maxWidth: COLUMN, alignSelf: 'center', backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
+    <Modal visible={visible} animationType={desk ? 'fade' : 'slide'} onRequestClose={onClose}
+      transparent={desk} presentationStyle={desk ? undefined : 'fullScreen'}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={desk ? { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 } : { flex: 1, backgroundColor: t.base }}>
+      {desk && <Pressable onPress={onClose} accessibilityLabel="Close"
+        style={{ position: 'absolute', inset: 0, backgroundColor: t.key === 'nu' ? 'rgba(5,8,23,0.62)' : 'rgba(23,19,19,0.30)' }} />}
+      <View style={desk
+        ? { width: '100%', maxWidth: DIALOG, height: Math.min(680, screen.height - 64), backgroundColor: t.base, borderRadius: 30, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden', paddingTop: 30, paddingBottom: 24, paddingHorizontal: 28 }
+        : { flex: 1, width: '100%', maxWidth: COLUMN, alignSelf: 'center', backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
         {/* what you're saying or typing, as big as a headline */}
         {/* an underline so it reads as a field before you've typed: coral while you're in it */}
         <TextInput ref={input} value={text} onChangeText={setText} multiline
@@ -243,7 +252,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         )}
 
         {/* your voice, in dots */}
-        {listening && <View style={{ marginTop: 28 }}><DotWave active width={width - 48} /></View>}
+        {listening && <View style={{ marginTop: 28 }}><DotWave active width={width - (desk ? 58 : 48)} /></View>}
 
         {/* Nu, listening — as big as the room above the buttons allows (the keyboard takes most of it) */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none"

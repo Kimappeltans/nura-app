@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Easing, AccessibilityInfo, ScrollView } from 'react-native';
+import { View, Text, Pressable, Animated, Easing, AccessibilityInfo, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -7,7 +7,7 @@ import { type as T, radius } from '../theme';
 import { Primary, Character } from '../ui';
 import type { Task } from '../db';
 import { StepBar } from '../components/OnbFrame';
-import { screenSize } from '../screen';
+import { screenSize, useDesk, STAGE } from '../screen';
 
 /**
  * "Everything sinks. One thing rises." — shown, with your own tasks.
@@ -97,6 +97,11 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
   const [chosen, setChosen] = useState<Task>(pick);
   const others = tasks.filter(x => x.id !== chosen.id).slice(0, 3);
   const { width: W, height: H } = screenSize();
+  // a wide web window: the sky and the sea the whole width, the story on a centred stage
+  const winW = useWindowDimensions().width;
+  const desk = useDesk();
+  const full = desk ? winW : W;
+  const stage = desk ? { width: '100%', maxWidth: STAGE, alignSelf: 'center' } as const : null;
   const [instant, setInstant] = useState(false);
   const sun = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(0)).current;
@@ -133,12 +138,14 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
         style={{ position: 'absolute', inset: 0 }} />
 
       {/* everything you just put down, sinking */}
-      {sinking.map((task, i) => (
-        <Sinker key={task.id} title={task.title} left={LANES[i]} depth={depth}
-          delay={i * STAGGER_MS} instant={instant} />
-      ))}
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: (full - W) / 2, width: W }}>
+        {sinking.map((task, i) => (
+          <Sinker key={task.id} title={task.title} left={LANES[i]} depth={depth}
+            delay={i * STAGGER_MS} instant={instant} />
+        ))}
+      </View>
 
-      <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 26 }}>
+      <View style={[{ paddingTop: insets.top + 12, paddingHorizontal: 26 }, stage]}>
         <View style={{ flexDirection: 'row' }}><StepBar step={4} light /></View>
         <Text style={{
           color: '#FFF3EA', fontSize: 30, lineHeight: 36, fontFamily: T.display,
@@ -152,7 +159,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
       <View style={{ flex: 1, paddingTop: 76 }}>
         {/* the sun, rising once, just above the card */}
         <Animated.View pointerEvents="none" style={{
-          position: 'absolute', left: W / 2 - 70, top: 0, width: 140, height: 140, borderRadius: 70,
+          position: 'absolute', left: full / 2 - 70, top: 0, width: 140, height: 140, borderRadius: 70,
           opacity: sun,
           transform: [{ translateY: sun.interpolate({ inputRange: [0, 1], outputRange: [110, 0] }) }],
         }}>
@@ -161,10 +168,10 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
         </Animated.View>
 
         {/* the one, lifted back out of the water */}
-        <Animated.View style={{
+        <Animated.View style={[stage, {
           opacity: rise,
           transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [H * 0.3, 0] }) }],
-        }}>
+        }]}>
           <View style={{
             marginHorizontal: 22, borderRadius: radius.xl, padding: 20, gap: 8,
             backgroundColor: 'rgba(255,243,234,0.96)',
@@ -200,17 +207,19 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
       </View>
 
       <View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 26 }}>
+        <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 26 }, stage]}>
           <Character name="nu-idle" size={figure} motion="bob" />
           <Character name="ra-wave" size={figure} motion="bob" />
         </View>
-        <Waves width={W} />
+        <Waves width={full} />
         <LinearGradient colors={['transparent', 'rgba(8,13,36,0.94)']} locations={[0, 0.45]}
           style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: insets.bottom + 12, gap: 14 }}>
-          <Primary label="Start" tone="ra" onPress={() => onStart(chosen)} />
-          <Pressable onPress={onEverything} hitSlop={10}>
-            <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>
-          </Pressable>
+          <View style={[{ gap: 14 }, stage]}>
+            <Primary label="Start" tone="ra" onPress={() => onStart(chosen)} />
+            <Pressable onPress={onEverything} hitSlop={10}>
+              <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>
+            </Pressable>
+          </View>
         </LinearGradient>
       </View>
     </View>

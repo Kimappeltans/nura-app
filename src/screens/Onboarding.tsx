@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -13,6 +14,11 @@ import ProfileStep from './ProfileStep';
 import OneRises from './OneRises';
 import Auth from './Auth';
 import { landsOnSignIn, landedOnSignIn } from '../account';
+import { DeskColumn } from '../components/Desk';
+import { STAGE } from '../screen';
+
+/** A step, centred on a wide web window (src/components/Desk.tsx); on a phone, as it is. */
+const col = (step: React.ReactElement) => <DeskColumn max={STAGE}>{step}</DeskColumn>;
 
 /**
  * From opening the app to starting one real task in about a minute
@@ -116,14 +122,14 @@ export default function Onboarding() {
   };
 
   if (step === 'auth') {
-    return (
+    return col(
       <Auth onBack={() => setStep('welcome')} beforeRedirect={resumeAfterGoogle('auth')}
         onClose={async () => { await setFlag('onb.resume', ''); await finishOnboarding(); }} />
     );
   }
 
   if (step === 'blockers') {
-    return (
+    return col(
       <Blockers onBack={() => setStep('welcome')} onNext={async picked => {
         setPicks(picked);
         await setBlockers(picked);
@@ -134,7 +140,7 @@ export default function Onboarding() {
   }
 
   if (step === 'dump') {
-    return (
+    return col(
       <BrainDump onBack={() => setStep('blockers')} onNext={async ids => {
         await log('dump', { captured: ids.length });
         await refresh();
@@ -146,7 +152,7 @@ export default function Onboarding() {
   }
 
   if (step === 'remind') {
-    return (
+    return col(
       <RemindAsk onDone={async granted => {
         await log('remind', { granted });
         afterDump();
@@ -155,7 +161,7 @@ export default function Onboarding() {
   }
 
   if (step === 'profile') {
-    return (
+    return col(
       <ProfileStep beforeRedirect={resumeAfterGoogle('profile')} onDone={async () => {
         await setFlag('onb.resume', '');   // set while it waited on the email
         await log('profile', { signedIn: !!useStore.getState().session });

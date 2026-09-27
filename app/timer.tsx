@@ -18,7 +18,7 @@ import { type as T, copy, radius, doneGround, doneStops } from '../src/theme';
 import { DotMatrix } from '../src/components/DotMatrix';
 import { Sun } from '../src/components/Handoff';
 import { Moving } from '../src/components/Moving';
-import { useScreen } from '../src/screen';
+import { useScreen, useDesk, STAGE } from '../src/screen';
 
 const CORAL = '#FF6B35';
 const ON_CORAL = '#3B1204';
@@ -50,7 +50,10 @@ function breakMinutesFor(sessionMins: number) {
  */
 function Timer() {
   const t = useTheme();
-  const { width } = useScreen();
+  const { width, height } = useScreen();
+  // a wide web window: still one thing, centred; the way out stays top left
+  const desk = useDesk();
+  const stage = desk ? { flex: 1, width: '100%', maxWidth: STAGE + 48, alignSelf: 'center', paddingHorizontal: 24 } as const : null;
   // the window's own insets: inside a full-screen modal the safe-area view can
   // report none on iOS, and the top row slid under the status bar
   const insets = useSafeAreaInsets();
@@ -219,44 +222,67 @@ function Timer() {
         {/* white into a light orange, so Ra and Nu stand out (the one gradient — guidelines, rule 1) */}
         <LinearGradient colors={doneGround} locations={doneStops} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
         <View style={safe}>
-          <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
-            <Pressable onPress={async () => { await toNu(); goBack(); }} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
-              <Text style={{ color: ON_CORAL, fontSize: 15, fontFamily: T.display }}>← Back to Nu</Text>
-            </Pressable>
-            <Text style={{ color: ON_CORAL, fontSize: 50, lineHeight: 51, letterSpacing: -2.2, fontFamily: T.display, marginTop: 18 }}>You did it</Text>
-            <Text style={{ color: 'rgba(59,18,4,0.5)', fontSize: 50, lineHeight: 51, letterSpacing: -2.2, fontFamily: T.display }}>together.</Text>
-            <Text numberOfLines={1} style={{ color: 'rgba(59,18,4,0.6)', fontSize: 16, fontFamily: T.brand, marginTop: 10 }}>
-              {task?.title ?? ''} · {spent} minute{spent === 1 ? '' : 's'}
-            </Text>
-          </View>
-
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
-            <View style={{ width: 300, height: 300 }}>
-              <View style={{ position: 'absolute', left: -24, top: -24 }}><Sun size={340} /></View>
-              <Moving name="ra-pebble" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
-              <Image source={poseImage('nu-hello')} resizeMode="contain" style={{ position: 'absolute', left: 4, top: 140, width: 120, height: 120 }} />
-            </View>
-          </View>
-
-          <View style={{ paddingHorizontal: 24, paddingBottom: 18, gap: 16 }}>
-            {hasNext && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-                <Pressable onPress={async () => { await focusOn(next!.id); goBack(); }} accessibilityRole="button" accessibilityLabel={`Next: ${next!.title}`}
-                  style={({ pressed }) => ({ width: 96, height: 96, borderRadius: 48, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
-                  <Text style={{ color: CREAM, fontSize: 18, fontFamily: T.display }}>Next</Text>
-                </Pressable>
-                <View style={{ flex: 1, gap: 3 }}>
-                  {!!next!.est_minutes && <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 12, fontFamily: T.display }}>{next!.est_minutes} min</Text>}
-                  <Text numberOfLines={2} style={{ color: ON_CORAL, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{next!.title}</Text>
+          {(() => {
+            const out = (
+              <Pressable onPress={async () => { await toNu(); goBack(); }} hitSlop={12} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+                <Text style={{ color: ON_CORAL, fontSize: 15, fontFamily: T.display }}>← Back to Nu</Text>
+              </Pressable>
+            );
+            const headline = (
+              <>
+                <Text style={{ color: ON_CORAL, fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display, marginTop: 18 }}>You did it</Text>
+                <Text style={{ color: 'rgba(59,18,4,0.5)', fontSize: desk ? 64 : 50, lineHeight: desk ? 65 : 51, letterSpacing: desk ? -2.8 : -2.2, fontFamily: T.display }}>together.</Text>
+                <Text numberOfLines={1} style={{ color: 'rgba(59,18,4,0.6)', fontSize: 16, fontFamily: T.brand, marginTop: 10 }}>
+                  {task?.title ?? ''} · {spent} minute{spent === 1 ? '' : 's'}
+                </Text>
+              </>
+            );
+            const scene = (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+                <View style={{ width: 300, height: 300 }}>
+                  <View style={{ position: 'absolute', left: -24, top: -24 }}><Sun size={340} /></View>
+                  <Moving name="ra-pebble" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
+                  <Image source={poseImage('nu-hello')} resizeMode="contain" style={{ position: 'absolute', left: 4, top: 140, width: 120, height: 120 }} />
                 </View>
               </View>
-            )}
-            {!hasNext && breakPref !== 'off' && (
-              <Pressable onPress={() => runBreak(breakMins * 60)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
-                <Text style={{ color: ON_CORAL, fontSize: 14.5, fontFamily: T.display, opacity: 0.8 }}>Take a {breakMins}-minute break</Text>
-              </Pressable>
-            )}
-          </View>
+            );
+            const after = (
+              <View style={{ paddingHorizontal: stage ? 0 : 24, paddingBottom: desk ? 40 : 18, gap: 16 }}>
+                {hasNext && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                    <Pressable onPress={async () => { await focusOn(next!.id); goBack(); }} accessibilityRole="button" accessibilityLabel={`Next: ${next!.title}`}
+                      style={({ pressed }) => ({ width: 96, height: 96, borderRadius: 48, backgroundColor: INK_NU, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.96 : 1 }] })}>
+                      <Text style={{ color: CREAM, fontSize: 18, fontFamily: T.display }}>Next</Text>
+                    </Pressable>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      {!!next!.est_minutes && <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 12, fontFamily: T.display }}>{next!.est_minutes} min</Text>}
+                      <Text numberOfLines={2} style={{ color: ON_CORAL, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{next!.title}</Text>
+                    </View>
+                  </View>
+                )}
+                {!hasNext && breakPref !== 'off' && (
+                  <Pressable onPress={() => runBreak(breakMins * 60)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+                    <Text style={{ color: ON_CORAL, fontSize: 14.5, fontFamily: T.display, opacity: 0.8 }}>Take a {breakMins}-minute break</Text>
+                  </Pressable>
+                )}
+              </View>
+            );
+            if (stage) {
+              return (
+                <>
+                  <View style={{ paddingHorizontal: 32, paddingTop: 24 }}>{out}</View>
+                  <View style={stage}>{headline}{scene}{after}</View>
+                </>
+              );
+            }
+            return (
+              <>
+                <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>{out}{headline}</View>
+                {scene}
+                {after}
+              </>
+            );
+          })()}
         </View>
       </View>
     );
@@ -269,14 +295,14 @@ function Timer() {
   const shown = onBreak ? breakLeft : open ? elapsed : left;
   const words = (onBreak ? 'Step away' : task?.title ?? '').split(' ');
   const cut = words.length >= 4 ? Math.ceil(words.length / 2) : words.length;
-  const ring = Math.min(300, width - 48);
+  const ring = desk ? Math.max(260, Math.min(360, height - 470)) : Math.min(300, width - 48);
 
   /* ───────────── IN SESSION — cream, Ra on the ring ───────────── */
   return (
     <View style={[safe, { backgroundColor: t.base }]}>
       <Mica />
       {/* the way out, top left: it keeps running, as the pill above the tabs */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, height: 56 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: desk ? 32 : 20, paddingTop: desk ? 24 : 8, height: desk ? 72 : 56 }}>
         <Pressable onPress={async () => { Haptics.selectionAsync(); if (!onBreak) await toNu(); goBack(); }} hitSlop={10}
           accessibilityRole="button" accessibilityLabel="Keep it running and go back"
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center' }}>
@@ -287,7 +313,7 @@ function Timer() {
         </View>
       </View>
 
-      <View style={{ flex: 1, paddingHorizontal: 24 }}>
+      <View style={stage ? [stage, { justifyContent: 'center', paddingBottom: 72 }] : { flex: 1, paddingHorizontal: 24 }}>
         <Text style={{ color: t.ink, fontSize: 30, lineHeight: 31, fontFamily: T.display, letterSpacing: -1.3, marginTop: 6 }}>
           {words.slice(0, cut).join(' ')}
         </Text>

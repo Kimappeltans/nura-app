@@ -1,4 +1,5 @@
 import { inWorld } from '../src/world';
+import { readable } from '../src/components/Desk';
 import { goBack } from '../src/nav';
 import Connect from '../src/screens/Connect';
 
@@ -10,4 +11,4 @@ function Integrations() {
   return <Connect onDone={() => goBack()} onBack={() => goBack()} />;
 }
 
-export default inWorld('utility', Integrations);
+export default inWorld('utility', readable(Integrations));

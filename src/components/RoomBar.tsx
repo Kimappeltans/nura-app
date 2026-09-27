@@ -4,6 +4,7 @@ import { View, Text, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
+import { useDesk } from '../screen';
 
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
@@ -18,6 +19,9 @@ export function RoomBar({ title = 'Nura', who = 'nu' }: { title?: string; who?: 
   // below the status bar with room to breathe; where there's no status bar
   // (the web, some iPads) it still keeps off the top edge
   const insets = useSafeAreaInsets();
+  // a wide web window: the wordmark is at the top of the sidebar
+  const desk = useDesk();
+  if (desk) return null;
   return (
     // v5: a 44px bar — the wordmark at 20, the companion in a 40px tile
     <View style={{

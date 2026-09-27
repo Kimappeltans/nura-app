@@ -18,6 +18,7 @@ import { LABELS, type LabelId } from '../../src/labels';
 import { PRIORITIES } from '../../src/priority';
 import { LabelChip } from '../../src/components/LabelIcon';
 import { DatePicker, formatDue } from '../../src/components/DatePicker';
+import { readable } from '../../src/components/Desk';
 
 const MINUTES = [2, 5, 10, 15, 30, 60];
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -398,4 +399,4 @@ function TaskDetail() {
   );
 }
 
-export default inWorld('utility', TaskDetail);
+export default inWorld('utility', readable(TaskDetail));

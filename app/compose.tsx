@@ -19,6 +19,7 @@ import { radius, type as T } from '../src/theme';
 import { Mica, Surface, Primary, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph } from '../src/components/LabelIcon';
 import { DatePicker, WeekdayPicker, formatDue } from '../src/components/DatePicker';
+import { readable } from '../src/components/Desk';
 
 const MINUTES = [2, 5, 10, 15, 30, 60, 120];
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -379,4 +380,4 @@ function Compose() {
   );
 }
 
-export default inWorld('utility', Compose);
+export default inWorld('utility', readable(Compose));

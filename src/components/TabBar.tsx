@@ -23,7 +23,7 @@ const CORAL = '#FF6B35';
 export type { Tab } from '../store';
 import type { Tab } from '../store';
 
-const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] = [
+export const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] = [
   { key: 'home', label: 'Home', icon: c => (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round">
       <Path d="M4 11.2 12 4l8 7.2v7.3a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><Path d="M9.5 20v-5.5h5V20" />
@@ -45,17 +45,20 @@ const TABS: { key: Tab; label: string; icon: (c: string) => React.ReactNode }[] 
  * above the rooms and shows that room. Not on modes and self-contained tasks:
  * Focus, the timer, the composer, the planner, sign-in, the opening.
  */
+/** Show a room: close whatever is open above the rooms and show that one (the tab bar and the desktop's sidebar). */
+export function goToTab(k: Tab, path: string) {
+  useStore.setState({ tab: k });
+  // close what's open above the rooms; when this screen IS the bottom of the
+  // stack (a reload, a link, a notification) there's nothing to close — go there
+  if (router.canDismiss()) router.dismissAll();
+  else if (path !== '/') router.replace('/');
+}
+
 export function TabBar() {
   const t = useTheme();
   const tab = useStore(s => s.tab);
   const path = usePathname();
-  const onTab = (k: Tab) => {
-    useStore.setState({ tab: k });
-    // close what's open above the rooms; when this screen IS the bottom of the
-    // stack (a reload, a link, a notification) there's nothing to close — go there
-    if (router.canDismiss()) router.dismissAll();
-    else if (path !== '/') router.replace('/');
-  };
+  const onTab = (k: Tab) => goToTab(k, path);
   const insets = useSafeAreaInsets();
   const running = useStore(s => s.running);
   const dark = t.key === 'nu';

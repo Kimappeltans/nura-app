@@ -16,6 +16,7 @@ import { rankFor } from '../src/reward';
 import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Character, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph, LabelTile } from '../src/components/LabelIcon';
+import { readable } from '../src/components/Desk';
 
 interface Msg {
   id: string;
@@ -398,4 +399,4 @@ function Chat() {
   );
 }
 
-export default inWorld('nu', Chat);
+export default inWorld('nu', readable(Chat));

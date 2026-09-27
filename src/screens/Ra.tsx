@@ -19,6 +19,7 @@ import { Knob } from '../components/Knob';
 import { Handoff } from '../components/Handoff';
 import { stepForTask, type Project, type Step } from '../projects';
 import type { Energy } from '../db';
+import { STAGE, useDesk } from '../screen';
 
 const at = (days: number, h: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
 /** Set a reminder: a few times, in a tap. This evening is an hour on if it's already evening. */
@@ -212,6 +213,10 @@ export default function Ra() {
     </View>
   );
 
+  // a wide web window: still one thing, centred, the words a size up; the way out stays top left
+  const desk = useDesk();
+  const big = desk ? { fontSize: 44, lineHeight: 46, letterSpacing: -2 } : { fontSize: 34, lineHeight: 36, letterSpacing: -1.5 };
+
   const LENGTHS = [null, 5, 10, 15, 25, 45, 60] as const;
   const ENERGY: [Energy, string][] = [['low', 'Low'], ['steady', 'Okay'], ['focused', 'High']];
 
@@ -219,7 +224,7 @@ export default function Ra() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top', 'bottom']}>
       <Mica />
       {/* the way out, top left; Ra's tile on the right (guidelines, rule 6) */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8, height: 56 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: desk ? 32 : 24, paddingTop: desk ? 24 : 8, height: desk ? 72 : 56 }}>
         <Pressable onPress={back} hitSlop={14} accessibilityRole="button">
           <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>← Everything</Text>
         </Pressable>
@@ -228,7 +233,8 @@ export default function Ra() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={[{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+        desk && { width: '100%', maxWidth: STAGE + 48, alignSelf: 'center', justifyContent: 'center', paddingTop: 24, paddingBottom: 96 }]}>
         {!now && sugs.length ? (
           <View style={{ gap: 12 }}>
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
@@ -281,9 +287,9 @@ export default function Ra() {
           <View>
             {/* the one thing, two-tone: the task, then how long */}
             <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
-              <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{now.title}</Text>
+              <Text style={{ color: t.ink, ...big, fontFamily: T.display }}>{now.title}</Text>
               {(!!now.est_minutes || !!proj) && (
-                <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+                <Text style={{ color: t.mute ?? t.ink3, ...big, fontFamily: T.display }}>
                   {now.est_minutes ? `≈ ${now.est_minutes} min` : proj?.project.title}
                 </Text>
               )}

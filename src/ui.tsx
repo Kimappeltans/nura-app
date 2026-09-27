@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, Image, Modal, Animated, Easing,
   LayoutAnimation, Platform, UIManager,
@@ -13,6 +13,7 @@ import Svg, {
 import { radius, elevation, iconStroke, type as T, doneGround, doneStops } from './theme';
 import { useStore, useTheme } from './store';
 import { sunHeight, skyLabel } from './reward';
+import { MicaHosted } from './screen';
 
 /* ------------------------------------------------------------------ *
  *  Icons — line-drawn, rounded caps, one stroke weight everywhere.
@@ -386,6 +387,9 @@ export function Mica(
   { force, sunProgress }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
 ) {
   const t = useTheme(force);
+  // in a readable column on the desktop, the page around it draws the glow,
+  // across the whole window (src/components/Desk.tsx)
+  const hosted = useContext(MicaHosted);
   // The coral glow literally rises and brightens as the day's completions add
   // up — Home's "the sun comes up as you do things" mechanic. 0 when nothing
   // has been finished yet (glow sits low, at its normal resting strength); 1
@@ -395,6 +399,7 @@ export function Mica(
   const raCy = 86 - s * 32;       // 86% (low, resting) -> 54% (risen)
   const raOpacity = t.glowRa + s * 0.20;
 
+  if (hosted) return null;
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
       <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: t.atmosphereVertical ? 0 : 1, y: 1 }} locations={[0, 0.55, 1]}
