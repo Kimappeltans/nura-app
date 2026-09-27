@@ -9,8 +9,8 @@ orange accents, and Nu's deep blue for the night and the story.
 index.html          the landing page: the intelligence first, then Nu and Ra
 how-it-works.html   a tour of the app, screen by screen
 about.html          the story behind Nura: Nun, the Benben, Heliopolis, Ra, then Nura
-privacy.html        your data in plain words
-terms.html          the terms, kept short
+privacy.html        the Privacy Policy
+terms.html          the Terms of Service
 support.html        contact, and answers to the common questions
 site.css / site.js  shared by every page; bump ?v= in the pages after a change
 story.css / story.js  the story on about.html: one pinned scene drawn by scroll
