@@ -8,7 +8,7 @@ import type { Session } from '@supabase/supabase-js';
 import {
   useFonts, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold,
 } from '@expo-google-fonts/inter-tight';
-import { getDb, migrate, dropCrumb, onOpenElsewhere, getBlockers, getFlag, setFlag } from '../src/db';
+import { getDb, migrate, dropCrumb, onOpenElsewhere, takeOverTab, getBlockers, getFlag, setFlag } from '../src/db';
 import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
@@ -42,6 +42,9 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     '  box-shadow: inset 0 0 0 4px #FFFFFF !important;',
     '}',
     'input:focus, textarea:focus { border-radius: 6px; }',
+    // a field whose own frame lights up on focus (the desk's Tell Nu) shows
+    // that one ring, not a second one inside it
+    '[data-own-focus]:focus, [data-own-focus]:focus-visible { outline: none !important; box-shadow: none !important; }',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -327,8 +330,9 @@ export default function Root() {
 
   if (elsewhere) {
     return <Loading note={openedFromLink && session
-      ? 'You’re signed in. Carry on in your other Nura tab.'
-      : 'Nura is open in another tab. Close it and this one carries on.'} />;
+      ? 'You’re signed in. Carry on in your other Nura tab, or here.'
+      : 'Nura is open in another tab.'}
+      action={{ label: 'Use it here', onPress: takeOverTab }} />;
   }
   // on the web Try again reloads: this tab already holds the database's lock (db.ts)
   if (broken) {

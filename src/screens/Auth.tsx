@@ -10,7 +10,7 @@ import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
 import { Primary, Ghost, Mica, Character } from '../ui';
-import { useAuthActions, useConfirmWait } from '../useAuthActions';
+import { useAuthActions, useConfirmWait, useSignupsOpen } from '../useAuthActions';
 import { openLink } from '../links';
 import { announce } from '../a11y';
 
@@ -149,8 +149,11 @@ export default function Auth(
     if (pending && await resend(pending.email)) setSent(true);
   };
   const otherEmail = () => {
-    setPending(null); setEmail(''); setFormError(null); setCreating(true); setMode('email');
+    setPending(null); setEmail(''); setFormError(null); setCreating(signupsOpen !== false); setMode('email');
   };
+  // invite only (until launch): signing in is the only way in
+  const signupsOpen = useSignupsOpen();
+  useEffect(() => { if (signupsOpen === false) setCreating(false); }, [signupsOpen]);
 
   const Social = ({ id, label, glyph, dark }: {
     id: string; label: string; glyph: React.ReactNode; dark?: boolean;
@@ -326,7 +329,10 @@ export default function Auth(
 
             <View style={{ flex: 1, minHeight: 20 }} />
 
-            {!pending && (
+            {!pending && signupsOpen === false && (
+              <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>Nura is invite only for now.</Text>
+            )}
+            {!pending && signupsOpen !== false && (
               <Pressable onPress={() => {
                 setCreating(c => !c); setMode('choose');
                 setFormError(null); setPassword(''); setConfirm('');

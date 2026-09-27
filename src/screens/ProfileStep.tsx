@@ -5,6 +5,7 @@ import { useStore, useTheme } from '../store';
 import { Primary, Ghost, Character } from '../ui';
 import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
+import { useSignupsOpen } from '../useAuthActions';
 import { useAuthActions, useConfirmWait } from '../useAuthActions';
 import { AppleGlyph, GoogleGlyph, Legal } from './Auth';
 import { announce } from '../a11y';
@@ -78,8 +79,11 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
     if (pending && await resend(pending.email)) setSent(true);
   };
   const otherEmail = () => {
-    setPending(null); setEmail(''); setFormError(null); setCreating(true); setMode('email');
+    setPending(null); setEmail(''); setFormError(null); setCreating(signupsOpen !== false); setMode('email');
   };
+  // invite only (until launch): the account was made for you, so this signs in
+  const signupsOpen = useSignupsOpen();
+  useEffect(() => { if (signupsOpen === false) setCreating(false); }, [signupsOpen]);
 
   const field = (id: string) => ({
     color: t.ink, fontSize: 16, paddingVertical: 15, paddingHorizontal: 16,
@@ -144,14 +148,23 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
               <Social id="apple" black label="Continue with Apple" glyph={<AppleGlyph color="#FFFFFF" />} onPress={withApple} />
             )}
             <Social id="google" label="Continue with Google" glyph={<GoogleGlyph />} onPress={withGoogle} />
-            <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
-            <FooterLink label="I already have an account" onPress={() => toEmail(false)} />
+            {signupsOpen === false ? (
+              <>
+                <Social id="email" label="Continue with email" glyph={null} onPress={() => toEmail(false)} />
+                <Text style={{ color: t.ink2, fontSize: 15, textAlign: 'center', fontFamily: T.brand, paddingVertical: 4 }}>Nura is invite only for now.</Text>
+              </>
+            ) : (
+              <>
+                <Social id="email" label="Sign up with email" glyph={null} onPress={() => toEmail(true)} />
+                <FooterLink label="I already have an account" onPress={() => toEmail(false)} />
+              </>
+            )}
           </>
         ) : (
           <>
             <Primary tone="ra" onPress={submit}
               label={busy === 'password' ? (creating ? 'Creating…' : 'Signing in…') : (creating ? 'Create profile' : 'Sign in')} />
-            <FooterLink label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(true); setMode('choose'); }} />
+            <FooterLink label={Platform.OS === 'ios' ? 'Use Apple or Google instead' : 'Use Google instead'} onPress={() => { setCreating(signupsOpen !== false); setMode('choose'); }} />
           </>
         )}>
         {mode === 'choose' ? (

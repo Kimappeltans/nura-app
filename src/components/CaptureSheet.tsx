@@ -47,7 +47,7 @@ const WHEN = [
 const HOW_LONG = [5, 15, 30, 60];
 
 /** What Nu makes of the lines, given what the one line was understood as. */
-function readOf(lines: string[], u: Understood | null) {
+export function readOf(lines: string[], u: Understood | null) {
   if (!lines.length) return null;
   if (lines.length > 1) return { kind: 'many' as const, drafts: lines.map(parseTask) };
   // one run-on sentence that was really several things

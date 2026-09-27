@@ -8,6 +8,10 @@ import { create } from 'zustand';
 import { useStore, useTheme } from '../store';
 import { pickForToday, updateTask, capture, type Task } from '../db';
 import { parseTask } from '../assistant';
+import { router } from 'expo-router';
+import { understandLocal } from '../understand';
+import { getLanguage } from '../planner';
+import { readOf } from '../components/CaptureSheet';
 import { type as T, type Theme } from '../theme';
 import { poseImage } from '../ui';
 import { Image } from 'react-native';
@@ -179,8 +183,8 @@ export function usePageKeys(fn: (e: KeyboardEvent) => void, on = true) {
 
 /**
  * The room's header: its name, what belongs beside it (the date, search, the
- * calendar's arrows), and Tell Nu on the right. Enter opens Tell Nu with the
- * words, so Nu reads them the same way as everywhere else; ⌘K comes here.
+ * calendar's arrows), and Tell Nu on the right. Enter puts it down right there
+ * (a goal goes to the planner); ⌘K comes here.
  */
 export function DeskHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   const t = useTheme();
@@ -193,7 +197,14 @@ export function DeskHeader({ title, children }: { title: string; children?: Reac
   );
 }
 
-/** `stacked`: at the top of a column (Home), not the end of a header row. */
+/**
+ * Tell Nu on the desk. Enter puts it down where you are: Nu reads it the way
+ * the Tell Nu sheet does (the phone's own read, instant), a goal goes straight
+ * to the planner, and the field stays ready for the next one. Nu, on the
+ * left, opens the whole sheet (When, How long, voice) with what's typed.
+ * `stacked`: the full-width bar across the top of Home, not the end of a
+ * header row.
+ */
 export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
   const t = useTheme();
   const k = deskTokens(t);
@@ -213,28 +224,53 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const send = () => {
+  const sheet = () => {
     const v = text.trim();
-    if (!v) return useStore.setState({ telling: true });
     setText('');
-    input.current?.blur();
-    useStore.setState({ telling: true, tellDraft: v });
+    useStore.setState({ telling: true, tellDraft: v || null });
+  };
+  const send = async () => {
+    const v = text.trim();
+    if (!v) return sheet();
+    const u = understandLocal(v, await getLanguage().catch(() => 'en'));
+    const read = readOf([v], u);
+    if (!read) return;
+    setText('');
+    if (read.kind === 'project') {
+      input.current?.blur();
+      router.push({ pathname: '/project/new', params: { goal: u?.text || v, auto: '1' } });
+      return;
+    }
+    const drafts = read.kind === 'many' ? read.drafts : [read.draft];
+    for (const d of drafts) {
+      await capture(d.title, {
+        activity: d.activity, label: d.label, est_minutes: d.est_minutes, due_at: d.due_at, has_time: d.has_time,
+        repeat_rule: d.repeat_rule, repeat_days: d.repeat_days, priority: d.priority,
+      });
+    }
+    await useStore.getState().refresh();
+    useStore.getState().showToast(drafts.length > 1 ? `${drafts.length} things put down` : `Put down: ${drafts[0].title}`);
+    // ready for the next one
+    input.current?.focus();
   };
   const mac = Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
   return (
     <Pressable onPress={() => input.current?.focus()} accessible={false}
       style={{
-        ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 460, minWidth: 120 }), height: 52, borderRadius: 15,
-        flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 10, paddingRight: 8,
+        ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 520, minWidth: 160 }), height: stacked ? 64 : 56, borderRadius: stacked ? 18 : 16,
+        flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 12, paddingRight: 10,
         backgroundColor: k.field, borderWidth: 1, borderColor: focus ? t.ra : t.strokeStrong,
         ...(k.shadow ?? {}), cursor: 'text',
       } as unknown as ViewStyle}>
-      <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 32, height: 32 }} />
+      <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
+        <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
+      </Pressable>
       <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
+        {...({ dataSet: { ownFocus: '1' } } as object)}
         onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
         placeholder="Tell Nu anything…" placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
         onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') { setText(''); input.current?.blur(); } }}
-        style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: 16.5, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
+        style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: stacked ? 19 : 17, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
       <View {...decorative} style={{ borderWidth: 1, borderColor: t.strokeStrong, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
         <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>{mac ? '⌘K' : 'Ctrl K'}</Text>
       </View>

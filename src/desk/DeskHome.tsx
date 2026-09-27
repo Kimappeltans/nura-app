@@ -107,6 +107,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
       <Mica sunProgress={sunUp} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View style={{ height: Math.max(640, winH), width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: 40, paddingVertical: PAD, gap: 20 }}>
+            {/* Tell Nu, across the top: the first place to put something down */}
+            <TellNuField stacked />
             <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: 20 }}>
               {/* the day, at full size */}
               <DeskCard style={{ flex: 7, minWidth: 0, paddingTop: 26, paddingHorizontal: 38, paddingBottom: 20, overflow: 'hidden' }}>
@@ -137,7 +139,6 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               </DeskCard>
 
               <View style={{ flex: 5, minWidth: 0, gap: 16 }}>
-                <TellNuField stacked />
                 {/* a short window, or a long day: Today scrolls on its own; Begin and the week stay in view */}
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: 16 }} showsVerticalScrollIndicator={false}>
                 {/* today, or tomorrow once the day is over */}

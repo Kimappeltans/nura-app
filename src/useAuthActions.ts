@@ -45,6 +45,30 @@ export async function keepNameFrom(meta: Record<string, unknown> | undefined) {
 /** Where a link from an email or Google lands: this page on the web, the app's scheme on the phone. */
 const backTo = (path: string) => (Platform.OS === 'web' ? `${window.location.origin}${path}` : Linking.createURL(path));
 
+/**
+ * Whether Supabase takes new accounts (Authentication, Sign In / Providers,
+ * "Allow new users to sign up"). Until launch Nura is invite only: accounts
+ * are made in the dashboard, and the screens offer signing in, never a form
+ * that can't work. Null until known; asked once, and again after a failure.
+ */
+let signupsKnown: Promise<boolean> | null = null;
+export function useSignupsOpen(): boolean | null {
+  const [open, setOpen] = useState<boolean | null>(null);
+  useEffect(() => {
+    signupsKnown ??= fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '' },
+    })
+      .then(r => r.json())
+      .then(s => !s?.disable_signup)
+      // offline: let the form show; Supabase still says no if it's closed
+      .catch(() => { signupsKnown = null; return true; });
+    let alive = true;
+    signupsKnown.then(v => { if (alive) setOpen(v); });
+    return () => { alive = false; };
+  }, []);
+  return open;
+}
+
 const OFFLINE = 'Can’t reach Nura. Check your connection.';
 
 /** What went wrong, in plain words, for anything Supabase (or the network)

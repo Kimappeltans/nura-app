@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Image, Text, Animated, Easing } from 'react-native';
+import { View, Image, Text, Animated, Easing, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
 import { type as T } from '../theme';
@@ -17,9 +17,9 @@ const mark = require('../../assets/brand/nura-logo-tight.webp');
  * three competing focal points and a spinner, in a screen that is on for under
  * a second. That reads as a broken page, not a fast one. One mark, breathing.
  * Nothing else — except `note`, for the one wait that isn't a beat long: on
- * web, Nura open in another tab.
+ * web, Nura open in another tab (with `action`: Use it here).
  */
-export default function Loading({ note }: { note?: string }) {
+export default function Loading({ note, action }: { note?: string; action?: { label: string; onPress: () => void } }) {
   const t = useTheme();
   const fade = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
@@ -53,6 +53,16 @@ export default function Loading({ note }: { note?: string }) {
           <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 22, fontFamily: T.displayLight, textAlign: 'center', marginTop: 28, paddingHorizontal: 40 }}>
             {note}
           </Text>
+        ) : null}
+        {/* the one way on from a wait, when there is one (Use it here) */}
+        {action ? (
+          <Pressable onPress={action.onPress} accessibilityRole="button"
+            style={({ pressed }) => ({
+              marginTop: 22, height: 48, paddingHorizontal: 28, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1, borderColor: t.stroke, backgroundColor: pressed ? t.subtle : t.card,
+            })}>
+            <Text style={{ color: t.ink, fontSize: 15, fontFamily: T.display }}>{action.label}</Text>
+          </Pressable>
         ) : null}
       </View>
     </SafeAreaView>

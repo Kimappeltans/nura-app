@@ -95,15 +95,30 @@ function setElsewhere(v: boolean) {
   _elsewhereListeners.forEach(fn => fn(v));
 }
 
+// "Use it here": the waiting tab asks the one holding the database to step
+// aside. That tab reloads, which lets go of the lock (and the file), so the
+// asker, first in the queue, takes it; the reloaded tab then waits in turn,
+// with its own Use it here.
+const tabs = Platform.OS === 'web' && typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('nura.tabs') : null;
+let holding = false;
+tabs?.addEventListener('message', e => {
+  if ((e as MessageEvent).data === 'take-over' && holding) window.location.reload();
+});
+
+/** Web: take Nura over from the other tab that has it open. */
+export function takeOverTab() {
+  tabs?.postMessage('take-over');
+}
+
 function claimTab(): Promise<void> {
   const locks = Platform.OS === 'web' ? (globalThis.navigator as any)?.locks : undefined;
   if (!locks) return Promise.resolve();
   const hold = () => new Promise<void>(() => {}); // released only when the tab goes
   return new Promise(resolve => {
     locks.request('nura.db', { ifAvailable: true }, (lock: unknown) => {
-      if (lock) { resolve(); return hold(); }
+      if (lock) { holding = true; resolve(); return hold(); }
       setElsewhere(true);
-      locks.request('nura.db', () => { setElsewhere(false); resolve(); return hold(); });
+      locks.request('nura.db', () => { holding = true; setElsewhere(false); resolve(); return hold(); });
       return undefined;
     });
   });
