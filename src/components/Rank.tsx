@@ -74,11 +74,8 @@ export function SceneGallery({ unlocked }: { unlocked: Set<string> }) {
             <View style={[{
               borderRadius: radius.lg, overflow: 'hidden',
               borderWidth: 1, borderColor: got ? `${c}44` : t.stroke,
-            }, got ? elevation.e4 : elevation.e0]}>
-              <LinearGradient
-                colors={got ? [`${c}30`, `${c}10`] : [t.surface[0], t.surface[1]]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 8 }}>
+            }]}>
+              <View style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 8, backgroundColor: got ? `${c}22` : t.card }}>
                 <Image
                   source={SCENES[a.id as ActivityId]}
                   style={{ width: 74, height: 58, opacity: got ? 1 : 0.16, tintColor: got ? undefined : t.ink3 }}
@@ -88,9 +85,9 @@ export function SceneGallery({ unlocked }: { unlocked: Set<string> }) {
                   color: got ? c : t.ink3, fontSize: 11.5, marginTop: 2,
                   fontFamily: got ? T.brand : undefined,
                 }}>
-                  {got ? a.name : '—'}
+                  {got ? a.name : 'Not yet'}
                 </Text>
-              </LinearGradient>
+              </View>
             </View>
           </Pressable>
         );

@@ -1,3 +1,5 @@
+import { inWorld } from '../src/world';
+import { goBack } from '../src/nav';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Image,
@@ -6,7 +8,6 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useStore } from '../src/store';
 import { capture, todayList, inbox as inboxQuery } from '../src/db';
 import { route, describe, type Draft } from '../src/assistant';
@@ -15,6 +16,7 @@ import { rankFor } from '../src/reward';
 import { radius, elevation, type as T } from '../src/theme';
 import { Mica, Surface, Character, IconChevron, IconSearch } from '../src/ui';
 import { LabelGlyph, LabelTile } from '../src/components/LabelIcon';
+import { readable } from '../src/components/Desk';
 
 interface Msg {
   id: string;
@@ -49,7 +51,7 @@ const EXAMPLES = [
  * exactly what it understood, and you press Add. An assistant that silently
  * creates the wrong recurring event is worse than no assistant at all.
  */
-export default function Chat() {
+function Chat() {
   const t = useTheme();
   const { refresh, now, light, today, inbox } = useStore();
   const scroller = useRef<ScrollView>(null);
@@ -57,7 +59,7 @@ export default function Chat() {
   const [msgs, setMsgs] = useState<Msg[]>([{
     id: 'hello',
     from: 'nura',
-    text: 'Tell me what needs doing, the way you’d say it out loud. I’ll work out the date, the repeat and how long — and show you before anything is saved.',
+    text: 'Tell me what needs doing, the way you’d say it out loud. I’ll work out the date, the repeat and how long, and show you before anything is saved.',
   }]);
 
   // Proof it's held, not lost — the last few things caught without a date
@@ -89,7 +91,7 @@ export default function Chat() {
       return push({
         from: 'nura',
         text: now
-          ? `${now.title}. That’s the one I’d hand you — tap Focus on the home screen and it’s already loaded.`
+          ? `${now.title}. That’s the one I’d hand you. Tap Focus on the home screen and it’s already loaded.`
           : 'Nothing waiting. That’s allowed.',
       });
     }
@@ -106,7 +108,7 @@ export default function Chat() {
       const rank = rankFor(light);
       return push({
         from: 'nura',
-        text: `${light} light, ${rank.name}. ${today} of that today. It only goes up — there’s no streak to break.`,
+        text: `${light} light, ${rank.name}. ${today} of that today. It only goes up. There’s no streak to break.`,
       });
     }
     if (intent.kind === 'count') {
@@ -153,9 +155,9 @@ export default function Chat() {
     return (
       <View style={[{
         borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
-        borderWidth: 1, borderColor: `${c}44`,
-      }, elevation.e4]}>
-        <LinearGradient colors={[`${c}2E`, `${c}10`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        borderWidth: 1, borderColor: `${c}44`, backgroundColor: `${c}1C`,
+      }]}>
+        <View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1, padding: 14, paddingRight: 4 }}>
               <Text style={{ color: t.ink, fontSize: 17, fontFamily: T.display, lineHeight: 23 }}>
@@ -190,6 +192,12 @@ export default function Chat() {
             )}
           </View>
 
+          {!m.added && (
+            <Pressable onPress={() => { goBack(); router.push({ pathname: '/project/new', params: { goal: d.title } }); }}
+              hitSlop={6} style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+              <Text style={{ color: t.ink3, fontSize: 13 }}>Bigger than one task? <Text style={{ color: t.nu, fontFamily: T.brand }}>Plan it with Nu ›</Text></Text>
+            </Pressable>
+          )}
           <View style={{ flexDirection: 'row', gap: 8, padding: 12, paddingTop: 0 }}>
             {m.added ? (
               <Text style={{ color: c, fontSize: 14, fontFamily: T.brand, paddingVertical: 8 }}>
@@ -206,7 +214,7 @@ export default function Chat() {
                 <Pressable onPress={() => {
                   // the whole parsed draft goes across — Edit used to open an
                   // empty form, so everything the parser understood was lost
-                  router.back();
+                  goBack();
                   router.push({ pathname: '/compose', params: {
                     title: d.title,
                     ...(d.est_minutes ? { minutes: String(d.est_minutes) } : {}),
@@ -226,7 +234,7 @@ export default function Chat() {
               </>
             )}
           </View>
-        </LinearGradient>
+        </View>
       </View>
     );
   };
@@ -243,31 +251,46 @@ export default function Chat() {
       <View style={[{
         borderRadius: radius.lg, overflow: 'hidden', maxWidth: '92%',
         borderWidth: 1, borderColor: `${t.ra}44`,
-      }, elevation.e4]}>
+      }]}>
         <View style={{ backgroundColor: t.raWash, padding: 14, gap: 10 }}>
           <Text style={{ color: t.raDeep, fontSize: 11, letterSpacing: 1.8, fontFamily: T.brand }}>
             TOO BIG TO START
           </Text>
           <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>
-            That could mean anything, so it'll sit. Want the first ten minutes of it instead?
+            That could mean anything, so it'll sit. Nu can help find the first move, or take the first ten minutes of it.
           </Text>
           {m.added ? (
             <Text style={{ color: t.ra, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>
           ) : (
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
-                router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
-              }}
-              style={{
-                alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
-                backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
-              }}>
-              <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>
-                Open it and write one line · 10 min
-              </Text>
-            </Pressable>
+            <>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
+                  goBack();
+                  router.push({ pathname: '/project/new', params: { goal: d.title } });
+                }}
+                style={{
+                  alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
+                  backgroundColor: t.ra,
+                }}>
+                <Text style={{ color: t.onRa, fontSize: 14, fontFamily: T.brand }}>Find the first move with Nu</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, added: true } : x));
+                  router.push({ pathname: '/compose', params: { title: d.title, minutes: '10' } });
+                }}
+                style={{
+                  alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: radius.pill,
+                  backgroundColor: `${t.ra}3D`, borderWidth: 1, borderColor: `${t.ra}66`,
+                }}>
+                <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>
+                  Open it and write one line · 10 min
+                </Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>
@@ -280,7 +303,7 @@ export default function Chat() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 8 }}>
+          <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8 }}>
             <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
@@ -375,3 +398,5 @@ export default function Chat() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('nu', readable(Chat));

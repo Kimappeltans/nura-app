@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, Image, Modal, Animated, Easing,
   LayoutAnimation, Platform, UIManager,
@@ -10,9 +10,10 @@ import Svg, {
   Path, Circle as SvgCircle, Rect, Defs, LinearGradient as SvgGradient,
   RadialGradient, Stop, Text as SvgText, Line,
 } from 'react-native-svg';
-import { radius, elevation, iconStroke, type as T } from './theme';
+import { radius, elevation, iconStroke, type as T, doneGround, doneStops } from './theme';
 import { useStore, useTheme } from './store';
 import { sunHeight, skyLabel } from './reward';
+import { MicaHosted } from './screen';
 
 /* ------------------------------------------------------------------ *
  *  Icons — line-drawn, rounded caps, one stroke weight everywhere.
@@ -98,6 +99,277 @@ export function IconChevron({ size = 28, color }: IconProps) {
   );
 }
 
+export function IconPencil({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 20h4L18.6 9.4a2.8 2.8 0 00-4-4L4 16z" />
+      <Path d="M13.2 6.8l4 4" />
+    </Svg>
+  );
+}
+
+export function IconPhoto({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <SvgCircle cx="9" cy="9.5" r="1.6" />
+      <Path d="M4 17.5l5-5 4 4 2.5-2.5 5 5" />
+    </Svg>
+  );
+}
+
+/** Wins: a small sun, the light you've earned. */
+export function IconSun({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <SvgCircle cx="12" cy="12" r="4" />
+      <Path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" />
+    </Svg>
+  );
+}
+
+/** Connected apps: two links. */
+export function IconLink({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1" />
+      <Path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />
+    </Svg>
+  );
+}
+
+/** Settings: a gear. */
+export function IconGear({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <SvgCircle cx="12" cy="12" r="3" />
+      <Path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+    </Svg>
+  );
+}
+
+/* Settings' icons: one per section and per row (app/settings.tsx). */
+
+/** The line every icon below is drawn with. */
+function Line24({ size, color, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </Svg>
+  );
+}
+
+/** The day starts: the sun half up, rising. */
+export function IconSunrise({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M2.5 18.5h19M6 18.5a6 6 0 0112 0" />
+      <Path d="M12 2.5v7M9 5.5l3-3 3 3" />
+      <Path d="M3.6 11.6l1.5 1.5M20.4 11.6l-1.5 1.5" />
+    </Line24>
+  );
+}
+
+/** The day ends: the sun half down, setting. */
+export function IconSunset({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M2.5 18.5h19M6 18.5a6 6 0 0112 0" />
+      <Path d="M12 2.5v7M9 6.5l3 3 3-3" />
+      <Path d="M3.6 11.6l1.5 1.5M20.4 11.6l-1.5 1.5" />
+    </Line24>
+  );
+}
+
+export function IconMoon({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M19.5 14.6A7.8 7.8 0 019.4 4.5a7.8 7.8 0 1010.1 10.1z" />
+    </Line24>
+  );
+}
+
+/** Focus: a stopwatch. */
+export function IconTimer({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="13.5" r="7.5" />
+      <Path d="M12 13.5V10M9.5 2.5h5M12 2.5V6M18.3 7.2l1.2-1.2" />
+    </Line24>
+  );
+}
+
+/** A break: a cup. */
+export function IconCup({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4.5 9.5h11v4.5a5 5 0 01-5 5h-1a5 5 0 01-5-5z" />
+      <Path d="M15.5 10.5h1.8a2.3 2.3 0 010 4.6h-1.9" />
+      <Path d="M8 3.5v2.5M12 3.5v2.5" />
+    </Line24>
+  );
+}
+
+/** The screen stays on: a phone, lit at its sides. */
+export function IconPhone({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Rect x="7" y="3" width="10" height="18" rx="2.5" />
+      <Path d="M10.5 18h3M3.8 9.5v5M20.2 9.5v5" />
+    </Line24>
+  );
+}
+
+/** Tasks: a list with two ticks. */
+export function IconTasks({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M3.5 7.2l1.8 1.8 3.2-3.3M3.5 15.2l1.8 1.8 3.2-3.3" />
+      <Path d="M12 7.5h8.5M12 15.5h8.5" />
+    </Line24>
+  );
+}
+
+/** The backlog: a tray. */
+export function IconTray({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M3.5 13.5l2.6-7.2A2 2 0 018 5h8a2 2 0 011.9 1.3l2.6 7.2" />
+      <Path d="M3.5 13.5V17a2 2 0 002 2h13a2 2 0 002-2v-3.5h-5l-1.5 2.5h-4l-1.5-2.5z" />
+    </Line24>
+  );
+}
+
+/** A habit: round and round. */
+export function IconRepeat({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M17 3l3 3-3 3" />
+      <Path d="M4 11.5v-.5a5 5 0 015-5h11" />
+      <Path d="M7 21l-3-3 3-3" />
+      <Path d="M20 12.5v.5a5 5 0 01-5 5H4" />
+    </Line24>
+  );
+}
+
+/** Which calendars: three sheets, stacked. */
+export function IconLayers({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 3.5l8.5 4.3L12 12 3.5 7.8z" />
+      <Path d="M3.5 12L12 16.3 20.5 12M3.5 16.2L12 20.5l8.5-4.3" />
+    </Line24>
+  );
+}
+
+/** A focus session, added to the calendar. */
+export function IconCalendarPlus({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+      <Path d="M4 9h16M9 3v4M15 3v4M12 12.5v5M9.5 15h5" />
+    </Line24>
+  );
+}
+
+/** Appearance: half light, half dark. */
+export function IconContrast({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M12 3.5a8.5 8.5 0 010 17z" fill={color} />
+    </Line24>
+  );
+}
+
+/** Language. */
+export function IconGlobe({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5z" />
+    </Line24>
+  );
+}
+
+/** A voice: a speaker and its sound. */
+export function IconSpeaker({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+      <Path d="M15.5 9.2a4 4 0 010 5.6M18.2 6.6a7.6 7.6 0 010 10.8" />
+    </Line24>
+  );
+}
+
+/** A reply: a speech bubble. */
+export function IconBubble({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M20 11.5a7.5 7.5 0 01-11.1 6.6L4 19.5l1.4-4.4A7.5 7.5 0 1120 11.5z" />
+    </Line24>
+  );
+}
+
+/** Your data: kept safe. */
+export function IconShield({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 3l7.5 3v5.5c0 4.4-3.1 7.9-7.5 9.5-4.4-1.6-7.5-5.1-7.5-9.5V6z" />
+    </Line24>
+  );
+}
+
+/** Out of the app, as a file: a box and an arrow. */
+export function IconExport({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 14.5v-11M8 7.5l4-4 4 4" />
+      <Path d="M5 12v6.5a2 2 0 002 2h10a2 2 0 002-2V12" />
+    </Line24>
+  );
+}
+
+export function IconHelp({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M9.6 9.4a2.5 2.5 0 014.9.8c0 1.7-2.5 2.2-2.5 3.8M12 17.2v.1" />
+    </Line24>
+  );
+}
+
+/** The opening, played again. */
+export function IconPlay({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M10.2 8.8v6.4l5-3.2z" />
+    </Line24>
+  );
+}
+
+/** From the beginning: once round, backwards. */
+export function IconRestart({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4.5 12a7.5 7.5 0 102.2-5.3L4.5 9" />
+      <Path d="M4.5 4.5V9H9" />
+    </Line24>
+  );
+}
+
+/** Settings: two sliders. */
+export function IconSliders({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 8h9M18 8h2M4 16h3M12 16h8" />
+      <SvgCircle cx="15.5" cy="8" r="2.5" />
+      <SvgCircle cx="9.5" cy="16" r="2.5" />
+    </Svg>
+  );
+}
+
 /**
  * The background. Reads the MODE's atmosphere, so it is deep navy in Nu and
  * cream in Ra — the temperature change that makes switching modes feel like
@@ -115,6 +387,9 @@ export function Mica(
   { force, sunProgress }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
 ) {
   const t = useTheme(force);
+  // in a readable column on the desktop, the page around it draws the glow,
+  // across the whole window (src/components/Desk.tsx)
+  const hosted = useContext(MicaHosted);
   // The coral glow literally rises and brightens as the day's completions add
   // up — Home's "the sun comes up as you do things" mechanic. 0 when nothing
   // has been finished yet (glow sits low, at its normal resting strength); 1
@@ -124,9 +399,10 @@ export function Mica(
   const raCy = 86 - s * 32;       // 86% (low, resting) -> 54% (risen)
   const raOpacity = t.glowRa + s * 0.20;
 
+  if (hosted) return null;
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
-      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} locations={[0, 0.55, 1]}
+      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: t.atmosphereVertical ? 0 : 1, y: 1 }} locations={[0, 0.55, 1]}
         style={{ position: 'absolute', inset: 0 }} />
       {/* Two ambient glows — indigo high-left, coral low-right — bled into the
           ground the way Fluent's Mica does. A flat fill behind rounded cards
@@ -171,16 +447,18 @@ export function Surface(
       borderRadius: radius.lg, overflow: 'hidden',
       borderWidth: 1, borderColor: t.stroke,
     }, raised ? elevation.e8 : elevation.e2, style]}>
-      <LinearGradient
+      <LinearGradient pointerEvents="none"
         colors={t.surface} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }}
         style={{ position: 'absolute', inset: 0 }}
       />
       {/* a 2px gradient rule along the top edge, where an accent is wanted */}
       {!!a && (
-        <LinearGradient colors={a} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+        <LinearGradient pointerEvents="none" colors={a} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }} />
       )}
-      {children}
+      {/* above the wash: on the web a text field isn't positioned, so an
+          absolute wash would sit on top of it and take its taps */}
+      <View style={{ position: 'relative' }}>{children}</View>
     </View>
   );
 }
@@ -207,16 +485,47 @@ export function Surface(
 
 const POSES = {
   // resting: calm, arms down
-  'nu-idle': require('../assets/characters/nu-idle-frames/frame-01.png'),
+  'nu-idle': require('../assets/characters/nu-idle-frames/frame-01.webp'),
   // hand at the chin, eyes up — the clearest "taking that from you"
-  'nu-thinking': require('../assets/characters/nu-thinking-frames/frame-02.png'),
+  'nu-thinking': require('../assets/characters/nu-thinking-frames/frame-02.webp'),
   // arm raised mid-wave, open smile
-  'ra-wave': require('../assets/characters/ra-wave-frames/frame-02.png'),
+  'ra-wave': require('../assets/characters/ra-wave-frames/frame-02.webp'),
   // both arms up, eyes shut, rays out
-  'ra-celebrate': require('../assets/characters/ra-celebrate-frames/frame-03.png'),
+  'ra-celebrate': require('../assets/characters/ra-celebrate-frames/frame-03.webp'),
+  // the story poses (assets/story, cut from the Midjourney sources in
+  // /nu-characters): Nu coming up out of the water, waving, asking,
+  // listening; Ra as the rising sun, waving, resting
+  'nu-surface': require('../assets/story/nu-surface.webp'),
+  'nu-hello': require('../assets/story/nu-hello.webp'),
+  'nu-ask': require('../assets/story/nu-ask.webp'),
+  'nu-listen': require('../assets/story/nu-listen.webp'),
+  'ra-sun': require('../assets/story/ra-sun.webp'),
+  'ra-hello': require('../assets/story/ra-hello.webp'),
+  'ra-rest': require('../assets/story/ra-rest.webp'),
+  // lying down, eyes closed — Night, once the day is done
+  'nu-rest': require('../assets/story/nu-rest.webp'),
+  // hugging a small stack of cards, eyes closed — Home, holding your day
+  'nu-hold': require('../assets/story/nu-hold.webp'),
+  // the waving Ra from the redesign — compact, no rays, so it sits in a small round button
+  'ra-icon': require('../assets/story/ra-icon.webp'),
 } as const;
 
+/** The image behind a pose, for screens that place and move it themselves. */
+export const poseImage = (name: keyof typeof POSES) => POSES[name];
+
 export type CharacterName = keyof typeof POSES;
+
+/**
+ * One of several poses, steady for the same thing (a task's id, a day) and
+ * different across things — so Nu and Ra aren't the same drawing every time
+ * you look, without changing pose between renders.
+ */
+export function vary<T>(options: readonly T[], seed?: string | number | null): T {
+  const str = String(seed ?? new Date().toDateString());
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return options[Math.abs(h) % options.length];
+}
 export type Motion = 'greet' | 'bob' | 'celebrate' | 'none';
 
 export function Character(
@@ -412,9 +721,7 @@ export function Bar(
         height: '100%', borderRadius: height / 2,
         width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
       }}>
-        <LinearGradient colors={color ? [color, color] : grad}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={{ flex: 1, borderRadius: height / 2 }} />
+        <View style={{ flex: 1, borderRadius: height / 2, backgroundColor: color ?? grad[0] }} />
       </Animated.View>
     </View>
   );
@@ -543,7 +850,7 @@ export function SunArc({
           {/* Track arc */}
           <Path
             d={`M ${cx - arcR} ${cy} A ${arcR} ${arcR} 0 0 1 ${cx + arcR} ${cy}`}
-            stroke={t.track} strokeWidth={4} fill="none" strokeLinecap="round"
+            stroke={t.strokeStrong} strokeWidth={4} fill="none" strokeLinecap="round"
           />
 
           {/* Progress arc */}
@@ -635,30 +942,25 @@ export function Celebrate() {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismiss}>
       <Pressable onPress={dismiss} style={{ flex: 1 }}>
-        <LinearGradient
-          colors={rankUp
-            ? ['#FFD060', '#FF8A5C', '#C2410C']
-            : golden
-              ? ['#FFB020', '#FF6B35', '#C2410C']
-              : ['#FF8A4C', '#FF6B35', '#E14B12']}
-          start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6 }}>
+        {/* Done's light ground, so this reads as the start of the same moment */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 6, backgroundColor: doneGround[1] }}>
+          <LinearGradient colors={doneGround} locations={doneStops} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <Animated.View style={{
             alignItems: 'center', gap: 4,
             transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
             opacity: pop,
           }}>
             <Character name="ra-celebrate" size={190} motion="celebrate" />
-            <Text style={{ color: '#FFF7EC', fontSize: 66, fontFamily: T.display, letterSpacing: -2 }}>
+            <Text style={{ color: '#3B1204', fontSize: 66, fontFamily: T.display, letterSpacing: -2 }}>
               +{displayNum}
             </Text>
-            <Text style={{ color: '#FFE3CE', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
+            <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 11.5, letterSpacing: 3, fontFamily: T.brand }}>LIGHT</Text>
             {!!c.award.bonus.label && (
               <View style={{
                 marginTop: 10, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill,
-                backgroundColor: 'rgba(59,18,4,0.22)',
+                backgroundColor: 'rgba(59,18,4,0.07)',
               }}>
-                <Text style={{ color: '#FFF7EC', fontSize: 13, fontFamily: T.brand, letterSpacing: golden ? 1.5 : 0.2 }}>
+                <Text style={{ color: '#3B1204', fontSize: 13, fontFamily: T.brand, letterSpacing: golden ? 1.5 : 0.2 }}>
                   {golden ? '★ ' : '+'}{golden ? c.award.bonus.label : `${c.award.bonus.n} ${c.award.bonus.label}`}
                 </Text>
               </View>
@@ -669,26 +971,26 @@ export function Celebrate() {
               <View style={{
                 marginTop: 20, alignItems: 'center', gap: 5,
                 paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.xl,
-                backgroundColor: 'rgba(59,18,4,0.26)',
+                backgroundColor: 'rgba(59,18,4,0.06)',
               }}>
-                <Text style={{ color: '#FFE3CE', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
+                <Text style={{ color: 'rgba(59,18,4,0.55)', fontSize: 10.5, letterSpacing: 3, fontFamily: T.brand }}>
                   RANK UP
                 </Text>
-                <Text style={{ color: '#FFF7EC', fontSize: 32, fontFamily: T.display, letterSpacing: -0.8 }}>
+                <Text style={{ color: '#3B1204', fontSize: 32, fontFamily: T.display, letterSpacing: -0.8 }}>
                   {rankUp.name}
                 </Text>
-                <Text style={{ color: '#FFE3CE', fontSize: 14.5, textAlign: 'center', maxWidth: 260, lineHeight: 21 }}>
+                <Text style={{ color: 'rgba(59,18,4,0.7)', fontSize: 14.5, textAlign: 'center', maxWidth: 260, lineHeight: 21, fontFamily: T.brand }}>
                   {rankUp.blurb}
                 </Text>
               </View>
             ) : (
               <Text style={{
-                color: '#FFF1E2', fontSize: 16.5, textAlign: 'center', marginTop: 16,
+                color: 'rgba(59,18,4,0.7)', fontSize: 16.5, textAlign: 'center', marginTop: 16,
                 maxWidth: 300, lineHeight: 24, fontFamily: T.brand,
               }}>{c.line}</Text>
             )}
           </Animated.View>
-        </LinearGradient>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -763,7 +1065,7 @@ export function IconBadge(
   const shared: ViewStyle = { width: size, height: size, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' };
   if (tone === 'gradient') {
     return (
-      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={shared}>{icon}</LinearGradient>
+      <View style={[shared, { backgroundColor: colors[0] }]}>{icon}</View>
     );
   }
   return <View style={[shared, { backgroundColor: tone === 'wash' ? wash : t.brandSolid }]}>{icon}</View>;
@@ -811,8 +1113,7 @@ export function WeekBars({ data, height = 84, accent = 'ra' }: { data: { label: 
             borderRadius: radius.sm, overflow: 'hidden', backgroundColor: t.track,
           }}>
             {d.value > 0 && (
-              <LinearGradient colors={colors}
-                style={{ width: '100%', height: Math.max(8, (d.value / max) * barArea) }} />
+              <View style={{ width: '100%', height: Math.max(8, (d.value / max) * barArea), backgroundColor: colors[0] }} />
             )}
           </View>
           <Text style={{ color: t.ink3, fontSize: 10.5 }}>{d.label}</Text>
@@ -876,45 +1177,82 @@ export function Card({ children, style, raised }: { children: React.ReactNode; s
     <View style={[{
       backgroundColor: t.card, borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth, borderColor: t.stroke, padding: 18,
-    }, raised ? elevation.e4 : elevation.e2, style]}>{children}</View>
+    }, style]}>{children}</View>
   );
 }
 
+/**
+ * The one button geometry, in every world. Nu's rooms, Ra's focus, the
+ * utility screens and the sheets all use these two sizes; only the colour
+ * changes with the world (tone), never the shape, padding or type.
+ */
+export const BUTTON = {
+  // pills, like the sheet's Begin (guidelines/components/overview.md)
+  md: { height: 52, radius: 26, font: 15.5 },
+  sm: { height: 40, radius: 20, font: 14 },
+} as const;
+type ButtonSize = keyof typeof BUTTON;
+
 export function Primary(
-  { label, onPress, tone = 'nu', icon, sub }:
-  { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string },
+  { label, onPress, tone = 'nu', icon, sub, disabled, size = 'md', style }:
+  { label: string; onPress: () => void; tone?: Tone; icon?: React.ReactNode; sub?: string;
+    /** stays in place, dimmed, until there's something to continue with */
+    disabled?: boolean;
+    size?: ButtonSize;
+    /** for the button's place in a row: { flex: 1 }, { alignSelf: 'flex-start' } */
+    style?: ViewStyle },
 ) {
+  const t = useTheme();
   const { colors, onColor } = useTone(tone);
+  const b = BUTTON[size];
+  // disabled is flat and neutral: the gradient at low opacity read as a
+  // muddy brown on navy
+  // one flat colour (rule 1): the first stop of the tone, no gradient
+  const fill = disabled ? t.subtle : colors[0];
   return (
     <Pressable
+      disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }}
       onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
       style={({ pressed }) => ({
-        opacity: pressed ? 0.92 : 1, borderRadius: radius.lg, overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1, borderRadius: b.radius,
         transform: [{ scale: pressed ? 0.985 : 1 }],
-        ...(tone === 'ra' ? elevation.warm : elevation.e4),
+        ...style,
       })}>
-      <LinearGradient
-        colors={colors} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 1 }}
-        style={{ paddingVertical: 17, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: onColor, fontSize: 16.5, fontFamily: T.display }}>{label}</Text>
+      <View
+        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: fill,
+          // not yet: plainly unavailable, still readable (a hairline and the second ink, not a faded label)
+          borderWidth: disabled ? 1 : 0, borderColor: t.strokeStrong }}>
+        {/* one line, ending in … — a long task title in "Focus · …" ran
+            out past the button's edges */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: size === 'sm' ? 15 : 18 }}>
+          <Text numberOfLines={1} style={{ color: disabled ? t.ink2 : onColor, fontSize: b.font, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
           {icon}
         </View>
         {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }
 
-export function Ghost({ label, onPress }: { label: string; onPress: () => void }) {
+/**
+ * The quiet button — the same geometry as Primary, outlined. A row passes
+ * `style={{ flex: 1 }}` itself (flex inside stacked it to its padding on iOS);
+ * a square one (↻) passes a width.
+ */
+export function Ghost({ label, onPress, style, size = 'md', accessibilityLabel }: {
+  label: string; onPress: () => void; style?: ViewStyle; size?: ButtonSize; accessibilityLabel?: string;
+}) {
   const t = useTheme();
+  const b = BUTTON[size];
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({
-      flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: radius.md,
-      borderWidth: 1, borderColor: t.strokeStrong,
-      backgroundColor: pressed ? t.subtle : 'transparent',
-    })}>
-      <Text style={{ color: t.ink2, fontSize: 14.5, fontFamily: T.brand }}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => ({
+        minHeight: b.height, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center', justifyContent: 'center',
+        borderRadius: b.radius, borderWidth: 1, borderColor: t.strokeStrong,
+        backgroundColor: pressed ? t.subtle : 'transparent',
+        ...style,
+      })}>
+      <Text numberOfLines={2} style={{ color: t.ink, fontSize: b.font - 0.5, lineHeight: b.font + 4, fontFamily: T.brand, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }

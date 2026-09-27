@@ -56,7 +56,8 @@ export type EventKind =
   | 'skipped' | 'snoozed' | 'nudge_sent' | 'nudge_acted'
   | 'reward'
   // the measure events (SCOPE.md) — what the 14-day review reads
-  | 'shown' | 'swapped' | 'session_start' | 'session_end' | 'resumed' | 'acted';
+  | 'shown' | 'swapped' | 'session_start' | 'session_end' | 'resumed' | 'acted'
+  | 'onboarding';
 
 // Memoize the in-flight *promise*, not just the resolved db — refresh() fans
 // out ~9 concurrent calls that each call getDb(), and on web (OPFS access
@@ -67,8 +68,11 @@ let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (_dbPromise) return _dbPromise;
-  _dbPromise = openDb();
-  return _dbPromise;
+  const opening = openDb();
+  _dbPromise = opening;
+  // a failed open is not kept: the next call (Try again, app/_layout.tsx) opens afresh
+  opening.catch(() => { if (_dbPromise === opening) _dbPromise = null; });
+  return opening;
 }
 
 // Web only. The browser keeps nura.db in one OPFS file that only one tab can
@@ -176,6 +180,95 @@ async function openDb() {
       did_minimum INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Projects — a goal too big to be one task, and the path Nu keeps for it
+    -- (src/projects.ts). Deliberately NOT micro-steps under parent_id: that
+    -- stays one level deep. A project's steps live here; only the CURRENT
+    -- move is ever a task, linked by project_step.task_id, so Nu, Ra and the
+    -- timer treat it like any other task. Local only for now — not synced.
+    CREATE TABLE IF NOT EXISTS project (
+      id           TEXT PRIMARY KEY,
+      goal         TEXT NOT NULL,
+      title        TEXT NOT NULL,
+      done_means   TEXT,
+      assumptions  TEXT,
+      notes        TEXT,
+      state        TEXT NOT NULL DEFAULT 'active',
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS project_step (
+      id           TEXT PRIMARY KEY,
+      project_id   TEXT NOT NULL REFERENCES project(id),
+      position     INTEGER NOT NULL,
+      title        TEXT NOT NULL,
+      first_action TEXT,
+      why          TEXT,
+      est_minutes  INTEGER,
+      state        TEXT NOT NULL DEFAULT 'todo',
+      edited       INTEGER NOT NULL DEFAULT 0,
+      task_id      TEXT REFERENCES task(id),
+      created_at   INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    -- what happened to a project, append-only: the replanner reads the last
+    -- few of these instead of the whole conversation
+    CREATE TABLE IF NOT EXISTS project_event (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      step_id    TEXT,
+      kind       TEXT NOT NULL,
+      note       TEXT,
+      at         INTEGER NOT NULL
+    );
+    -- THE ADAPTIVE PLANNER (src/next.ts). What Nura learned about how you
+    -- work, one row per pattern ("estimate_ratio" for "writing" is 1.55,
+    -- from 14 tasks): derived from the event log, which stays on the device;
+    -- the patterns themselves sync, so the learning follows the account.
+    CREATE TABLE IF NOT EXISTS behavior_pattern (
+      id           TEXT PRIMARY KEY,
+      kind         TEXT NOT NULL,
+      scope        TEXT NOT NULL,
+      value        REAL NOT NULL,
+      confidence   REAL NOT NULL,
+      sample_count INTEGER NOT NULL,
+      updated_at   INTEGER NOT NULL
+    );
+    -- each decision the planner put in front of you, and what you did with
+    -- it: accepted, not_now, something_else, edited (ignored is read off an
+    -- old row with no response)
+    CREATE TABLE IF NOT EXISTS decision_feedback (
+      decision_id   TEXT PRIMARY KEY,
+      task_id       TEXT,
+      decision_type TEXT NOT NULL,
+      reason        TEXT,
+      score         REAL,
+      shown_at      INTEGER NOT NULL,
+      response      TEXT,
+      acted_at      INTEGER,
+      updated_at    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_decision_task ON decision_feedback(task_id);
+    -- the day, as the planner sees it: what you kept, what's flexible, what
+    -- you agreed to leave for later, against what you really finish
+    CREATE TABLE IF NOT EXISTS daily_plan (
+      day               TEXT PRIMARY KEY,
+      committed_ids     TEXT,
+      flexible_ids      TEXT,
+      deferred_ids      TEXT,
+      planned_minutes   INTEGER,
+      capacity_minutes  INTEGER,
+      actual_minutes    INTEGER,
+      reason            TEXT,
+      state             TEXT NOT NULL DEFAULT 'open',
+      recalculated_at   INTEGER NOT NULL,
+      updated_at        INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_step_project ON project_step(project_id);
+    CREATE INDEX IF NOT EXISTS idx_step_task    ON project_step(task_id);
+    CREATE INDEX IF NOT EXISTS idx_pevent_proj  ON project_event(project_id);
+
     CREATE INDEX IF NOT EXISTS idx_task_state   ON task(state);
     CREATE INDEX IF NOT EXISTS idx_task_due     ON task(due_at);
     CREATE INDEX IF NOT EXISTS idx_event_at     ON event(at);
@@ -201,11 +294,10 @@ async function addColumns(db: SQLite.SQLiteDatabase) {
   if (!have.has('priority'))      await db.execAsync(`ALTER TABLE task ADD COLUMN priority INTEGER DEFAULT 0`);
   if (!have.has('activity'))      await db.execAsync(`ALTER TABLE task ADD COLUMN activity TEXT`);
   if (!have.has('repeat_days'))   await db.execAsync(`ALTER TABLE task ADD COLUMN repeat_days TEXT`);
-  // Counts "not now"s on a task, and ONLY that — never shown as a number
-  // anywhere, never a factor in NOW's ordering, never a reason a task looks
-  // different in a list. Its one job is letting the app notice a task that
-  // keeps slipping and offer a check-in, once, the same courtesy as the
-  // skip.est/skip.first flags already get. See notNow() below.
+  // Counts "not now"s on a task — never shown as a number anywhere, never a
+  // reason a task looks different in a list. The planner (src/next.ts) lets
+  // it lower a task a little and offers to make it smaller; the slipping
+  // check-in reads it too. See notNow() below.
   if (!have.has('snooze_count'))  await db.execAsync(`ALTER TABLE task ADD COLUMN snooze_count INTEGER DEFAULT 0`);
   // Sync's watermark column (see src/sync.ts) — every mutator that writes to
   // task/habit/habit_log stamps this. Backfilled rather than left NULL:
@@ -222,6 +314,18 @@ async function addColumns(db: SQLite.SQLiteDatabase) {
     await db.execAsync(`ALTER TABLE habit ADD COLUMN updated_at INTEGER`);
     await db.execAsync(`UPDATE habit SET updated_at = created_at WHERE updated_at IS NULL`);
   }
+
+  // a project's path as a living plan (target architecture): what a step
+  // waits on, whether it's optional, why it's blocked, how long it really
+  // took, how sure Nu is of it, who made it, and why it last changed
+  const stepCols = new Set((await db.getAllAsync<{ name: string }>(`PRAGMA table_info(project_step)`)).map(c => c.name));
+  if (!stepCols.has('depends_on'))     await db.execAsync(`ALTER TABLE project_step ADD COLUMN depends_on TEXT`);
+  if (!stepCols.has('optional'))       await db.execAsync(`ALTER TABLE project_step ADD COLUMN optional INTEGER DEFAULT 0`);
+  if (!stepCols.has('blocked_reason')) await db.execAsync(`ALTER TABLE project_step ADD COLUMN blocked_reason TEXT`);
+  if (!stepCols.has('actual_minutes')) await db.execAsync(`ALTER TABLE project_step ADD COLUMN actual_minutes INTEGER`);
+  if (!stepCols.has('confidence'))     await db.execAsync(`ALTER TABLE project_step ADD COLUMN confidence REAL`);
+  if (!stepCols.has('origin'))         await db.execAsync(`ALTER TABLE project_step ADD COLUMN origin TEXT`);
+  if (!stepCols.has('change_reason'))  await db.execAsync(`ALTER TABLE project_step ADD COLUMN change_reason TEXT`);
 
   const logCols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(habit_log)`);
   const haveLog = new Set(logCols.map(c => c.name));
@@ -240,6 +344,136 @@ export async function logEvent(kind: EventKind, taskId?: string, meta?: unknown)
     'INSERT INTO event (task_id, kind, at, meta) VALUES (?, ?, ?, ?)',
     taskId ?? null, kind, Date.now(), meta ? JSON.stringify(meta) : null,
   );
+  // what you did with a decision the planner showed you: the same events,
+  // so no screen has to remember to report back
+  if (!taskId) return;
+  const m = meta as { dropped?: boolean } | undefined;
+  const response: DecisionResponse | null =
+    kind === 'session_start' || kind === 'completed' ? 'accepted'
+    : kind === 'skipped' && !m?.dropped ? 'not_now'
+    : kind === 'swapped' ? 'something_else'
+    : null;
+  if (response) await respondToDecision(taskId, response).catch(() => {});
+}
+
+/* ---------------- the planner's memory (src/next.ts) ---------------- */
+
+export interface PatternRow {
+  id: string;
+  kind: string;
+  scope: string;
+  value: number;
+  confidence: number;
+  sample_count: number;
+  updated_at: number;
+}
+
+export async function getPatterns(): Promise<PatternRow[]> {
+  const db = await getDb();
+  return db.getAllAsync<PatternRow>('SELECT * FROM behavior_pattern');
+}
+
+/** What the profile says now, one row per pattern; unchanged rows keep their stamp (so sync skips them). */
+export async function savePatterns(rows: Omit<PatternRow, 'id' | 'updated_at'>[], now = Date.now()) {
+  const db = await getDb();
+  const have = new Map((await getPatterns()).map(r => [r.id, r]));
+  for (const r of rows) {
+    const id = `${r.kind}:${r.scope}`;
+    const old = have.get(id);
+    if (old && old.value === r.value && old.confidence === r.confidence && old.sample_count === r.sample_count) continue;
+    await db.runAsync(
+      `INSERT INTO behavior_pattern (id, kind, scope, value, confidence, sample_count, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET value = excluded.value, confidence = excluded.confidence,
+         sample_count = excluded.sample_count, updated_at = excluded.updated_at`,
+      id, r.kind, r.scope, r.value, r.confidence, r.sample_count, now);
+  }
+}
+
+export type DecisionType = 'next_action' | 'option' | 'intervention';
+export type DecisionResponse = 'accepted' | 'ignored' | 'not_now' | 'something_else' | 'edited';
+
+/** A decision put in front of you. Once per task, type and day: seeing the same card again isn't news. */
+export async function recordDecision(d: { taskId: string; type: DecisionType; reason: string | null; score: number }, now = Date.now()) {
+  const db = await getDb();
+  const day = new Date(now); day.setHours(0, 0, 0, 0);
+  const seen = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM decision_feedback WHERE task_id = ? AND decision_type = ? AND shown_at >= ? AND response IS NULL',
+    d.taskId, d.type, day.getTime());
+  if (seen?.n) return;
+  await db.runAsync(
+    `INSERT INTO decision_feedback (decision_id, task_id, decision_type, reason, score, shown_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    uid(), d.taskId, d.type, d.reason, d.score, now, now);
+}
+
+/** What you did with the last open decision about a task (of one type, when given), within a day of it being shown. */
+export async function respondToDecision(taskId: string, response: DecisionResponse, now = Date.now(), type?: DecisionType) {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ decision_id: string }>(
+    `SELECT decision_id FROM decision_feedback WHERE task_id = ? AND response IS NULL AND shown_at >= ?
+       ${type ? 'AND decision_type = ?' : ''}
+     ORDER BY shown_at DESC LIMIT 1`, ...(type ? [taskId, now - 86_400_000, type] : [taskId, now - 86_400_000]));
+  if (!row) return;
+  await db.runAsync('UPDATE decision_feedback SET response = ?, acted_at = ?, updated_at = ? WHERE decision_id = ?',
+    response, now, now, row.decision_id);
+}
+
+export interface DayPlanRow {
+  day: string;
+  committed_ids: string | null;
+  flexible_ids: string | null;
+  deferred_ids: string | null;
+  planned_minutes: number | null;
+  capacity_minutes: number | null;
+  actual_minutes: number | null;
+  reason: string | null;
+  /** open: nothing asked · proposed · accepted · declined · undone */
+  state: 'open' | 'proposed' | 'accepted' | 'declined' | 'undone';
+  recalculated_at: number;
+  updated_at: number;
+}
+
+/** A calendar day as the day plan keys it: 2026-09-27, local. */
+export const planDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA');
+
+export async function getDayPlan(day = planDay()): Promise<DayPlanRow | null> {
+  const db = await getDb();
+  return db.getFirstAsync<DayPlanRow>('SELECT * FROM daily_plan WHERE day = ?', day);
+}
+
+export async function saveDayPlan(row: Omit<DayPlanRow, 'updated_at'>, now = Date.now()) {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO daily_plan (day, committed_ids, flexible_ids, deferred_ids, planned_minutes, capacity_minutes, actual_minutes, reason, state, recalculated_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(day) DO UPDATE SET committed_ids = excluded.committed_ids, flexible_ids = excluded.flexible_ids,
+       deferred_ids = excluded.deferred_ids, planned_minutes = excluded.planned_minutes, capacity_minutes = excluded.capacity_minutes,
+       actual_minutes = excluded.actual_minutes, reason = excluded.reason, state = excluded.state,
+       recalculated_at = excluded.recalculated_at, updated_at = excluded.updated_at`,
+    row.day, row.committed_ids, row.flexible_ids, row.deferred_ids, row.planned_minutes, row.capacity_minutes,
+    row.actual_minutes, row.reason, row.state, row.recalculated_at, now);
+}
+
+/** Minutes really done today: the timer's, plus 15 for each thing ticked off without it. */
+export async function minutesDoneToday(now = Date.now()): Promise<number> {
+  const db = await getDb();
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  const timed = await db.getFirstAsync<{ m: number | null }>(
+    `SELECT SUM(CAST(json_extract(meta, '$.minutes') AS INTEGER)) AS m FROM event WHERE kind = 'session_end' AND at >= ?`, start.getTime());
+  const loose = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM event e WHERE e.kind = 'completed' AND e.at >= ?
+       AND NOT EXISTS (SELECT 1 FROM event s WHERE s.kind = 'session_end' AND s.task_id = e.task_id AND s.at >= ?)`,
+    start.getTime(), start.getTime());
+  return (timed?.m ?? 0) + (loose?.n ?? 0) * 15;
+}
+
+/** How often each task was put off when the planner offered it, since a time. */
+export async function putOffsSince(since: number): Promise<Map<string, number>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ task_id: string; n: number }>(
+    `SELECT task_id, COUNT(*) AS n FROM decision_feedback
+      WHERE response IN ('not_now','something_else') AND decision_type IN ('next_action','option')
+        AND shown_at >= ? AND task_id IS NOT NULL GROUP BY task_id`, since);
+  return new Map(rows.map(r => [r.task_id, r.n]));
 }
 
 /* ================================================================== *
@@ -417,15 +651,38 @@ async function spawnNext(t: Task) {
 // completeStep() below, so finishing a 5-minute micro-step banks the smaller
 // 'step' reward ("Chipped.") instead of silently defaulting to the full
 // task-completion reward it was getting before.
-export async function complete(id: string, partial = false, reason?: RewardReason) {
+//
+// Finishing only counts once. A double tap on Done, a tick from a list while
+// the timer's Done lands, a notification action: the second call finds the
+// task already done (or dropped), changes nothing and returns null, so it
+// pays no light, logs nothing and spawns no second repeat. The state change
+// and the next repeat are one transaction. Calls queue behind each other,
+// because the transaction is a plain BEGIN on the one connection (the web
+// has no exclusive transactions): a second BEGIN while one is open would
+// fail, and its ROLLBACK would undo the first.
+let finishing: Promise<unknown> = Promise.resolve();
+
+export function complete(id: string, partial = false, reason?: RewardReason): Promise<Award | null> {
+  const run = finishing.then(() => completeOnce(id, partial, reason));
+  finishing = run.catch(() => {});
+  return run;
+}
+
+async function completeOnce(id: string, partial: boolean, reason?: RewardReason): Promise<Award | null> {
   const db = await getDb();
   const before = await getTask(id);
   const now = Date.now();
-  await db.runAsync(
-    'UPDATE task SET state = ?, completed_at = ?, updated_at = ? WHERE id = ?',
-    'done', now, now, id,
-  );
-  if (before?.repeat_rule) await spawnNext(before);
+  let changed = 0;
+  await db.withTransactionAsync(async () => {
+    const r = await db.runAsync(
+      `UPDATE task SET state = 'done', completed_at = ?, updated_at = ?
+        WHERE id = ? AND state NOT IN ('done','dropped')`,
+      now, now, id,
+    );
+    changed = r.changes;
+    if (changed && before?.repeat_rule) await spawnNext(before);
+  });
+  if (!changed) return null;
   // Time spent counts. Stopping early still logs a win, and still pays — this
   // is the single most important behaviour in the app.
   await logEvent('completed', id, { partial });
@@ -521,87 +778,8 @@ const LIVE = `state NOT IN ('done','dropped')
  * re-derived in priority.ts, a second copy of these tiers that could drift.
  * 'chosen' is the one rule the engine didn't apply: you picked it yourself.
  */
-export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'upcoming' | 'fits' | 'smallest';
+export type PickRule = 'chosen' | 'due' | 'started' | 'today' | 'priority' | 'upcoming' | 'fits' | 'smallest';
 export interface Pick { task: Task; rule: PickRule }
-
-export async function pickNow(exclude: string[] = []): Promise<Task | null> {
-  return (await pickWithRule(exclude))?.task ?? null;
-}
-
-/**
- * The NOW engine. Order matters more than the code:
- *   1 time-bound within 2h · 2 already started · 3 picked for today
- *   3.5 due in the next 72h (upcoming deadlines surface before random tasks)
- *   4 inbox: oldest-first for steady/focused (prevents burial of important
- *     long tasks); shortest-first only for low energy (genuinely can't start
- *     something big — this is the one case momentum beats importance)
- *   5 fallback: smallest thing regardless of energy rather than empty screen
- */
-export async function pickWithRule(exclude: string[] = []): Promise<Pick | null> {
-  const db = await getDb();
-  const now = Date.now();
-  // "show me something else" passes the ids you've already seen, so Focus can
-  // hand you a genuinely different task instead of the same one forever.
-  const skip = exclude.length
-    ? ` AND id NOT IN (${exclude.map(() => '?').join(',')})` : '';
-  const soon = now + 2 * 60 * 60 * 1000;
-  const threeDays = now + 72 * 60 * 60 * 1000;
-  const energy = await getEnergy();
-  const ceiling = CEILING[energy];
-  // low: shortest-first so you can actually start; steady/focused: oldest-first
-  // so tasks don't get buried indefinitely behind everything quick and easy.
-  // Priority is a TIEBREAK, not a tier (see priority.ts) — it never earns a
-  // clause of its own. But it has to come BEFORE age: created_at is a
-  // millisecond timestamp, so two tasks are never "equal" on it, and a
-  // priority sorted after it could never decide anything. It sits after the
-  // real key of each tier (the deadline, or shortness on a low day) and
-  // before age.
-  const inboxSort = energy === 'low'
-    ? 'COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC'
-    : 'priority DESC, created_at ASC, COALESCE(est_minutes, 999) ASC';
-
-  const q = async (rule: PickRule, sql: string, ...args: SQLite.SQLiteBindValue[]): Promise<Pick | null> => {
-    const task = await db.getFirstAsync<Task>(sql.replace('/*SKIP*/', skip), ...args, ...exclude);
-    return task ? { task, rule } : null;
-  };
-
-  return (
-    // 1. anything genuinely time-bound still wins, whatever your energy —
-    //    a deadline doesn't care how you feel
-    (await q('due',
-      `SELECT * FROM task WHERE ${LIVE}
-         AND due_at IS NOT NULL AND due_at <= ?/*SKIP*/ ORDER BY due_at ASC, priority DESC LIMIT 1`, now, soon)) ??
-    // 2. resume what you already started
-    (await q('started',
-      `SELECT * FROM task WHERE state = 'doing'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-       ORDER BY priority DESC, created_at ASC LIMIT 1`, now)) ??
-    // 3. picked for today, fits energy
-    (await q('today',
-      `SELECT * FROM task WHERE state = 'today'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/ ORDER BY priority DESC, created_at ASC LIMIT 1`, now, ceiling)) ??
-    // 3.5 upcoming: not burning yet, but due in the next 72h — surface it now
-    (await q('upcoming',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND due_at IS NOT NULL AND due_at > ? AND due_at <= ?
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
-         ORDER BY due_at ASC, priority DESC LIMIT 1`, soon, threeDays, now, ceiling)) ??
-    // 4. inbox sorted by energy level — oldest for steady/focused, shortest for low
-    (await q('fits',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)
-         AND COALESCE(est_minutes, 15) <= ?/*SKIP*/
-         ORDER BY ${inboxSort} LIMIT 1`, now, ceiling)) ??
-    // 5. still nothing fits — offer the smallest thing rather than an empty screen
-    (await q('smallest',
-      `SELECT * FROM task WHERE state = 'inbox'
-         AND (snoozed_until IS NULL OR snoozed_until <= ?)/*SKIP*/
-         ORDER BY COALESCE(est_minutes, 999) ASC, priority DESC, created_at ASC LIMIT 1`, now)) ??
-    null
-  );
-}
 
 /* ---------------- the one thing, held ---------------- */
 
@@ -615,16 +793,16 @@ export async function pickWithRule(exclude: string[] = []): Promise<Pick | null>
  *
  * Stored as flags, not in memory, so it survives the app being closed.
  */
-interface Pin { id: string; rule: PickRule; day: string }
+export interface Pin { id: string; rule: PickRule; day: string }
 const dayKey = () => new Date().toDateString();
 
-async function readPin(): Promise<Pin | null> {
+export async function readPin(): Promise<Pin | null> {
   try { return JSON.parse((await getFlag('ra.pin')) ?? 'null'); } catch { return null; }
 }
 async function writePin(p: { id: string; rule: PickRule } | null) {
   await setFlag('ra.pin', p ? JSON.stringify({ ...p, day: dayKey() }) : 'null');
 }
-async function passedToday(): Promise<string[]> {
+export async function passedToday(): Promise<string[]> {
   try {
     const v = JSON.parse((await getFlag('ra.passed')) ?? 'null');
     return v && v.day === dayKey() ? v.ids : [];
@@ -637,32 +815,10 @@ async function writePassed(ids: string[]) {
 const isLive = (t: Task | null): t is Task =>
   !!t && t.state !== 'done' && t.state !== 'dropped' && !(t.snoozed_until && t.snoozed_until > Date.now());
 
-/** The one thing, right now. Everything that shows Ra's task reads this. */
-export async function currentPick(): Promise<Pick | null> {
-  const passed = await passedToday();
-  const pin = await readPin();
-  if (pin && pin.day === dayKey()) {
-    const held = await getTask(pin.id);
-    if (isLive(held)) {
-      // A pick the engine made yields to a deadline that has since come
-      // within two hours. One you chose yourself never does.
-      if (pin.rule !== 'chosen' && pin.rule !== 'due') {
-        const fresh = await pickWithRule(passed);
-        if (fresh?.rule === 'due' && fresh.task.id !== held.id) {
-          await writePin({ id: fresh.task.id, rule: 'due' });
-          return fresh;
-        }
-      }
-      return { task: held, rule: pin.rule };
-    }
-  }
-  let p = await pickWithRule(passed);
-  // everything has been passed over today: start the round again rather
-  // than show an empty screen with tasks still in the water
-  if (!p && passed.length) { await writePassed([]); p = await pickWithRule(); }
-  await writePin(p ? { id: p.task.id, rule: p.rule } : null);
-  return p;
-}
+/* The one thing now, and the options when there's none, are the planner's
+ * (src/next.ts, src/nextActions.ts): one set of rules, not one here and
+ * another there. What lives here is the state it reads: the task you chose
+ * (the pin) and what you passed on today. */
 
 /** You chose this one. It stays until it's done, dropped or snoozed. */
 export async function chooseTask(id: string) {
@@ -670,14 +826,22 @@ export async function chooseTask(id: string) {
   await markActed('choose');
 }
 
-/** "Something else instead": not today, not this one — show the next. */
-export async function passOn(id: string): Promise<Pick | null> {
+/** A project's move was replaced by a new one (smaller, or around a
+ *  blocker). If you had chosen the old one, you've chosen its replacement —
+ *  Ra shouldn't fall back to the top of Today because the task row changed. */
+export async function handOverPin(fromId: string, toId: string) {
+  const pin = await readPin();
+  if (pin && pin.id === fromId && pin.rule === 'chosen') await writePin({ id: toId, rule: 'chosen' });
+}
+
+/** "Something else instead": not this one, not today. The planner then
+ *  offers the next on your Today list, or nothing (and Ra offers options). */
+export async function passOn(id: string): Promise<void> {
   const pin = await readPin();
   await writePassed([...(await passedToday()).filter(x => x !== id), id]);
   await writePin(null);
   await logEvent('swapped', id, { rule: pin?.id === id ? pin.rule : null });
   await markActed('swap');
-  return currentPick();
 }
 
 /** Every task carrying a date in a window — what the calendar screen draws. */
@@ -690,11 +854,13 @@ export async function tasksBetween(fromMs: number, toMs: number) {
       ORDER BY due_at ASC`, fromMs, toMs);
 }
 
-export async function inbox(limit = 50) {
+/** Everything Nu is holding that isn't on Today. All of it: Nu's promise is
+ *  everything you're carrying, so the oldest are never cut off (SCOPE fix 10). */
+export async function inbox() {
   const db = await getDb();
   return db.getAllAsync<Task>(
     `SELECT * FROM task WHERE state = 'inbox' AND parent_id IS NULL
-      ORDER BY created_at DESC LIMIT ?`, limit);
+      ORDER BY created_at DESC`);
 }
 
 export async function wins(limit = 100) {
@@ -862,7 +1028,7 @@ export async function steps(parentId: string) {
  * Returns the award for the step, or for the parent if finishing the step
  * finished the whole thing — the bigger moment is the one worth celebrating.
  */
-export async function completeStep(stepId: string): Promise<Award> {
+export async function completeStep(stepId: string): Promise<Award | null> {
   const db = await getDb();
   const stepAward = await complete(stepId, false, 'step');
   const st = await getTask(stepId);
@@ -870,7 +1036,7 @@ export async function completeStep(stepId: string): Promise<Award> {
   const left = await db.getFirstAsync<{ n: number }>(
     `SELECT COUNT(*) AS n FROM task WHERE parent_id = ? AND state NOT IN ('done','dropped')`,
     st.parent_id);
-  if ((left?.n ?? 0) === 0) return complete(st.parent_id);
+  if ((left?.n ?? 0) === 0) return (await complete(st.parent_id)) ?? stepAward;
   return stepAward;
 }
 
@@ -914,7 +1080,8 @@ export async function hasOnboarded(): Promise<boolean> {
  * Put someone back at the start. Onboarding is a one-time gate — which is
  * right, nobody wants the tour twice — but with no way to replay it there was
  * literally no route back to the intro once you'd tapped through, and no way
- * to see what you'd skipped. That's what Settings > Show the intro again does.
+ * to see what you'd skipped. That's what "Start from the beginning" does (the
+ * menu on Nu, and Settings — src/intro.ts).
  */
 export async function resetOnboarding() {
   await setFlag('onboarded', '0');
@@ -927,12 +1094,20 @@ export async function completeOnboarding() {
   await markActed('onboarding');     // the ladder starts from "you just did something"
 }
 
-/** Replay Welcome → Auth without clearing app storage. Reachable from
- *  Settings → "Show the intro again". */
+/** Replay the opening and onboarding without clearing app storage.
+ *  Reachable from "Start from the beginning" (src/intro.ts). */
 
 /* ---------------- who you are ---------------- */
 
-export interface Profile { name: string; tagline: string }
+export interface Profile {
+  name: string;
+  /** the short line about you under your name (Profile → About me) */
+  tagline: string;
+  /** optional, free text */
+  pronouns: string;
+  /** your picture: '', a pose, initials or a photo (see src/avatar.ts) */
+  avatar: string;
+}
 
 /**
  * Stored locally, like everything else. A name is the cheapest personalisation
@@ -940,14 +1115,15 @@ export interface Profile { name: string; tagline: string }
  * sentence from "Keep going". No account needed for it, and none is asked for.
  */
 export async function getProfile(): Promise<Profile> {
-  return {
-    name: (await getFlag('profile.name')) ?? '',
-    tagline: (await getFlag('profile.tagline')) ?? '',
-  };
+  const [name, tagline, pronouns, avatar] = await Promise.all(
+    ['profile.name', 'profile.tagline', 'profile.pronouns', 'profile.avatar'].map(getFlag));
+  return { name: name ?? '', tagline: tagline ?? '', pronouns: pronouns ?? '', avatar: avatar ?? '' };
 }
 export async function setProfile(p: Partial<Profile>) {
   if (p.name !== undefined) await setFlag('profile.name', p.name);
   if (p.tagline !== undefined) await setFlag('profile.tagline', p.tagline);
+  if (p.pronouns !== undefined) await setFlag('profile.pronouns', p.pronouns);
+  if (p.avatar !== undefined) await setFlag('profile.avatar', p.avatar);
 }
 
 /** Free-text search across everything still live. */
@@ -1111,9 +1287,13 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
   let n = 0, banked = 0;
   for (const raw of lines.map(l => l.trim()).filter(Boolean)) {
     const id = uid();
+    // the same guesses a capture makes, so what you did is counted by kind
+    // too (which labels get done), not only by when (src/learn/signals.ts)
+    const activity = guessActivity(raw);
+    const label = activityById(activity)?.label ?? guessLabel(raw);
     await db.runAsync(
-      `INSERT INTO task (id,title,state,created_at,completed_at,retro,updated_at)
-       VALUES (?,?,'done',?,?,1,?)`, id, raw, whenMs, whenMs, whenMs);
+      `INSERT INTO task (id,title,state,created_at,completed_at,retro,label,activity,updated_at)
+       VALUES (?,?,'done',?,?,1,?,?,?)`, id, raw, whenMs, whenMs, label, activity, whenMs);
     await db.runAsync(
       `INSERT INTO event (task_id,kind,at,meta) VALUES (?,'completed',?,?)`,
       id, whenMs, JSON.stringify({ retro: true }));
@@ -1146,24 +1326,61 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
  * app hasn't been opened in a week.
  */
 
-/** Where the three daily anchors sit. The ladder maths and the scheduler both
- *  read this, so they cannot drift apart. */
+/** Where the three daily anchors sit until Settings moves them. The ladder
+ *  maths and the scheduler both read anchorSlots() below, so they cannot
+ *  drift apart. */
 export const ANCHOR_SLOTS = [
   { id: 'anchor.morning',  hour: 9,  minute: 0 },
   { id: 'anchor.midday',   hour: 13, minute: 30 },
   { id: 'anchor.shutdown', hour: 20, minute: 0 },
 ] as const;
 
+type AnchorSlot = { id: string; hour: number; minute: number };
+
+/** Settings → Notifications. Morning and evening are a time (minutes after
+ *  midnight) or null when turned off; midday and the two minutes before an
+ *  event are on or off. */
+export interface Nudges { morning: number | null; midday: boolean; evening: number | null; events: boolean }
+export const MORNING_TIMES = [7 * 60, 8 * 60, 9 * 60, 10 * 60];
+export const EVENING_TIMES = [18 * 60, 19 * 60, 20 * 60, 21 * 60, 22 * 60];
+
+export async function getNudges(): Promise<Nudges> {
+  const [m, mid, e, ev] = await Promise.all(
+    ['nudge.morning', 'nudge.midday', 'nudge.evening', 'nudge.events'].map(k => getFlag(k)));
+  const time = (v: string | null, fallback: number) => v === 'off' ? null : Number(v) > 0 ? Number(v) : fallback;
+  return { morning: time(m, 9 * 60), midday: mid !== 'off', evening: time(e, 20 * 60), events: ev !== 'off' };
+}
+export async function setNudges(n: Partial<Nudges>) {
+  const time = (v: number | null) => (v == null ? 'off' : String(v));
+  if ('morning' in n) await setFlag('nudge.morning', time(n.morning ?? null));
+  if ('midday' in n) await setFlag('nudge.midday', n.midday ? '' : 'off');
+  if ('evening' in n) await setFlag('nudge.evening', time(n.evening ?? null));
+  if ('events' in n) await setFlag('nudge.events', n.events ? '' : 'off');
+}
+
+/** The anchors that are on, at the times chosen in Settings, earliest first.
+ *  The scheduler writes these and the ladder counts only these: an anchor you
+ *  turned off can't be one you ignored. */
+export async function anchorSlots(): Promise<AnchorSlot[]> {
+  const n = await getNudges();
+  const at = (id: string, min: number) => ({ id, hour: Math.floor(min / 60), minute: min % 60 });
+  return [
+    n.morning != null ? at('anchor.morning', n.morning) : null,
+    n.midday ? ANCHOR_SLOTS[1] : null,
+    n.evening != null ? at('anchor.shutdown', n.evening) : null,
+  ].filter((s): s is AnchorSlot => !!s).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+}
+
 /** Count anchor firings strictly inside (from, to]. */
-export function anchorsBetween(from: number, to: number): number {
-  if (!(to > from)) return 0;
+export function anchorsBetween(from: number, to: number, slots: readonly AnchorSlot[] = ANCHOR_SLOTS): number {
+  if (!(to > from) || !slots.length) return 0;
   let n = 0;
   const day = new Date(from);
   day.setHours(0, 0, 0, 0);
   // 400 days of slack is far more than the ladder can ever need; it also stops
   // a bad clock or a restored backup from spinning here forever.
   for (let i = 0; i < 400; i++) {
-    for (const s of ANCHOR_SLOTS) {
+    for (const s of slots) {
       const d = new Date(day);
       d.setDate(d.getDate() + i);
       d.setHours(s.hour, s.minute, 0, 0);
@@ -1201,8 +1418,8 @@ export function softness(streak: number): Softness {
 /** How soft the app should be at some future moment, assuming you do nothing
  *  between now and then. The scheduler uses this to write the whole week's
  *  nudges at their correct, progressively gentler volume in one pass. */
-export async function softnessAt(atMs: number): Promise<Softness> {
-  return softness(anchorsBetween(await lastActed(), atMs));
+export async function softnessAt(atMs: number, slots?: readonly AnchorSlot[]): Promise<Softness> {
+  return softness(anchorsBetween(await lastActed(), atMs, slots ?? await anchorSlots()));
 }
 
 /** Smallest thing available — what the ladder reaches for as it softens. */
@@ -1277,4 +1494,42 @@ export async function exportLog(): Promise<string> {
     startRate(), estimateAccuracy(),
   ]);
   return JSON.stringify({ exportedAt: new Date().toISOString(), startRate: start, estimateAccuracy: estimate, events, tasks }, null, 1);
+}
+
+/* ---------------- onboarding answers ---------------- */
+
+/** What usually gets in the way — asked once, in onboarding. Each answer
+ *  changes something real (see SCOPE.md → Onboarding), so it's stored, not
+ *  just logged. */
+export type Blocker = 'starting' | 'choosing' | 'remembering' | 'returning';
+
+export async function getBlockers(): Promise<Blocker[]> {
+  try { return JSON.parse((await getFlag('onb.blockers')) ?? '[]'); } catch { return []; }
+}
+export async function setBlockers(b: Blocker[]) {
+  await setFlag('onb.blockers', JSON.stringify(b));
+}
+
+/* ---------------- this device, cleared (src/account.ts) ---------------- */
+
+/**
+ * Everything a person put on this device, gone: every table, and every
+ * app_state key except the ones in `keep` (the device's own, like its id and
+ * appearance; a key ending in '.' keeps everything under it). Run on log out,
+ * and before a different account takes over the device.
+ */
+export async function wipeLocalData(keep: readonly string[]) {
+  const db = await getDb();
+  const tables = (await db.getAllAsync<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'app_state'`,
+  )).map(r => r.name);
+  // rows that point at other rows go first, in case foreign keys are enforced
+  const children = ['project_step', 'project_event', 'habit_log', 'nudge', 'breadcrumb', 'event'];
+  const order = [...children.filter(n => tables.includes(n)), ...tables.filter(n => !children.includes(n))];
+  const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+  const kept = keep.map(k => (k.endsWith('.') ? `k LIKE ${quote(`${k}%`)}` : `k = ${quote(k)}`));
+  await db.execAsync([
+    ...order.map(n => `DELETE FROM "${n.replace(/"/g, '""')}";`),
+    `DELETE FROM app_state${kept.length ? ` WHERE NOT (${kept.join(' OR ')})` : ''};`,
+  ].join('\n'));
 }

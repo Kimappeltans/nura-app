@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Image, Pressable, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { activityById, SCENES, isCustom, customName, type ActivityId } from '../activities';
@@ -8,6 +8,7 @@ import { useTheme } from '../store';
 import { Check, IconChevron } from '../ui';
 import { formatDue } from './DatePicker';
 import type { Task } from '../db';
+import { screenSize } from '../screen';
 
 /** Warm, specific, and never a grade. */
 const PRAISE = ['Great job!', 'Nicely done.', 'That one is gone.', 'Logged.', 'Done and dusted.'];
@@ -246,7 +247,7 @@ export function HeroDeck(
 ) {
   const t = useTheme();
   const [i, setI] = useState(0);
-  const W = Dimensions.get('window').width;
+  const W = screenSize().width;
   const GUTTER = 16, PEEK = 26, GAP = 12;
 
   if (!tasks.length) return null;

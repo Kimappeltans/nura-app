@@ -1,3 +1,6 @@
+import { inWorld } from '../src/world';
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -17,7 +20,7 @@ import { SceneGallery } from '../src/components/Rank';
  * whose strength is the stage's own. Nothing here decays and nothing is
  * gated — see growth.ts for why that isn't negotiable.
  */
-export default function Companions() {
+function Companions() {
   const t = useTheme();
   const { light, refresh } = useStore();
   const [done, setDone] = useState<string[]>([]);
@@ -31,11 +34,11 @@ export default function Companions() {
   const col = collectionFrom(done);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
           <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
         </Pressable>
       </View>
@@ -45,17 +48,6 @@ export default function Companions() {
         {/* ---- the pair, at their current size ---- */}
         <View style={{ height: 220, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
           {/* the aura: the one thing that visibly grows with you */}
-          {stage.glow > 0 && (
-            <Svg width="100%" height={220} style={{ position: 'absolute' }}>
-              <Defs>
-                <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0" stopColor={t.ra} stopOpacity={stage.glow} />
-                  <Stop offset="1" stopColor={t.ra} stopOpacity="0" />
-                </RadialGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#aura)" />
-            </Svg>
-          )}
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
             <Character name="nu-idle" size={132 * stage.scale} motion="greet" />
             <Character name="ra-wave" size={144 * stage.scale} motion="greet" />
@@ -135,7 +127,7 @@ export default function Companions() {
 
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginBottom: 12, marginLeft: 4 }}>
           A scene appears the first time you finish something of that kind.
-          Planning one doesn't count — only doing it.
+          Planning one doesn't count, only doing it.
         </Text>
 
         <SceneGallery unlocked={col.unlocked} />
@@ -148,3 +140,5 @@ export default function Companions() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('mixed', withTabs(Companions));

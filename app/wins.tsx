@@ -1,3 +1,6 @@
+import { inWorld } from '../src/world';
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useCallback } from 'react';
 import { View, Text, FlatList, Pressable } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -19,16 +22,16 @@ const weekdayLetter = (isoDay: string) =>
  * quiet week into evidence against yourself, and that is the moment the app
  * gets deleted.
  */
-export default function Wins() {
+function Wins() {
   const t = useTheme();
   const { wins, total, light, today, momentum, grid, refresh } = useStore();
   useFocusEffect(useCallback(() => { refresh(); }, []));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flex: 1, padding: 20, gap: 14 }}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 4 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 4 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Everything</Text>
         </Pressable>
 
@@ -45,7 +48,7 @@ export default function Wins() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{skyLabel(today)}</Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              {today} today. Tomorrow starts at the horizon again — nothing carries over,
+              {today} today. Tomorrow starts at the horizon again. Nothing carries over,
               and nothing is taken away.
             </Text>
           </View>
@@ -58,7 +61,7 @@ export default function Wins() {
               {momentum > 0.6 ? 'Strong' : momentum > 0.25 ? 'Building back' : 'Quiet'}
             </Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              A decaying average, not a chain — one quiet day doesn't reset it.
+              A decaying average, not a chain. One quiet day doesn't reset it.
             </Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 6 }}>{total} things done, all time.</Text>
           </View>
@@ -98,3 +101,5 @@ export default function Wins() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('mixed', withTabs(Wins));

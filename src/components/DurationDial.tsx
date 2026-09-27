@@ -130,7 +130,7 @@ export function DurationDial({
         </Defs>
         <Path d={arc(start, start + SWEEP)} stroke={t.track} strokeWidth={stroke} strokeLinecap="round" fill="none" />
         {frac > 0 && (
-          <Path d={arc(start, end)} stroke="url(#dial)" strokeWidth={stroke} strokeLinecap="round" fill="none" />
+          <Path d={arc(start, end)} stroke={t.raBtn[0]} strokeWidth={stroke} strokeLinecap="round" fill="none" />
         )}
         <Circle cx={knob.x} cy={knob.y} r={stroke + 3} fill={t.card} stroke={t.ra} strokeWidth={3} />
       </Svg>

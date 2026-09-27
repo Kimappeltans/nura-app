@@ -1,7 +1,9 @@
-import { Modal, View, Text, Pressable } from 'react-native';
+import type React from 'react';
+import { Modal, View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { radius, elevation, type as T } from '../theme';
 import { useTheme } from '../store';
+import { COLUMN, DIALOG, useDesk } from '../screen';
 
 export interface SheetAction {
   key: string;
@@ -24,32 +26,46 @@ export interface SheetAction {
  * itself styled as an action, so dismissing never reads as a sixth choice.
  */
 export function ActionSheet(
-  { visible, title, subtitle, actions, dismissLabel = 'Keep it', onDismiss }: {
+  { visible, title, subtitle, actions, dismissLabel = 'Keep it', onDismiss, children }: {
     visible: boolean;
     title: string;
     subtitle?: string;
+    /** extra controls above the actions, e.g. a priority picker */
+    children?: React.ReactNode;
     actions: SheetAction[];
     dismissLabel?: string;
     onDismiss: () => void;
   },
 ) {
   const t = useTheme();
+  // never taller than the screen: the actions scroll, the title and the way
+  // out stay put (the menu has nine places — it used to run off the top)
+  const { height } = useWindowDimensions();
+  // a wide web window: a centred dialog rather than a sheet from the bottom
+  const desk = useDesk();
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onDismiss}>
-      <Pressable onPress={onDismiss} style={{ flex: 1, backgroundColor: 'rgba(5,8,26,0.55)', justifyContent: 'flex-end' }}>
+    <Modal transparent visible={visible} animationType={desk ? 'fade' : 'slide'} onRequestClose={onDismiss}>
+      <Pressable onPress={onDismiss} style={{ flex: 1, backgroundColor: 'rgba(5,8,26,0.55)', justifyContent: desk ? 'center' : 'flex-end', padding: desk ? 32 : 0 }}>
         <Pressable onPress={() => {}} style={[{
           backgroundColor: t.layer, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
           borderWidth: 1, borderColor: t.strokeStrong, borderBottomWidth: 0,
-          paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18,
-        }, elevation.e16]}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />
+          paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, maxHeight: height * 0.88,
+          width: '100%', maxWidth: COLUMN, alignSelf: 'center',   // a phone's width on a wide screen
+        }, desk && {
+          borderRadius: radius.xl, borderBottomWidth: 1, maxWidth: DIALOG, maxHeight: height - 64,
+          paddingTop: 24, paddingBottom: 16, paddingHorizontal: 24,
+        }]}>
+          {!desk && <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />}
 
           <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
           {!!subtitle && (
             <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14, marginTop: 3 }}>{subtitle}</Text>
           )}
 
-          <View style={{ marginTop: 14, gap: 6 }}>
+          {children}
+
+          <ScrollView style={{ marginTop: 14, flexShrink: 1 }} contentContainerStyle={{ gap: 6 }}
+            showsVerticalScrollIndicator bounces={false}>
             {actions.map(a => (
               <Pressable key={a.key}
                 onPress={() => { Haptics.selectionAsync(); onDismiss(); a.onPress(); }}
@@ -71,7 +87,7 @@ export function ActionSheet(
                 </View>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           <Pressable onPress={onDismiss} hitSlop={10} style={{ alignSelf: 'center', paddingVertical: 14, marginTop: 4 }}>
             <Text style={{ color: t.ink3, fontSize: 14.5, fontFamily: T.brand }}>{dismissLabel}</Text>

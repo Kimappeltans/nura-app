@@ -1,57 +1,186 @@
-import { useState } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { useStore } from '../store';
-import Welcome from './Welcome';
-import HowItWorks from './HowItWorks';
+import { logEvent, setBlockers, getTask, pickForToday, getFlag, setFlag, type Blocker, type Task } from '../db';
+import { getNextActions } from '../nextActions';
+// The Benben opening, then the original Welcome. To go back to the Welcome
+// on its own, import './Welcome' here instead — both are kept.
+import Welcome from './WelcomeBenben';
+import Blockers from './Blockers';
+import BrainDump from './BrainDump';
+import RemindAsk from './RemindAsk';
+import ProfileStep from './ProfileStep';
+import OneRises from './OneRises';
 import Auth from './Auth';
+import { landsOnSignIn, landedOnSignIn } from '../account';
+import { DeskColumn } from '../components/Desk';
+import { STAGE } from '../screen';
+
+/** A step, centred on a wide web window (src/components/Desk.tsx); on a phone, as it is. */
+const col = (step: React.ReactElement) => <DeskColumn max={STAGE}>{step}</DeskColumn>;
 
 /**
- * Three steps, in the order they earn:
+ * From opening the app to starting one real task in about a minute
+ * (SCOPE.md → Onboarding):
  *
- *   1. WELCOME    — what this is.
- *   2. HOW IT WORKS — the Nu/Ra metaphor, said once in plain words, before
- *      the names start doing real work as screens and navigation.
- *   3. SIGN IN    — who you are, LAST.
+ *   1. WELCOME        — the story: Nu (the water), the Benben, Ra (the sun).
+ *   2. BLOCKERS       — "What usually gets in the way?" Each answer changes
+ *                        something, and says what.
+ *   3. BRAIN DUMP     — "What's on your mind?" Nu, learned by using it.
+ *   4. REMINDERS      — only if "remembering" was picked, iPhone only.
+ *   5. PROFILE        — "Create your profile", now that there are tasks to
+ *                        keep. Required; not shown when already signed in.
+ *                        With email, it waits on the confirmation link.
+ *   6. ONE RISES      — your tasks sink, the sun rises, Ra suggests one and
+ *                        you can pick another. Start it.
  *
- * Sign-in used to be a side road hanging off a link on the welcome screen,
- * which meant almost nobody would ever reach it — you'd tap the big button and
- * be past it. It's a real step now.
- *
- * CONNECT used to sit between these two — but it mostly advertised the work-app
- * integrations that aren't built yet ("soon" everywhere), and asked for
- * calendar/notification permissions before you'd written down a single task,
- * i.e. before granting them changed anything you could see. Both permissions
- * are still asked for, just in context: Nu asks for notifications after the
- * first capture, and Ra asks for the calendar the first time knowing what's
- * next would actually change the screen. Connect itself didn't disappear —
- * it's reachable any time from Settings → Connected apps, as `/integrations`.
- *
- * This is still not a gate. Every screen here can be skipped, and the app is
- * fully usable with no account at all: everything lives on the device already,
- * and an account only buys sync and the server-side integrations. Demanding
- * registration before first use is the single biggest drop-off point in any
- * onboarding, and requiring it for features that work offline runs into App
- * Store guideline 5.1.1(v).
+ * The metaphor used to be explained on its own screen before you had written
+ * anything down; now it happens to your own tasks. Every step can be
+ * skipped, and each is logged as an `onboarding` event so the
+ * first-minute funnel can be read back (SCOPE.md → Measure).
  */
+type Step = 'welcome' | 'blockers' | 'dump' | 'remind' | 'profile' | 'rise' | 'auth';
+
 export default function Onboarding() {
   const finishOnboarding = useStore(s => s.finishOnboarding);
-  const [step, setStep] = useState<'welcome' | 'how' | 'auth'>('welcome');
+  const refresh = useStore(s => s.refresh);
+  const focusOn = useStore(s => s.focusOn);
+  const toNu = useStore(s => s.toNu);
+  const session = useStore(s => s.session);
+
+  // straight after a log out, the sign-in, not the welcome (src/account.ts)
+  const [step, setStep] = useState<Step>(() => (landsOnSignIn() ? 'auth' : 'welcome'));
+  useEffect(() => { landedOnSignIn(); }, []);
+  const [picks, setPicks] = useState<Blocker[]>([]);
+  const [rise, setRise] = useState<{ tasks: Task[]; pick: Task } | null>(null);
+  const t0 = useRef(Date.now());
+  const dumped = useRef<string[]>([]);   // held across the reminders detour
+  // Dev only, like `dev.open` in app/_layout.tsx: start on the step named in
+  // the flag `dev.onb`, to check each step's layout on a simulator.
+  useEffect(() => {
+    if (!__DEV__) return;
+    (async () => {
+      const s = (await getFlag('dev.onb')) as Step | null;
+      if (!s) return;
+      await setFlag('dev.onb', '');
+      if (s === 'rise') {
+        dumped.current = useStore.getState().inbox.map(x => x.id);
+        return toRise(dumped.current);
+      }
+      setStep(s);
+    })();
+  }, []);
+
+  // Back from Google on the web: the page left mid-onboarding, so it saved
+  // where it was (resumeAfterGoogle); carry on from there, signed in.
+  useEffect(() => {
+    (async () => {
+      const saved = await getFlag('onb.resume');
+      if (!saved) return;
+      await setFlag('onb.resume', '');
+      try {
+        const r = JSON.parse(saved) as { step: 'auth' | 'profile'; dumped?: string[] };
+        if (r.step === 'auth') return finishOnboarding();
+        dumped.current = r.dumped ?? [];
+        await log('profile', { signedIn: !!useStore.getState().session, via: 'google-web' });
+        afterProfile();
+      } catch { /* a stale flag: start from the welcome, as usual */ }
+    })();
+  }, []);
+  const resumeAfterGoogle = (step: 'auth' | 'profile') => () =>
+    setFlag('onb.resume', JSON.stringify({ step, dumped: dumped.current }));
+
+  const log = (s: string, meta: object = {}) =>
+    logEvent('onboarding', undefined, { step: s, ms: Date.now() - t0.current, ...meta });
+
+  const toRise = async (ids: string[]) => {
+    const tasks = (await Promise.all(ids.map(getTask))).filter((x): x is Task => !!x);
+    // the planner only suggests — the screen lets you pick a different one
+    const p = (await getNextActions('all'))[0];
+    if (!p) return finish(false);
+    setRise({ tasks, pick: p.task });
+    setStep('rise');
+  };
+
+  // after the brain dump (and reminders): the profile ask, unless there's
+  // already an account, then the list rises — or Nu, if nothing was written
+  const afterDump = () => (session ? afterProfile() : setStep('profile'));
+  const afterProfile = () => (dumped.current.length ? toRise(dumped.current) : finish(false));
+
+  const finish = async (start: boolean, picked?: Task) => {
+    const task = picked ?? rise?.pick;
+    await log('done', { started: start, changedPick: !!picked && picked.id !== rise?.pick.id });
+    await finishOnboarding();
+    if (start && task) {
+      await pickForToday(task.id, true);     // what you start is on your Today
+      await focusOn(task.id);
+      router.push({ pathname: '/timer', params: { id: task.id, mins: '0' } });   // open: it runs as long as the task needs
+    } else {
+      await toNu();
+    }
+  };
 
   if (step === 'auth') {
-    return (
-      <Auth
-        onClose={finishOnboarding}
-        onBack={() => setStep('how')}
-      />
+    return col(
+      <Auth onBack={() => setStep('welcome')} beforeRedirect={resumeAfterGoogle('auth')}
+        onClose={async () => { await setFlag('onb.resume', ''); await finishOnboarding(); }} />
     );
   }
 
-  if (step === 'how') {
-    return <HowItWorks onNext={() => setStep('auth')} />;
+  if (step === 'blockers') {
+    return col(
+      <Blockers onBack={() => setStep('welcome')} onNext={async picked => {
+        setPicks(picked);
+        await setBlockers(picked);
+        await log('blockers', { picked });
+        setStep('dump');
+      }} />
+    );
+  }
+
+  if (step === 'dump') {
+    return col(
+      <BrainDump onBack={() => setStep('blockers')} onNext={async ids => {
+        await log('dump', { captured: ids.length });
+        await refresh();
+        dumped.current = ids;
+        if (ids.length && picks.includes('remembering') && Platform.OS !== 'web') return setStep('remind');
+        return afterDump();
+      }} />
+    );
+  }
+
+  if (step === 'remind') {
+    return col(
+      <RemindAsk onDone={async granted => {
+        await log('remind', { granted });
+        afterDump();
+      }} />
+    );
+  }
+
+  if (step === 'profile') {
+    return col(
+      <ProfileStep beforeRedirect={resumeAfterGoogle('profile')} onDone={async () => {
+        await setFlag('onb.resume', '');   // set while it waited on the email
+        await log('profile', { signedIn: !!useStore.getState().session });
+        afterProfile();
+      }} />
+    );
+  }
+
+  if (step === 'rise' && rise) {
+    return (
+      <OneRises tasks={rise.tasks} pick={rise.pick}
+        onStart={task => finish(true, task)} onEverything={() => finish(false)} />
+    );
   }
 
   return (
     <Welcome
-      onNext={() => setStep('how')}
+      onNext={async () => { await log('welcome'); setStep('blockers'); }}
       onSignIn={() => setStep('auth')}
     />
   );

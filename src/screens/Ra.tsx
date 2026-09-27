@@ -1,21 +1,33 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Image } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Primary, Ghost, Mica, Surface, Character, Eyebrow, SunArc } from '../ui';
-import { ActionSheet, type SheetAction } from '../components/ActionSheet';
+import { Primary, Mica, Character, poseImage } from '../ui';
 import { useStore, useTheme } from '../store';
 import {
-  complete, notNow, dropTask, clearCrumbs, updateTask, grantLight, getFlag, setFlag, pickForToday, logEvent,
+  notNow, dropTask, clearCrumbs, updateTask, getFlag, setFlag, logEvent, recordDecision,
 } from '../db';
+import { useTaskActions } from '../useTaskActions';
 import { reconcileNudges } from '../notifications';
-import { minutesUntil, hasCalendarPermission, requestCalendarPermission } from '../calendar';
+import { minutesUntil } from '../calendar';
 import { radius, type as T, copy } from '../theme';
-import { activityById, SCENES, isCustom, type ActivityId } from '../activities';
-import { whyLine } from '../priority';
-import { DurationDial, ESTIMATE_STOPS, SESSION_STOPS } from '../components/DurationDial';
+import { formatDue } from '../components/DatePicker';
+import { MoveHelp } from '../components/MoveHelp';
+import { Sheet } from '../components/Sheet';
+import { Knob } from '../components/Knob';
+import { Handoff } from '../components/Handoff';
+import { stepForTask, type Project, type Step } from '../projects';
 import type { Energy } from '../db';
+import { STAGE, useDesk } from '../screen';
+
+const at = (days: number, h: number) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
+/** Set a reminder: a few times, in a tap. This evening is an hour on if it's already evening. */
+const REMIND_AT = [
+  { label: 'In an hour', at: () => Date.now() + 3600_000 },
+  { label: 'This evening', at: () => Math.max(at(0, 18), Date.now() + 3600_000) },
+  { label: 'Tomorrow morning', at: () => at(1, 9) },
+];
 
 // Each task Ra shows is logged once per app session, not on every re-render.
 let lastShown = '';
@@ -46,80 +58,56 @@ function ago(ms: number) {
  */
 export default function Ra() {
   const t = useTheme();
-  const { now, nowRule, crumb, toNu, refresh, nextEvent, celebrate, today, energy, setEnergy, inbox, passOn, focusOn } = useStore();
-  const [wave, setWave] = useState(true);
-  const [firstAction, setFirstAction] = useState('');
-  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
-  const [calAsk, setCalAsk] = useState(false);
+  const { now, nowRule, nowDecision, decisions, crumb, toNu, refresh, nextEvent, energy, setEnergy, passOn, focusOn, showToast } = useStore();
+  // how long it will really take you: the planner's figure (your guess × your pace), else your guess
+  const nowMins = now ? (nowDecision?.taskId === now.id ? nowDecision.suggestedMinutes : null) ?? now.est_minutes : null;
+  const { tick } = useTaskActions();
 
-  const act = activityById(now?.activity);
-  const scene = act && !isCustom(now?.activity) ? SCENES[act.id as ActivityId] : null;
-  const [picking, setPicking] = useState(false);   // task picker expanded
-  const [pickingMins, setPickingMins] = useState(false);   // session-length dial open
-  const [estPick, setEstPick] = useState(15);              // the estimate dial, before it's saved
-  const [sheet, setSheet] = useState(false);   // "not this one?" action sheet
+  const [options, setOptions] = useState(false);    // More options, open
+  const [reminding, setReminding] = useState(false);
 
-  // How long the next session should be. Sticky across sittings — once you've
-  // told it you like 25s, it stops asking, the same courtesy as skip.est/first.
-  const [sessionMins, setSessionMins] = useState(5);
+  // A timer is an option, not the default: Begin starts an open session that
+  // ends when you say so ("done"). Once you've chosen a length it sticks.
+  const [timerMins, setTimerMins] = useState<number | null>(null);
   useEffect(() => {
-    (async () => {
-      const saved = await getFlag('session_mins');
-      if (saved) setSessionMins(Number(saved));
-    })();
+    getFlag('focus.timer').then(v => setTimerMins(Number(v) > 0 ? Number(v) : null));
   }, []);
-  const chooseSession = async (m: number) => {
+  const chooseTimer = async (m: number | null) => {
     Haptics.selectionAsync();
-    setSessionMins(m);
-    await setFlag('session_mins', String(m));
+    setTimerMins(m);
+    await setFlag('focus.timer', m ? String(m) : '');
   };
 
   // "how much time do you actually have" — read from the calendar, never
   // written to it. Only shown once it's close enough to matter.
   const constraint = nextEvent && minutesUntil(nextEvent) <= 180 ? nextEvent : null;
 
-  /**
-   * The calendar permission, asked here rather than in onboarding — at the one
-   * moment where granting it visibly changes the screen in front of you, from
-   * "25 min" to "25 min, and you have 47 before your 3 o'clock".
-   */
-  useEffect(() => {
-    (async () => {
-      if (await getFlag('cal_asked')) return;
-      if (await hasCalendarPermission()) return;
-      setCalAsk(true);
-    })();
-  }, []);
-
-  const askCalendar = async () => {
-    setCalAsk(false);
-    await setFlag('cal_asked', '1');
-    await requestCalendarPermission();
-    await refresh();
-  };
-
-  // What Ra is missing, and therefore what it should ask for. One question at a
-  // time, never two, and never before you have seen the task itself.
-  const [needs, setNeeds] = useState<'est' | 'first' | null>(null);
-  useEffect(() => {
-    (async () => {
-      if (!now) return setNeeds(null);
-      setFirstAction(now.first_action ?? '');
-      if (!now.est_minutes && !(await getFlag(`skip.est.${now.id}`))) return setNeeds('est');
-      if (!now.first_action && !(await getFlag(`skip.first.${now.id}`))) return setNeeds('first');
-      setNeeds(null);
-    })();
-  }, [now?.id, now?.est_minutes, now?.first_action, skipped]);
-
   const back = useCallback(async () => { await toNu(); }, [toNu]);
 
+  // Is this task a project's move? Then Ra names the project, gives Nu's
+  // reason for the move, and "too big" / "blocked" ask Nu for another.
+  const [proj, setProj] = useState<{ project: Project; step: Step } | null>(null);
+  useEffect(() => {
+    let dead = false;
+    if (!now) { setProj(null); return; }
+    stepForTask(now.id).then(p => { if (!dead) setProj(p && p.project.state === 'active' ? p : null); });
+    return () => { dead = true; };
+  }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Done without a session (More options → Mark as done). Once only: a
+   *  second tap while the first is finishing does nothing. */
+  const finishing = useRef(false);
   const done = async () => {
-    if (!now) return;
-    const award = await complete(now.id);
-    await clearCrumbs(now.id);
-    celebrate(award);
-    await refresh(); await reconcileNudges();
-    await toNu();     // finishing returns you to the water
+    if (!now || finishing.current) return;
+    finishing.current = true;
+    try {
+      await tick(now.id);
+      // a project's move: what now — the next move, or enough for today
+      if (proj) return router.push({ pathname: '/project/[id]', params: { id: proj.project.id, after: 'done' } });
+      await toNu();     // finishing returns you to the water
+    } finally {
+      finishing.current = false;
+    }
   };
 
   const later = async () => {
@@ -143,11 +131,21 @@ export default function Ra() {
     await passOn();
   };
 
-  // What Ra showed, and why — the measure the start rate is built on.
+  // Nothing picked (your Today is empty, nothing chosen): Ra offers the
+  // planner's top three, each with its reason, and you choose. It never
+  // picks for you.
+  const sugs = now ? [] : decisions.slice(0, 3);
+  useEffect(() => {
+    for (const d of sugs) recordDecision({ taskId: d.taskId, type: 'option', reason: d.reason, score: d.score }).catch(() => {});
+  }, [sugs.map(d => d.taskId).join()]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // What Ra showed, and why — the measure the start rate is built on, and
+  // the decision the planner learns from (what you do next answers it).
   useEffect(() => {
     if (!now || now.id === lastShown) return;
     lastShown = now.id;
-    logEvent('shown', now.id, { rule: nowRule, energy });
+    logEvent('shown', now.id, { rule: nowRule, energy, score: nowDecision?.score, factors: nowDecision?.factors });
+    recordDecision({ taskId: now.id, type: 'next_action', reason: nowDecision?.reason ?? null, score: nowDecision?.score ?? 0 }).catch(() => {});
   }, [now?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** "Waiting on someone" — stays in the water, just stops being asked for a
@@ -174,34 +172,35 @@ export default function Ra() {
     await toNu();
   };
 
-  const sheetActions: SheetAction[] = now ? [
-    { key: 'later', glyph: '↓', label: 'Later today', sub: 'sinks back, resurfaces in a few hours', onPress: later },
-    { key: 'smaller', glyph: '◊', label: 'Make it smaller', sub: 'break it into a first, smaller step', onPress: makeItSmaller },
-    { key: 'waiting', glyph: '⋯', label: 'Waiting on someone', sub: 'stays in the water, stops being asked', onPress: waitingOnSomeone },
-    { key: 'else', glyph: '↔', label: 'Something else instead', sub: 'raise the next one up', onPress: somethingElse },
-    { key: 'drop', glyph: '×', label: 'Not relevant anymore', sub: 'gone, no explanation needed', onPress: notRelevant },
-  ] : [];
-
-  const answerEst = async (m: number) => {
+  const begin = () => {
     if (!now) return;
-    Haptics.selectionAsync();
-    await updateTask(now.id, { est_minutes: m });
-    await grantLight('enrich', now.id);
-    await refresh();
+    router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
   };
 
-  const saveFirst = async () => {
-    if (!now || !firstAction.trim()) return;
-    await updateTask(now.id, { first_action: firstAction.trim() });
-    await grantLight('enrich', now.id);
-    await refresh();
-  };
-
-  const skip = async (which: 'est' | 'first') => {
+  /** A reminder is a time on the task — the nudges are built from it. Then back to Nu. */
+  const remind = async (at: number) => {
     if (!now) return;
-    await setFlag(`skip.${which}.${now.id}`, '1');
-    setSkipped(s => ({ ...s, [`${which}.${now.id}`]: true }));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await updateTask(now.id, { due_at: at, has_time: 1 });
+    showToast(`Reminder · ${formatDue(at, true)}`);
+    await refresh(); await reconcileNudges();
+    await toNu();
   };
+
+  const OptionRow = ({ label, value, onPress, open, last }: {
+    label: string; value?: string; onPress: () => void; open?: boolean; last?: boolean;
+  }) => (
+    <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} accessibilityRole="button"
+      style={({ pressed }) => ({
+        minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12,
+        borderTopWidth: 1, borderTopColor: t.stroke, opacity: pressed ? 0.6 : 1,
+        marginBottom: last ? 4 : 0,
+      })}>
+      <Text style={{ flex: 1, color: t.ink, fontSize: 15.5 }}>{label}</Text>
+      {!!value && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 14, maxWidth: '45%' }}>{value}</Text>}
+      {open !== undefined && <Text style={{ color: t.ink3, fontSize: 14 }}>{open ? '▴' : '▾'}</Text>}
+    </Pressable>
+  );
 
   // interruption recovery: if we left this task mid-flight, show WHERE YOU WERE
   // rather than the task — by the time you return the context is gone, and that
@@ -218,50 +217,59 @@ export default function Ra() {
     </View>
   );
 
+  // a wide web window: still one thing, centred, the words a size up; the way out stays top left
+  const desk = useDesk();
+  const big = desk ? { fontSize: 44, lineHeight: 46, letterSpacing: -2 } : { fontSize: 34, lineHeight: 36, letterSpacing: -1.5 };
+
+  const LENGTHS = [null, 5, 10, 15, 25, 45, 60] as const;
+  const ENERGY: [Energy, string][] = [['low', 'Low'], ['steady', 'Okay'], ['focused', 'High']];
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top', 'bottom']}>
       <Mica />
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 2 }}>
-        <Pressable onPress={back} hitSlop={14} style={{ flex: 1, paddingVertical: 10 }}>
-          <Text style={{ color: t.ink3, fontSize: 15 }}>← Everything</Text>
+      {/* the way out, top left; Ra's tile on the right (guidelines, rule 6) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: desk ? 32 : 24, paddingTop: desk ? 24 : 8, height: desk ? 72 : 56 }}>
+        <Pressable onPress={back} hitSlop={14} accessibilityRole="button">
+          <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>← Everything</Text>
         </Pressable>
-        <SunArc light={today} size={78} compact />
+        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: t.layer, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <Image source={poseImage('ra-icon')} style={{ width: 42, height: 42, marginTop: 5 }} resizeMode="contain" />
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 22, paddingBottom: 20, gap: 14 }}>
-        {/* The task's OWN scene, not a generic wave.
-            Focus is the screen where you look at one thing before doing it —
-            showing Ra waving there is a mascot saying hello when what you need
-            is a picture of the thing itself. Falls back to the wave only when
-            the task has no activity, so the slot is never empty. */}
-        {scene ? (
-          <Image
-            source={scene}
-            style={{ width: 210, height: 168, alignSelf: 'center' }}
-            resizeMode="contain"
-          />
-        ) : (
-          <Character
-            name="ra-wave" size={128} motion={wave ? 'greet' : 'none'}
-            onDone={() => setWave(false)}
-            style={{ alignSelf: 'center' }}
-          />
-        )}
-
-        {!now ? (
-          <View style={{ gap: 10 }}>
-            <Eyebrow label="Nothing pending" />
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 41, fontFamily: T.display, letterSpacing: -0.9 }}>
-              {copy.emptyTitle}
+      <ScrollView contentContainerStyle={[{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+        desk && { width: '100%', maxWidth: STAGE + 48, alignSelf: 'center', justifyContent: 'center', paddingTop: 24, paddingBottom: 96 }]}>
+        {!now && sugs.length ? (
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
+              What feels doable now?
             </Text>
+            {sugs.map(sg => (
+              <Pressable key={sg.taskId}
+                onPress={async () => { Haptics.selectionAsync(); await focusOn(sg.task.id); }}
+                style={({ pressed }) => ({
+                  borderRadius: 22, padding: 16, gap: 4,
+                  backgroundColor: pressed ? t.subtle : t.card, borderWidth: 1, borderColor: t.stroke,
+                })}>
+                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 22, fontFamily: T.brand }} numberOfLines={2}>{sg.task.title}</Text>
+                {/* why this one, in facts: the same reason the planner ranked it by */}
+                {(!!sg.reason || !!(sg.suggestedMinutes ?? sg.task.est_minutes)) && (
+                  <Text style={{ color: t.ink3, fontSize: 13 }}>
+                    {[(sg.suggestedMinutes ?? sg.task.est_minutes) ? `≈ ${sg.suggestedMinutes ?? sg.task.est_minutes} min` : null, sg.reason].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        ) : !now ? (
+          <View style={{ gap: 10 }}>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{copy.emptyTitle}</Text>
             <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{copy.emptyBody}</Text>
-            <View style={{ height: 8 }} />
-            <Primary label="Back to Nu" tone="ra" onPress={back} />
           </View>
         ) : resume ? (
           <View style={{ gap: 14 }}>
-            <Eyebrow label="Where you were" />
-            <Text style={{ color: t.ink, fontSize: 32, lineHeight: 39, fontFamily: T.display, letterSpacing: -0.9 }}>
+            <Character name="ra-rest" size={120} motion="none" style={{ alignSelf: 'center' }} />
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>
               {now.title}
             </Text>
             {!!resume.crumb.note && (
@@ -272,255 +280,110 @@ export default function Ra() {
             <Text style={{ color: t.ink3, fontSize: 12.5 }}>
               {resume.crumb.context ? `${resume.crumb.context} · ` : ''}{ago(resume.crumb.at)}
             </Text>
-            <View style={{ height: 4 }} />
-            <Primary label="Pick it back up" tone="ra"
-              onPress={() => {
+            <View style={{ alignItems: 'center', gap: 18, marginTop: 18 }}>
+              <BigCircle label="Pick it back up" onPress={() => {
                 logEvent('resumed', now.id);
-                router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } });
+                router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
               }} />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Start it fresh" onPress={async () => {
+              <Pressable hitSlop={8} onPress={async () => {
                 await clearCrumbs(now.id); await refresh();
-                router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } });
-              }} />
-              <Ghost label="Not now" onPress={later} />
+                router.push({ pathname: '/timer', params: { id: now.id, mins: String(timerMins ?? 0) } });
+              }}><Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.display }}>Start it fresh</Text></Pressable>
+              <Pressable hitSlop={8} onPress={later}><Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>Not now</Text></Pressable>
             </View>
           </View>
         ) : (
-          <View style={{ gap: 14 }}>
-            {/* Energy lives here now.
-                It was on the capture screen, which asked how you FEEL while you
-                were busy writing down what you have to DO — and it changed
-                nothing on that screen, because only this one reads it. Asked
-                here it is a real question with a visible consequence: it caps
-                how long the thing you're about to be handed can be. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-              <Text style={{ color: t.ink3, fontSize: 13.5, flex: 1 }}>How much have you got?</Text>
-              <View style={{
-                flexDirection: 'row', gap: 3, padding: 3,
-                borderRadius: radius.pill, backgroundColor: t.layer,
-                borderWidth: 1, borderColor: t.stroke,
-              }}>
-                {([['low', 'A little'], ['steady', 'Some'], ['focused', 'Plenty']] as [Energy, string][]).map(([k, lbl]) => {
-                  const on = energy === k;
-                  return (
-                    <Pressable key={k}
-                      onPress={async () => { Haptics.selectionAsync(); await setEnergy(k); }}
-                      style={{
-                        paddingHorizontal: 11, paddingVertical: 6, borderRadius: radius.pill,
-                        backgroundColor: on ? t.ra : 'transparent',
-                      }}>
-                      <Text style={{
-                        color: on ? t.onRa : t.ink2, fontSize: 12.5,
-                        fontFamily: on ? T.brand : undefined,
-                      }}>{lbl}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <Eyebrow label={act ? act.name : copy.nextStep} />
+          <View>
+            {/* the one thing, two-tone: the task, then how long */}
             <Pressable onPress={() => router.push({ pathname: '/task/[id]', params: { id: now.id } })}>
-              <Text style={{ color: t.ink, fontSize: 36, lineHeight: 43, fontFamily: T.display, letterSpacing: -1 }}>
-                {now.title}
-              </Text>
-            </Pressable>
-
-            {!!now.first_action && (
-              <View style={{ borderLeftWidth: 3, borderLeftColor: t.ra, paddingLeft: 14 }}>
-                <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 23 }}>{now.first_action}</Text>
-              </View>
-            )}
-
-            {/* Same reason the hero card on Nu gave for this one — repeated
-                here because Ra is where the "why should I trust this pick"
-                doubt actually surfaces, not where it was first shown. */}
-            {(() => { const why = whyLine(nowRule, now, energy); return !!why && (
-              <Text style={{ color: t.ink3, fontSize: 13.5 }}>Why this one: {why}</Text>
-            ); })()}
-
-            {/* ------------------------------------------------------------ *
-              *  The one question.
-              *
-              *  Capture writes a title and nothing else — which is right, it
-              *  has to cost nothing — but it means the fields the NOW engine
-              *  actually reads are empty forever, and the app quietly degrades
-              *  into "oldest thing first". Every other app fixes this with a
-              *  form at capture time, which is precisely the friction that
-              *  stops you capturing.
-              *
-              *  So Ra asks for exactly one missing field, once, at the moment
-              *  it is about to matter, and taking the trouble to answer pays
-              *  light. Skipping is a real answer and is never asked again for
-              *  this task.
-              * ------------------------------------------------------------ */}
-            {needs === 'est' && (
-              <View style={{ gap: 10 }}>
-                <Text style={{ color: t.ink2, fontSize: 14.5 }}>How long, roughly? Turn it — guessing is fine.</Text>
-                <DurationDial stops={ESTIMATE_STOPS} value={estPick} onChange={setEstPick} size={148} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-                  <Pressable onPress={() => answerEst(estPick)} style={{
-                    paddingHorizontal: 18, paddingVertical: 10, borderRadius: radius.pill,
-                    borderWidth: 1.5, borderColor: t.ra, backgroundColor: t.raWash,
-                  }}>
-                    <Text style={{ color: t.raDeep, fontSize: 14, fontFamily: T.brand }}>About {estPick} min</Text>
-                  </Pressable>
-                  <Pressable onPress={() => skip('est')} hitSlop={10} style={{ paddingVertical: 10 }}>
-                    <Text style={{ color: t.ink3, fontSize: 13.5 }}>skip</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-
-            {needs === 'first' && (
-              <View style={{ gap: 9 }}>
-                <Text style={{ color: t.ink2, fontSize: 14.5 }}>
-                  What's the first physical move? The smaller the better.
+              <Text style={{ color: t.ink, ...big, fontFamily: T.display }}>{now.title}</Text>
+              {(!!nowMins || !!proj) && (
+                <Text style={{ color: t.mute ?? t.ink3, ...big, fontFamily: T.display }}>
+                  {nowMins ? `≈ ${nowMins} min` : proj?.project.title}
                 </Text>
-                <TextInput
-                  value={firstAction} onChangeText={setFirstAction}
-                  onSubmitEditing={saveFirst} returnKeyType="done"
-                  placeholder="e.g. open the doc that's already on the second screen"
-                  placeholderTextColor={t.ink3}
-                  style={{
-                    color: t.ink, fontSize: 16.5, paddingVertical: 13, paddingHorizontal: 14,
-                    backgroundColor: t.card, borderRadius: radius.md,
-                    borderWidth: 1, borderColor: t.strokeStrong, borderLeftWidth: 3, borderLeftColor: t.ra,
-                  }}
-                />
-                <Pressable onPress={() => skip('first')} hitSlop={10}>
-                  <Text style={{ color: t.ink3, fontSize: 13.5 }}>skip — I'll just start</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {(!!now.est_minutes || constraint) && needs === null && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-                {!!now.est_minutes && <Chip label={`≈ ${now.est_minutes} min`} />}
-                {constraint && <Chip label={`before ${constraint.title} · ${minutesUntil(constraint)}m`} />}
-              </View>
-            )}
-
-            {calAsk && !constraint && (
-              <Pressable onPress={askCalendar} style={{ paddingVertical: 4 }}>
-                <Text style={{ color: t.raDeep, fontSize: 14, fontFamily: T.brand }}>
-                  Show how long until my next thing →
-                </Text>
-              </Pressable>
-            )}
-
-            {/* The session length and the button that uses it are ONE control.
-                They were two stacked blocks with a gap, so the chips read as a
-                separate question and the CTA looked stranded — you had to tap
-                a chip and then watch the button's label change to work out they
-                were connected. Sharing a surface makes the relationship
-                structural instead of inferred.
-                The four durations used to sit here as equal chips every time —
-                which is one recommendation and three distractions dressed up
-                as four choices, on the one screen whose whole job is to hand
-                you a single thing to do. `sessionMins` is already sticky (see
-                above), so most sittings never need the alternatives at all;
-                they're a tap away behind "change" instead of always on. */}
-            <Surface accent="ra">
-              <View style={{ padding: 14, gap: 11 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: t.ink2, fontSize: 13.5 }}>How long this time?</Text>
-                  <Pressable onPress={() => { Haptics.selectionAsync(); setPickingMins(v => !v); }} hitSlop={8}>
-                    <Text style={{ color: t.nu, fontSize: 13, fontFamily: T.brand }}>
-                      {pickingMins ? 'Done' : `${sessionMins}m · change`}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {pickingMins && (
-                  <DurationDial stops={SESSION_STOPS} value={sessionMins}
-                    onChange={setSessionMins} onRelease={chooseSession} size={148} />
-                )}
-
-                <Primary label={`Begin · ${sessionMins} minutes`} tone="ra"
-                  sub="stop any time — it still counts"
-                  onPress={() => router.push({ pathname: '/timer', params: { id: now.id, mins: String(sessionMins) } })} />
-              </View>
-            </Surface>
-
-            {/* "Something else" used to be its own permanent button; it's now
-                one of the five things the sheet can do with the CURRENT task,
-                which is the more honest grouping — they're all answers to
-                the same question, "not this one?", not five unrelated
-                features. "Already done" stays outside the sheet: it's not a
-                decision about whether to keep looking at this task, it's the
-                good outcome. */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Ghost label="Already done" onPress={done} />
-              <Pressable onPress={() => { Haptics.selectionAsync(); setSheet(true); }}
-                hitSlop={10} style={{
-                  width: 44, alignItems: 'center', justifyContent: 'center',
-                  borderRadius: radius.pill, borderWidth: 1, borderColor: t.strokeStrong,
-                }}>
-                <Text style={{ color: t.ink2, fontSize: 18, fontFamily: T.brand }}>···</Text>
-              </Pressable>
-            </View>
-
-            {/* Choosing a specific task is a different job from "not this
-                one" — picking, not deciding — so it stays a plain link
-                rather than living in the sheet. */}
-            <View style={{ alignItems: 'center' }}>
-              {!picking ? (
-                <Pressable onPress={() => { Haptics.selectionAsync(); setPicking(true); }}
-                  hitSlop={10} style={{ paddingVertical: 6 }}>
-                  <Text style={{ color: t.nu, fontSize: 13.5 }}>Choose something specific →</Text>
-                </Pressable>
-              ) : (
-                <View style={{
-                  width: '100%', backgroundColor: t.layer, borderRadius: radius.lg,
-                  borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
-                    <Text style={{ flex: 1, color: t.ink2, fontSize: 13, fontFamily: T.brand }}>YOUR LIST</Text>
-                    <Pressable onPress={() => setPicking(false)} hitSlop={10}>
-                      <Text style={{ color: t.ink3, fontSize: 15 }}>✕</Text>
-                    </Pressable>
-                  </View>
-                  {inbox.filter(x => x.id !== now?.id).slice(0, 12).map((task, i) => (
-                    <Pressable key={task.id}
-                      onPress={async () => {
-                        Haptics.selectionAsync();
-                        await pickForToday(task.id, true);
-                        await focusOn(task.id);    // held until it's done — see db.chooseTask
-                        setPicking(false);
-                      }}
-                      style={({ pressed }) => ({
-                        padding: 12, paddingLeft: 14,
-                        borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.stroke,
-                        backgroundColor: pressed ? t.subtle : 'transparent',
-                        flexDirection: 'row', alignItems: 'center', gap: 10,
-                      })}>
-                      <Text style={{ flex: 1, color: t.ink, fontSize: 15, lineHeight: 21 }} numberOfLines={2}>
-                        {task.title}
-                      </Text>
-                      {!!task.est_minutes && (
-                        <Text style={{ color: t.ink3, fontSize: 12, flexShrink: 0 }}>{task.est_minutes}m</Text>
-                      )}
-                    </Pressable>
-                  ))}
-                  {inbox.length === 0 && (
-                    <Text style={{ color: t.ink3, fontSize: 14, padding: 14 }}>Nothing else to pick from.</Text>
-                  )}
-                </View>
               )}
+            </Pressable>
+            {!!now.first_action && (
+              <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 21, marginTop: 10 }}>{now.first_action}</Text>
+            )}
+            {constraint && (
+              <Text style={{ color: t.ink3, fontSize: 13.5, marginTop: 8 }}>before {constraint.title} · {minutesUntil(constraint)} min</Text>
+            )}
+
+            {/* Nu hands it to Ra */}
+            <View style={{ marginHorizontal: -24, paddingHorizontal: 24, marginTop: 20 }}>
+              <Handoff />
             </View>
 
-            <ActionSheet
-              visible={sheet}
-              title="Not this one?"
-              subtitle={now.title}
-              actions={sheetActions}
-              onDismiss={() => setSheet(false)}
-            />
+            <View style={{ alignItems: 'center', gap: 22, marginTop: 36 }}>
+              <BigCircle label={timerMins ? `Begin · ${timerMins}` : 'Begin'} onPress={begin} />
+              <Pressable onPress={() => { Haptics.selectionAsync(); setOptions(true); }} hitSlop={10} accessibilityRole="button">
+                <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.display }}>More options</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </ScrollView>
+
+      {/* MORE OPTIONS — the knobs and everything else, when you want them (rule 5) */}
+      {!!now && (
+        <Sheet visible={options} onClose={() => setOptions(false)}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Knob label="Length" options={LENGTHS} value={(LENGTHS as readonly (number | null)[]).includes(timerMins) ? timerMins : null}
+              onChange={m => chooseTimer(m)} format={m => (m ? String(m) : 'Open')} unit={m => (m ? 'min' : undefined)} />
+            <Knob label="Energy" options={ENERGY.map(e => e[0])} value={energy}
+              onChange={e => setEnergy(e)} format={e => ENERGY.find(x => x[0] === e)?.[1] ?? 'Okay'} />
+          </View>
+          <View style={{ marginTop: 10 }}>
+            <OptionRow label="Something else" onPress={() => { setOptions(false); somethingElse(); }} />
+            {proj
+              ? <OptionRow label="See the whole path" value={proj.project.title}
+                  onPress={() => { setOptions(false); router.push({ pathname: '/project/[id]', params: { id: proj.project.id } }); }} />
+              : <OptionRow label="Break it down" onPress={() => { setOptions(false); makeItSmaller(); }} />}
+            <OptionRow label="Remind me" open={reminding} onPress={() => setReminding(v => !v)} />
+            {reminding && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 14 }}>
+                {REMIND_AT.map(r => (
+                  <Pressable key={r.label} onPress={() => { setOptions(false); remind(r.at()); }} accessibilityRole="button"
+                    style={({ pressed }) => ({
+                      paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1,
+                      borderColor: t.strokeStrong, backgroundColor: pressed ? t.subtle : 'transparent',
+                    })}>
+                    <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{r.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            <OptionRow label="Waiting on someone" onPress={() => { setOptions(false); waitingOnSomeone(); }} />
+            <OptionRow label="Mark as done" onPress={() => { setOptions(false); done(); }} last />
+          </View>
+          {proj && (
+            <View style={{ paddingBottom: 10 }}>
+              <MoveHelp projectId={proj.project.id} onMoved={async taskId => {
+                setOptions(false);
+                if (taskId) await focusOn(taskId);
+                await refresh();
+              }} />
+            </View>
+          )}
+          <Primary label={timerMins ? `Begin · ${timerMins} min` : 'Begin'} tone="ra"
+            onPress={() => { setOptions(false); begin(); }} style={{ marginTop: 10 }} />
+        </Sheet>
+      )}
     </SafeAreaView>
+  );
+}
+
+/** The one action (guidelines/components/overview.md): a coral circle. */
+function BigCircle({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onPress(); }}
+      accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => ({
+        width: 124, height: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#FF6B35', transform: [{ scale: pressed ? 0.96 : 1 }], paddingHorizontal: 10,
+      })}>
+      <Text style={{ color: '#3B1204', fontSize: 18, fontFamily: T.display, textAlign: 'center' }}>{label}</Text>
+    </Pressable>
   );
 }

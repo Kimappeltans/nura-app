@@ -1,5 +1,7 @@
+import { inWorld } from '../../src/world';
+import { goBack } from '../../src/nav';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,11 +12,13 @@ import {
   REPEAT_LABEL, type Task, type RepeatRule,
 } from '../../src/db';
 import { reconcileNudges } from '../../src/notifications';
+import { ask } from '../../src/notify';
 import { radius, type as T } from '../../src/theme';
 import { LABELS, type LabelId } from '../../src/labels';
 import { PRIORITIES } from '../../src/priority';
 import { LabelChip } from '../../src/components/LabelIcon';
 import { DatePicker, formatDue } from '../../src/components/DatePicker';
+import { readable } from '../../src/components/Desk';
 
 const MINUTES = [2, 5, 10, 15, 30, 60];
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -64,13 +68,15 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
   );
 }
 
-export default function TaskDetail() {
+function TaskDetail() {
   const t = useTheme();
   const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const refresh = useStore(s => s.refresh);
   const celebrate = useStore(s => s.celebrate);
 
   const [task, setTask] = useState<Task | null>(null);
+  // no such task (a stale link, or gone on another device): say so, not a blank screen
+  const [gone, setGone] = useState(false);
   const [subs, setSubs] = useState<Task[]>([]);
   const [stepText, setStepText] = useState('');
   const [showCal, setShowCal] = useState(false);
@@ -94,13 +100,25 @@ export default function TaskDetail() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!id) return;
-    setTask(await getTask(id));
+    if (!id) { setGone(true); return; }
+    const found = await getTask(id);
+    setTask(found);
+    setGone(!found);
     setSubs(await steps(id));
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
-  if (!task) return <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} />;
+  if (!task) return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+      <Mica />
+      <View style={{ padding: 20 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }} accessibilityRole="button">
+          <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
+        </Pressable>
+        {gone && <Text style={{ color: t.ink, fontSize: 24, lineHeight: 28, fontFamily: T.display, letterSpacing: -0.8 }}>This task is gone.</Text>}
+      </View>
+    </SafeAreaView>
+  );
 
   // every edit writes through immediately — no save button to forget.
   // setTask uses the functional updater, not `{ ...task, ...p }` closed over
@@ -131,7 +149,7 @@ export default function TaskDetail() {
       <Mica />
       <ScrollView ref={scroller} contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
 
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }}>
+        <Pressable onPress={() => goBack()} hitSlop={12} style={{ paddingVertical: 8, marginBottom: 6 }}>
           <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
         </Pressable>
 
@@ -345,14 +363,12 @@ export default function TaskDetail() {
             instead: not a start action, a way to shrink the thing you're not
             starting yet. */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-          {!task.parent_id && <Ghost label="Make it smaller" onPress={jumpToSteps} />}
-          <Ghost label="Let it go" onPress={() => {
-            // not a delete — it stays in the event log, it just stops asking
-            Alert.alert('Let this go?', 'It stops appearing. Nothing is counted against you.', [
-              { text: 'Keep it', style: 'cancel' },
-              { text: 'Let it go', style: 'destructive',
-                onPress: async () => { await dropTask(task.id); await refresh(); router.back(); } },
-            ]);
+          {!task.parent_id && <Ghost style={{ flex: 1 }} label="Make it smaller" onPress={jumpToSteps} />}
+          <Ghost style={{ flex: 1 }} label="Let it go" onPress={async () => {
+            // not a delete — it stays in the event log, it just stops asking.
+            // ask(), not Alert.alert: react-native-web's Alert does nothing.
+            if (!(await ask('Let this go?', 'It stops appearing. Nothing is counted against you.', 'Let it go', true))) return;
+            await dropTask(task.id); await refresh(); goBack();
           }} />
         </View>
       </ScrollView>
@@ -382,3 +398,5 @@ export default function TaskDetail() {
     </SafeAreaView>
   );
 }
+
+export default inWorld('utility', readable(TaskDetail));

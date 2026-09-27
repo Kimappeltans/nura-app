@@ -1,11 +1,17 @@
+import { useTheme } from '../src/store';
+import { inWorld } from '../src/world';
+import { goBack } from '../src/nav';
+import { withTabs } from '../src/components/WithTabs';
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { createHabit } from '../src/db';
-import { radius, raTheme, type as T } from '../src/theme';
-import { Mica, Primary, Eyebrow } from '../src/ui';
+import { radius, type as T } from '../src/theme';
+import { StatusBar } from 'expo-status-bar';
+import { Mica, Primary } from '../src/ui';
+import { Moving } from '../src/components/Moving';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 
 /**
  * A new habit — cue, tiny action, and an honest fallback for a bad day.
@@ -15,8 +21,8 @@ import { Mica, Primary, Eyebrow } from '../src/ui';
  * form only accepts the shape that actually builds automaticity — an
  * existing moment in your day, and something small enough to survive it.
  */
-export default function NewHabit() {
-  const t = raTheme;   // onboarding-style chrome, not the Nu/Ra mode — see Compose.tsx
+function NewHabit() {
+  const t = useTheme();
   const [cue, setCue] = useState('');
   const [action, setAction] = useState('');
   const [minimum, setMinimum] = useState('');
@@ -29,72 +35,71 @@ export default function NewHabit() {
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await createHabit(cue, action, minimum);
-    router.back();
+    goBack();
   };
 
-  const field = (value: string, onChange: (v: string) => void, placeholder: string) => (
-    <TextInput
-      value={value} onChangeText={onChange}
-      placeholder={placeholder} placeholderTextColor={t.ink3}
-      multiline
-      style={{
-        color: t.ink, fontSize: 16.5, lineHeight: 22, padding: 14,
-        backgroundColor: t.card, borderRadius: radius.lg,
-        borderWidth: 1, borderColor: t.strokeStrong, minHeight: 54,
-      }}
-    />
+  const field = (label: string, value: string, onChange: (v: string) => void, placeholder: string) => (
+    <View style={{ gap: 8 }}>
+      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginLeft: 4 }}>{label.toUpperCase()}</Text>
+      <TextInput
+        value={value} onChangeText={onChange}
+        placeholder={placeholder} placeholderTextColor={t.ink3}
+        multiline
+        style={{
+          color: t.ink, fontSize: 16.5, lineHeight: 22, padding: 14,
+          backgroundColor: t.card, borderRadius: radius.lg,
+          borderWidth: 1, borderColor: t.stroke, minHeight: 54,
+        }}
+      />
+    </View>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
-      <Mica force="ra" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 4 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingVertical: 10 }}>
-            <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 6, gap: 22 }} keyboardShouldPersistTaps="handled">
-          <View>
-            <Eyebrow label="New habit" tone="ra" />
-            <Text style={{ color: t.ink, fontSize: 26, fontFamily: T.display, letterSpacing: -0.6, marginTop: 6 }}>
-              After something, do a little.
-            </Text>
-            <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, marginTop: 6 }}>
-              Not a time — a moment that already happens. "7am" gets missed by a bad
-              morning; "after I make coffee" doesn't.
-            </Text>
+    <>
+      <StatusBar style="dark" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
+        <Mica />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          {/* the header every inner screen has: back, then the title */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2, zIndex: 1 }}>
+            <Pressable onPress={() => goBack()} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+              <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
+            </Pressable>
           </View>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              AFTER…
-            </Text>
-            {field(cue, setCue, 'I make coffee')}
-          </View>
+          <ScrollView style={{ marginTop: -38 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30, gap: 22 }} keyboardShouldPersistTaps="handled">
+            {/* Ra in the opening's glow, his rays pulsing: a habit comes round every day, like the sun */}
+            {/* room above for the glow: the scroll view would cut it off square */}
+            <View style={{ alignItems: 'center', marginTop: 38 }}>
+              <View style={{ width: 128, height: 128, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={200} height={200} style={{ position: 'absolute', left: -36, top: -36 }}>
+                  <Defs>
+                    <RadialGradient id="habitglow" cx="50%" cy="50%" r="50%">
+                      <Stop offset="0" stopColor="#FFE2B8" stopOpacity={0.6} />
+                      <Stop offset="0.35" stopColor="#FFB067" stopOpacity={0.3} />
+                      <Stop offset="0.7" stopColor="#FF8A5C" stopOpacity={0.1} />
+                      <Stop offset="1" stopColor="#FF6B35" stopOpacity={0} />
+                    </RadialGradient>
+                  </Defs>
+                  <Circle cx={100} cy={100} r={100} fill="url(#habitglow)" />
+                </Svg>
+                <Moving name="ra-rays" style={{ width: 124, height: 132 }} />
+              </View>
+              <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 10, textAlign: 'center' }}>
+                New habit
+              </Text>
+            </View>
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              I WILL…
-            </Text>
-            {field(action, setAction, 'revise one paragraph')}
-          </View>
+            {field('After', cue, setCue, 'I make coffee')}
+            {field('I will', action, setAction, 'revise one paragraph')}
+            {field('On a bad day (optional)', minimum, setMinimum, 'read one sentence')}
 
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.brand }}>
-              ON A BAD DAY, INSTEAD (OPTIONAL)
-            </Text>
-            {field(minimum, setMinimum, 'read one sentence')}
-            <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18 }}>
-              A version small enough that "too tired" is never a reason to skip it
-              entirely. Counts exactly the same.
-            </Text>
-          </View>
-
-          <Primary label={busy ? 'Saving…' : 'Start it'} tone="ra" onPress={save} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <Primary label={busy ? 'Saving…' : 'Add habit'} tone="ra" onPress={save} disabled={!canSave} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </>
   );
 }
+
+export default inWorld('nu', withTabs(NewHabit));

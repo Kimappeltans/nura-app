@@ -37,10 +37,16 @@ export function whyLine(rule: PickRule | null, task: Task, energy: Energy, now =
     case 'chosen':   return 'you picked it';
     case 'due':      return task.due_at != null && task.due_at <= now ? 'past due' : 'due within the next couple of hours';
     case 'started':  return 'you already started this one';
-    case 'today':    return 'it’s on today’s plan';
+    case 'today':    return (task.priority ?? 0) > 0
+      ? `top of your Today, ${['', 'low', 'medium', 'high'][task.priority ?? 0]} priority`
+      : 'next on your Today list';
+    case 'priority': return `you marked it ${['', 'low', 'medium', 'high'][task.priority ?? 0]} priority`;
     case 'upcoming': return 'due in the next few days';
     case 'fits':     return energy === 'low' ? 'short enough for right now' : 'fits the time you’ve got';
     case 'smallest': return 'the smallest thing there is';
     default:         return null;
   }
 }
+
+/* The facts on the card in front ("Fits before 7:30 PM · High priority")
+ * are the planner's reason now: src/next.ts → decide(). */

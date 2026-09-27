@@ -13,3 +13,19 @@ expo-env.d.ts
 # regenerate them rather than editing or committing them.
 /ios
 /android
+
+# npm run screens output (scripts/screens.sh)
+/screens/
+
+# raw Midjourney sources; the cut-outs used by the app live in assets/story
+/nu-characters/
+
+# the Supabase CLI keeps its link to the project here; local only
+supabase/.temp/
+
+# local only: Claude Code's settings, macOS folder files, and raw video and
+# image exports dropped in the project root
+.claude/
+.DS_Store
+/*.mp4
+/kimappel1_*

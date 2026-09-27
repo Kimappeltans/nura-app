@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import {
   getDb, logEvent, complete, notNow, markActed, softnessAt, smallestTask,
-  ANCHOR_SLOTS, type Task,
+  anchorSlots, getNudges, type Task,
 } from './db';
 import { nextEvent } from './calendar';
 
@@ -93,33 +93,37 @@ const ANCHOR_COPY: Record<string, { title: string; body: string }> = {
 export async function scheduleAnchors() {
   if (Platform.OS === 'web') return;
 
-  const morning = ANCHOR_SLOTS.find(s => s.id === 'anchor.morning')!;
-  await Notifications.scheduleNotificationAsync({
-    identifier: morning.id,
-    content: {
-      ...ANCHOR_COPY[morning.id],
-      categoryIdentifier: CATEGORY,
-      data: { kind: 'anchor', anchor: morning.id },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: morning.hour, minute: morning.minute,
-    },
-  });
+  // only the anchors that are on, at the times chosen in Settings → Notifications
+  const slots = await anchorSlots();
+  const morning = slots.find(s => s.id === 'anchor.morning');
+  if (morning) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: morning.id,
+      content: {
+        ...ANCHOR_COPY[morning.id],
+        categoryIdentifier: CATEGORY,
+        data: { kind: 'anchor', anchor: morning.id },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: morning.hour, minute: morning.minute,
+      },
+    });
+  }
 
   const now = Date.now();
-  const keep = new Set<string>([morning.id]);
+  const keep = new Set<string>(morning ? [morning.id] : []);
 
   for (let d = 0; d < ANCHOR_DAYS; d++) {
-    for (const slot of ANCHOR_SLOTS) {
-      if (slot.id === morning.id) continue;
+    for (const slot of slots) {
+      if (slot.id === 'anchor.morning') continue;
       const when = new Date();
       when.setDate(when.getDate() + d);
       when.setHours(slot.hour, slot.minute, 0, 0);
       const fireAt = when.getTime();
       if (fireAt <= now) continue;
 
-      const soft = await softnessAt(fireAt);
+      const soft = await softnessAt(fireAt, slots);
       if (soft.silent) continue;                     // level 4: the app stops asking
 
       const id = `anchor.${slot.id.split('.')[1]}.${when.toISOString().slice(0, 10)}`;
@@ -135,7 +139,7 @@ export async function scheduleAnchors() {
         content: {
           title: soft.offer ? 'No pressure' : copy.title,
           body: soft.offer
-            ? (small ? `${small.title} — only if you feel like it.` : 'Something small is here if you want it.')
+            ? (small ? `${small.title}, only if you feel like it.` : 'Something small is here if you want it.')
             : (small ? `${small.title}. Five minutes?` : copy.body),
           categoryIdentifier: CATEGORY,
           data: { kind: 'anchor', anchor: slot.id, taskId: small?.id },
@@ -159,6 +163,7 @@ export async function scheduleAnchors() {
 async function computeDesired(): Promise<Desired[]> {
   const db = await getDb();
   const now = Date.now();
+  const slots = await anchorSlots();
   const tasks = await db.getAllAsync<Task>(
     `SELECT * FROM task
       WHERE state NOT IN ('done','dropped') AND due_at IS NOT NULL AND due_at > ?
@@ -170,7 +175,7 @@ async function computeDesired(): Promise<Desired[]> {
     for (const [label, lead] of [['24h', 86400_000], ['2h', 7200_000], ['20m', 1200_000]] as const) {
       const fireAt = t.due_at! - lead;
       if (fireAt <= now) continue;
-      const soft = await softnessAt(fireAt);
+      const soft = await softnessAt(fireAt, slots);
       if (soft.silent) continue;
       out.push({
         // fireAt is part of the id, not just the trigger — reconcileNudges()
@@ -183,7 +188,7 @@ async function computeDesired(): Promise<Desired[]> {
         fireAt, taskId: t.id,
         title: soft.offer ? 'No pressure' : t.title,
         body: soft.offer
-          ? (t.first_action ? `${t.first_action} — only if you feel like it.` : 'Even five minutes of it counts.')
+          ? (t.first_action ? `${t.first_action}, only if you feel like it.` : 'Even five minutes of it counts.')
           : body(t),
       });
     }
@@ -287,7 +292,8 @@ export async function scheduleTransitionWarning() {
   const pending = await Notifications.getAllScheduledNotificationsAsync();
   const stale = pending.filter(p => p.identifier.startsWith('transition.'));
 
-  const ev = await nextEvent();
+  // Settings → Notifications can turn these off: then any still queued go too
+  const ev = (await getNudges()).events ? await nextEvent() : null;
   const id = ev ? `transition.${ev.id}` : null;
 
   for (const p of stale) {

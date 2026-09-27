@@ -5,7 +5,7 @@ import { useTheme } from '../store';
 import { type as T } from '../theme';
 import { Mica } from '../ui';
 
-const mark = require('../../assets/brand/nura-logo-tight.png');
+const mark = require('../../assets/brand/nura-logo-tight.webp');
 
 /**
  * Shown before we know anything — fonts still loading, or the single query

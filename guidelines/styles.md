@@ -1,118 +1,59 @@
 # Styles
 
-How the tokens in `tokens.md` compose into the patterns you'll actually
-reach for — typography pairing, surface layering, and mode-switching. If
-`tokens.md` is the alphabet, this is the grammar.
+How the tokens compose. If `tokens.md` is the alphabet, this is the grammar.
 
-## Typography pairing
+## Type
 
-Two families, deliberately not one:
+One family, Inter Tight. Hierarchy comes from size, weight and a second,
+muted line — not from a second font.
 
-```css
-h1, h2, h3, .display  { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
-.brand, button, .label { font-family: var(--font-brand);   font-weight: 500; }
-body, p, li            { font-family: var(--font-body); }
+**Two-tone headline.** The subject in `--text`, the next line in `--mh`:
+
+```
+Good morning.            ← --text, 600
+5 things, 2 meetings.    ← --mh, 600
 ```
 
-**Naming pattern:** `--font-display`/`--font-brand` both resolve to Poppins
-at different weights — `display` for headings, `brand` for anything with a
-smaller, punchier voice (buttons, labelled chips, section captions).
-`--font-body` is the platform system stack.
+Use it for screen titles (Friday / 3 done, 2 to go.), a task on Focus
+(title / ≈ 15 min) and Done (You did it / together.). The second line is
+information, never decoration.
 
-**Common mistake:** setting Poppins on paragraph-length body text. It reads
-fine in a headline and noticeably worse at reading length — this is a hard
-rule, not a preference. If a design has more than ~2 lines of Poppins
-running text, that's the signal it should be `--font-body` instead.
+**Numbers are big, labels are small.** `15` at 58–84px with `min` at 12–14px
+beside it; `7:00` over `Start`. Times and counts use tabular figures.
 
-## Surface layering
+**Dot-matrix numbers** only where time itself is the subject: the session
+timer (leading zeros muted) and the night clock.
 
-Every raised surface gets three things, not one flat fill:
-
-```css
-/* CORRECT — layered: fill, hairline, and (sparingly) shadow */
-.card {
-  background: var(--card);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-lg);
-  /* shadow only if this card is the primary action or a hero surface —
-     see tokens.md's elevation frequency note */
-}
-
-/* WRONG — flat fill with no hairline reads as a wireframe, not a raised surface */
-.card {
-  background: var(--card);
-  border-radius: var(--radius-lg);
-}
-```
-
-An accent rule (2px gradient) along a card's top edge marks it as tied to an
-action, e.g. the primary CTA's own card, or a card that a completion pays
-into:
-
-```css
-.card--accent::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--ra-btn-a), var(--ra-btn-b));
-}
-```
-
-## Mode switching
-
-Mode (`nu` / `ra`) is a data attribute on a root element, set by product
-state — never CSS media queries:
+## Surfaces — flat
 
 ```css
 /* CORRECT */
-[data-mode="ra"] .card { /* --card, --ink etc. already resolve to Ra's values */ }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; }
 
-/* WRONG — ties the product's mode to the OS theme, which is a different axis entirely */
-@media (prefers-color-scheme: dark) { .card { background: #161D42; } }
+/* WRONG — gradient wash, glow, shadow */
+.card { background: linear-gradient(...); box-shadow: 0 8px 24px ...; }
 ```
 
-If you need a component to render on a fixed mode regardless of the current
-product state (e.g. onboarding chrome that's always cream, independent of
-whatever mode the rest of the app happens to be in) — set `data-mode="ra"`
-directly on that subtree rather than threading a theme prop through every
-child.
+One coral surface per screen at most (the front card, Begin, or Done's
+ground). Everything else is `--card`, `--card-2` or the ground.
+
+## Appearance
+
+Stored as a setting: `sun` (default), `light`, `dark`.
+
+- **By the sun** — rooms use `.light` from the start of the day (Settings →
+  Day starts) until the day ends (Settings → Day ends), then `.navy`.
+- **Light** — rooms always `.light`. **Dark** — rooms always `.navy`.
+- Ra's screens (Focus, More options, In session) are cream in all three;
+  Done is warm white into light orange (`doneGround`) in all three.
 
 ## Motion
 
-Spring-based, never linear ease for anything with weight behind it. The
-`cubic-bezier` values below are the closest CSS approximation of the native
-spring physics (RN's `Animated.spring` friction/tension) the product actually
-runs on — use them as real `transition`/`animation` timing functions, not
-just a reference table.
+Spring-based, never linear for anything with weight. Ra climbs the day's path
+and the timer ring continuously; everything else moves only in response to a
+touch. Respect reduced motion: no ambient loops.
 
 ```css
-:root {
-  --ease-press: cubic-bezier(0.34, 1.56, 0.64, 1);      /* press-in: friction 7, tension 220 */
-  --ease-overshoot: cubic-bezier(0.68, -0.55, 0.27, 1.55); /* checkbox fill: friction 4→6 */
-  --ease-pop: cubic-bezier(0.22, 1, 0.36, 1);            /* modal/celebration entrance: friction 6, tension 90 */
-}
-
-/* any tappable card/button, on press */
-.pressable { transition: transform 120ms var(--ease-press); }
-.pressable:active { transform: scale(0.975); }
-
-/* checkbox fill, small confirmations */
-.checkbox.checked { animation: overshoot 220ms var(--ease-overshoot); }
-@keyframes overshoot {
-  0%   { transform: scale(1); }
-  60%  { transform: scale(1.18); }
-  100% { transform: scale(1); }
-}
-
-/* modal / celebration entrance */
-.modal-enter { animation: pop-in 320ms var(--ease-pop) both; }
-@keyframes pop-in {
-  from { opacity: 0; transform: scale(0.88); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* kill ambient/looping motion; keep state-change transitions above —
-     they convey response to input, not ambience */
-  .float, .pulse { animation: none !important; }
-}
+--ease-press: cubic-bezier(0.34, 1.56, 0.64, 1);   /* press */
+--ease-pop:   cubic-bezier(0.22, 1, 0.36, 1);      /* sheets, Done */
 ```

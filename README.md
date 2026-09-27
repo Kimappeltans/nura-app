@@ -4,7 +4,11 @@
 static HTML with no shared code.**
 
 Local-first: every screen works fully offline with no account, on-device SQLite
-as the source of truth, no analytics, nothing sent anywhere unless you sign in.
+as the source of truth, no analytics. Two things leave the phone, and only when
+you use them: sync if you sign in, and Nu's project planner — "Plan it with
+Nu" sends the goal and the project's steps to a Supabase function that calls
+Claude (`supabase/functions/nura-plan`, setup in `supabase/README.md`). Quick
+capture never leaves the phone.
 Signing in (Apple/Google/email via Supabase — `src/supabase.ts`, `src/sync.ts`)
 is optional and only ever adds cross-device sync of tasks/habits on top; it
 never gates a feature, and no third-party data collection exists beyond that.
@@ -60,6 +64,12 @@ eas build --profile development --platform ios
 | `app/task/[id].tsx` | Task detail — first action, estimate, due, micro-steps |
 | `app/timer.tsx` | The 5-minute contract, with capture-without-leaving |
 | `app/retro.tsx` | "What did you actually do?" — backdated logging |
+| `src/projects.ts` | Projects: the goal, what done means, the path; only the current move is a task |
+| `src/planner.ts` | Nu's planner client: calls, response checks, merging a replan without touching your edits |
+| `app/project/new.tsx` | "Plan it with Nu": the goal, one question, an editable path |
+| `app/project/[id].tsx` | A project's path, and "you moved it forward" after a move |
+| `src/voice.ts` | Speaking to Nu and hearing Nu and Ra: the phone's own recognition and voices |
+| `src/components/Benben.tsx` | The opening: the stone rises out of the water |
 | `app/wins.tsx` | Total, momentum, pixel grid, done-list. Reachable from Nu only |
 | `guidelines/design-system/index.html` | The design system: tokens, characters, components and real screens on one page. Open it in a browser |
 

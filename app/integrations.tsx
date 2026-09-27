@@ -1,13 +1,14 @@
-import { router } from 'expo-router';
+import { inWorld } from '../src/world';
+import { readable } from '../src/components/Desk';
+import { goBack } from '../src/nav';
 import Connect from '../src/screens/Connect';
 
 /**
- * The same Connect screen, reachable from Settings.
- *
- * Every one of those services is something people connect weeks in, not on day
- * one — and until now the ONLY time it was ever shown was during onboarding,
- * which meant tapping "Skip for now" put them permanently out of reach.
+ * The Connect screen (calendar and reminders), reachable from Settings and
+ * You. ← Back is the one way out, top left; the button at the bottom says Done.
  */
-export default function Integrations() {
-  return <Connect onDone={() => router.back()} />;
+function Integrations() {
+  return <Connect onDone={() => goBack()} onBack={() => goBack()} />;
 }
+
+export default inWorld('utility', readable(Integrations));
