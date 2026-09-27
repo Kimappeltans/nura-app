@@ -1,4 +1,4 @@
-// Nura — the site: the header hairline, the dotted sun, sections easing in, the moving characters.
+// Nura — the site: the header hairline, sections easing in, the moving characters, the demos.
 
 // the header gets its hairline once the page moves
 const header = document.querySelector('header');
@@ -160,7 +160,7 @@ if (demo && window.NuraParser) {
     setTimeout(() => sortIn(pill, text), still ? 0 : 1300);
   };
   // on view, once: the mess falls in, then sorts itself
-  const SEED = ['proposal outline by friday 2h', 'call mum tmrw 6pm', 'renew passport', 'slides for monday 45 min', 'reply to Sam 10 min'];
+  const SEED = ['board deck by friday 2h', 'call accountant tmrw 9am', 'renew passport', 'prep for investor call mon 10am 30 min', 'reply to Dana about the contract 10 min'];
   let started = false;
   new IntersectionObserver(([e]) => {
     if (!e.isIntersecting || started) return;

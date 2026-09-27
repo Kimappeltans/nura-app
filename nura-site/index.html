@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=19">
+<link rel="stylesheet" href="site.css?v=22">
 </head>
 <body>
 
@@ -31,32 +31,63 @@
 
 <main id="top">
 
-<!-- hero: the intelligence first -->
-<section class="day hero glow">
-  <div class="wrap hero-grid">
-    <div>
-      <h1>A planner that finds your next best move. <span class="mh">And learns how you work.</span></h1>
-      <p class="lead">Put down what's on your mind. Nura turns it into a plan that keeps up with you.</p>
-      <div class="cta">
-        <a class="btn btn-coral" href="https://app.risewithnura.com">Open the web app</a>
-        <a class="link" href="how-it-works.html">See how it works ›</a>
-      </div>
-      <p class="note"><i></i>Soon on the App Store</p>
+<!-- hero: the morning sky, the day's path, and the one move in front -->
+<section class="sky hero">
+  <div class="wrap hx-copy">
+    <p class="eyebrow"><i></i>Soon on the App Store</p>
+    <h1>A planner that finds your next best move. <span class="mh">And learns how you work.</span></h1>
+    <p class="lead">Put down what's on your mind. Nura turns it into a plan that keeps up with you.</p>
+    <div class="cta">
+      <a class="btn btn-coral" href="https://app.risewithnura.com">Open the web app</a>
+      <a class="link" href="how-it-works.html">See how it works ›</a>
     </div>
-    <div class="stage">
-      <figure class="phone">
-        <picture><source type="image/avif" srcset="assets/app-home.avif"><img src="assets/app-home.webp" width="780" height="1696" alt="Nura's Home: the day's path with Ra and three things done, the stack Nu is holding, and the one in front: Draft the proposal outline, fits before 9:30 PM, high priority, 25 minutes, with Begin." fetchpriority="high"></picture>
-      </figure>
-      <img class="mover" src="assets/nu-hug-still.webp" data-clip="assets/nu-hug.webp" data-loop data-after-load width="188" height="230" alt="">
+  </div>
+  <div class="hx-stage">
+    <div class="hx-sun" aria-hidden="true"></div>
+    <svg class="hx-arc" viewBox="0 0 1440 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="hxg" x1="0" x2="1">
+        <stop offset="0" stop-color="#FF6B35" stop-opacity="0"/><stop offset=".25" stop-color="#FF6B35" stop-opacity=".9"/>
+        <stop offset=".6" stop-color="#FFB08A" stop-opacity=".5"/><stop offset="1" stop-color="#FF6B35" stop-opacity="0"/></linearGradient></defs>
+      <path d="M-60 640 Q 720 -140 1500 640" fill="none" stroke="url(#hxg)" stroke-width="2"/>
+      <path d="M-60 700 Q 720 -60 1500 700" fill="none" stroke="#171313" stroke-opacity=".14" stroke-dasharray="2 9"/>
+      <circle cx="180" cy="378" r="5" fill="#FF6B35"/><circle cx="360" cy="276" r="5" fill="#FF6B35"/><circle cx="540" cy="222" r="5" fill="#FF6B35"/>
+    </svg>
+    <figure class="phone">
+      <picture><source type="image/avif" srcset="assets/app-home.avif"><img src="assets/app-home.webp" width="780" height="1696" alt="Nura's Home: the day's path with Ra and three things done, the stack Nu is holding, and the one in front: Draft the proposal outline, fits before 9:30 PM, high priority, 25 minutes, with Begin." fetchpriority="high"></picture>
+    </figure>
+    <div class="hx-chip c1" aria-hidden="true">
+      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
+      <span><b>Prepare slides for Monday</b><small>Nu is holding</small></span><span class="t">45<em>min</em></span>
     </div>
+    <div class="hx-chip c2" aria-hidden="true">
+      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span>
+      <span><b>Review the Q3 numbers</b><small>Before Friday's check-in</small></span><span class="t">4:00<em>PM</em></span>
+    </div>
+    <div class="hx-chip c3" aria-hidden="true">
+      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
+      <span><b>Draft the proposal outline</b><small>Nu found this one · fits before 9:30 PM</small></span><span class="t">25<em>min</em></span>
+    </div>
+    <img class="mover" src="assets/nu-hug-still.webp" data-clip="assets/nu-hug.webp" data-loop data-after-load width="188" height="230" alt="">
+  </div>
+</section>
+
+<!-- three plain facts -->
+<section class="day strip" aria-label="In short">
+  <div class="wrap">
+    <ul>
+      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span><b>In your browser today.</b> On iPhone soon.</span></li>
+      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 17c3-6 6-9 9-9s6 3 9 9"/><circle cx="12" cy="8" r="1.5" fill="currentColor"/></svg><span><b>Learns your pace,</b> not an average user's.</span></li>
+      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span><b>The AI sees only what it needs,</b> and only if you say yes.</span></li>
+    </ul>
   </div>
 </section>
 
 <!-- the hidden intelligence: the whole project, one full-width path, and the one move rising from it -->
-<section class="day pad pt0" id="whole">
+<section class="day pad" id="whole">
   <div class="wrap">
-    <div class="whole-head">
+    <div class="head">
       <div class="rv">
+        <span class="num">01 · Projects</span>
         <h2>You see one move. <span class="mh block">Nura sees the whole project.</span></h2>
         <p class="lead">Tell Nu a goal that's too big to start. It asks one question, lays out a short path, and only the next move reaches your day.</p>
       </div>
@@ -67,37 +98,38 @@
         <li><i></i><div><b>Your words stay yours.</b> When the plan changes, what you wrote is kept as you wrote it.</div></li>
       </ul>
     </div>
-    <div class="path rv" role="img" aria-label="An example project, Launch my portfolio site: two steps done, Ask Sam for a quote is the move now, then use the phone photos for now because the real ones are blocked, and later put it online.">
-      <div class="path-title"><span>Project</span>Launch my portfolio site</div>
+    <div class="path rv" role="img" aria-label="An example project, Launch the new pricing page: two steps done, Send the tiers to finance is the move now, then use last quarter's figures for now because the final numbers aren't in, and later publish the page.">
+      <div class="path-title"><span>Project</span>Launch the new pricing page</div>
       <ol class="path-steps" aria-hidden="true">
-        <li class="done"><i></i><b>Pick the three projects to show</b><em>Monday</em></li>
-        <li class="done"><i></i><b>Write the about page</b><em>Tuesday</em></li>
-        <li class="now"><i></i><b>Ask Sam for a quote</b><em>Now</em>
+        <li class="done"><i></i><b>Pull last year's numbers</b><em>Monday</em></li>
+        <li class="done"><i></i><b>Draft the three tiers</b><em>Tuesday</em></li>
+        <li class="now"><i></i><b>Send the tiers to finance</b><em>Now</em>
           <div class="front path-card">
-            <small>Launch my portfolio site</small>
-            <b>Ask Sam for a quote</b>
+            <small>Launch the new pricing page</small>
+            <b>Send the tiers to finance</b>
             <em>Fits before 11:00 AM</em>
             <div class="row"><span class="begin">Begin</span><span class="m">10<small>min</small></span></div>
           </div>
           <img class="mover path-ra" src="assets/ra-point-still.webp" data-clip="assets/ra-point.webp" width="360" height="324" alt="">
         </li>
-        <li class="around"><i></i><b>Use the phone photos for now</b><em>Then</em><span class="note"><b>Blocked:</b> “No photos yet.” Nu found a way around.</span></li>
-        <li><i></i><b>Put it online</b><em>Later</em></li>
+        <li class="around"><i></i><b>Use last quarter's figures for now</b><em>Then</em><span class="note"><b>Blocked:</b> “Final numbers aren't in yet.” Nu found a way around.</span></li>
+        <li><i></i><b>Publish the page</b><em>Later</em></li>
       </ol>
     </div>
   </div>
 </section>
 
 <!-- learning you: the suggestion, and a Yes that really changes the estimate -->
-<section class="day pad wash" id="learn">
+<section class="tint pad" id="learn">
   <div class="wrap split learn-split">
     <div class="rv">
+      <span class="num">02 · Learning</span>
       <h2>It learns you, <span class="mh">not an average user.</span></h2>
       <p class="lead">Nura notices your pace, your patterns and where things get stuck, and suggests with the evidence attached. You answer Yes or Not now, and it learns from that too.</p>
     </div>
     <div class="learn-demo rv">
       <div class="learn-task">
-        <span class="glyph" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2F4BC9" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg></span>
+        <span class="glyph" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg></span>
         <span class="t">Prepare slides for Monday</span>
         <span class="v"><b id="learn-mins">45</b><small>min</small></span>
       </div>
@@ -118,9 +150,12 @@
 <!-- how it works, live: the pills fall into a pile, sort themselves with the app's own parser, and the next move rises -->
 <section class="day pad" id="how">
   <div class="wrap">
-    <div class="rv" style="max-width: 780px">
-      <h2>From the mess in your head <span class="mh">to the next achievable step.</span></h2>
-      <p class="lead">Type something the way it sits in your head, and watch Nu sort it.</p>
+    <div class="head center rv">
+      <div>
+        <span class="num">03 · Try it</span>
+        <h2>From the mess in your head <span class="mh block">to the next achievable step.</span></h2>
+        <p class="lead">Type something the way it sits in your head, and watch Nu sort it.</p>
+      </div>
     </div>
     <div class="demo rv">
       <div class="demo-in">
@@ -128,10 +163,10 @@
         <div class="pile" aria-hidden="true"></div>
         <form class="demo-form">
           <label class="sr" for="mess">Something on your mind</label>
-          <input id="mess" autocomplete="off" maxlength="80" placeholder="dentist next tue 30 min">
+          <input id="mess" autocomplete="off" maxlength="80" placeholder="send contract to legal by fri">
           <button type="submit">Tell Nu</button>
         </form>
-        <div class="demo-tries"><span>Or try</span><button type="button">call mum tmrw 6pm</button><button type="button">gym friday 7am 45 min</button><button type="button">book flights to Lisbon</button></div>
+        <div class="demo-tries"><span>Or try</span><button type="button">budget review thursday 3pm</button><button type="button">invoice Studio North 15 min</button><button type="button">dentist next tue 30 min</button></div>
       </div>
       <div class="demo-out">
         <div class="demo-k">Nu sorts it</div>
@@ -149,24 +184,27 @@
 
 <!-- recovery, not guilt -->
 <section class="day pad pt0" id="bad-week">
-  <div class="wrap split flip side">
-    <div class="rv">
-      <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
-      <h2>Recovery, <span class="mh">not guilt.</span></h2>
-      <p class="lead">Disappear for a week, miss something, watch a plan fall apart. Nura works out how to restart. There are no streaks to break and nothing turns red.</p>
-      <ul class="points">
-        <li><i></i><div><b>Welcome back.</b> No catching up. Just one small thing, right where you left off.</div></li>
-        <li><i></i><div><b>Reminders that get quieter.</b> They soften, then stop for the day.</div></li>
-        <li><i></i><div><b>No streaks, no warnings.</b> A quiet day is an empty circle, and once your day is done, anything more is extra.</div></li>
-      </ul>
-    </div>
-    <div class="stage rv">
-      <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
+  <div class="wrap">
+    <div class="panel split flip side">
+      <div class="rv">
+        <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
+        <span class="num">04 · Recovery</span>
+        <h2>Recovery, <span class="mh">not guilt.</span></h2>
+        <p class="lead">Disappear for a week, miss something, watch a plan fall apart. Nura works out how to restart. There are no streaks to break and nothing turns red.</p>
+        <ul class="points">
+          <li><i></i><div><b>Welcome back.</b> No catching up. Just one small thing, right where you left off.</div></li>
+          <li><i></i><div><b>Reminders that get quieter.</b> They soften, then stop for the day.</div></li>
+          <li><i></i><div><b>No streaks, no warnings.</b> A quiet day is an empty circle, and once your day is done, anything more is extra.</div></li>
+        </ul>
+      </div>
+      <div class="stage rv">
+        <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- the close: Done's ground, Ra holding up the pebble, and the list -->
+<!-- the close: the warm horizon, Ra holding up the pebble, and the list -->
 <section class="dawn pad" id="early-access">
   <div class="wrap">
     <img class="ra mover" src="assets/ra-pebble-still.webp" data-clip="assets/ra-pebble.webp" width="349" height="360" alt="Ra holding up a tiny pebble">
@@ -209,6 +247,6 @@
 </footer>
 
 <script src="assets/nura-parser.js?v=2"></script>
-<script src="site.js?v=19"></script>
+<script src="site.js?v=21"></script>
 </body>
 </html>
