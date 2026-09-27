@@ -127,9 +127,10 @@ export default function Tasks() {
     </Pressable>
   );
   const projHalf = Math.ceil(projects.length / 2);
-  const projSec = projects.length > 0 && (
+  // always there, so planning something bigger has one quiet place to start
+  const projSec = (
     <>
-      {label(`PROJECTS · ${projects.length}`, undefined, sea)}
+      {label(projects.length ? `PROJECTS · ${projects.length}` : 'PROJECTS', { label: '+ Plan a project', onPress: () => router.push('/project/new') }, sea)}
       {desk && projects.length > 1 ? (
         <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start' }}>
           <View style={{ flex: 1, minWidth: 0 }}>{projects.slice(0, projHalf).map(project)}</View>
@@ -233,7 +234,7 @@ export default function Tasks() {
 
             {/* underwater: everything Nu is holding, deeper the later it is */}
             <PinnedPalette.Provider value={sea}>
-            <View style={{ flexGrow: 1, marginTop: -1, paddingHorizontal: desk ? 0 : 24, paddingTop: 34, paddingBottom: 96 }}>
+            <View style={{ flexGrow: 1, marginTop: -1, paddingHorizontal: desk ? 0 : 24, paddingTop: 34, paddingBottom: 48 }}>
               <LinearGradient colors={['#1C4A78', '#153E6A', '#102749', '#070F24']} locations={[0, 0.18, 0.55, 1]}
                 style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
               <Bubbles width={width} />
@@ -255,7 +256,7 @@ export default function Tasks() {
                       </View>
                     ) : <>{todaySec}{weekSec}{somedaySec}</>;
                   })()}
-                  {projects.length > 0 && <View style={{ marginTop: 24 }}>{projSec}</View>}
+                  <View style={{ marginTop: 24 }}>{projSec}</View>
                 </View>
               ) : (
                 <>
@@ -270,21 +271,6 @@ export default function Tasks() {
           </>
         )}
       </ScrollView>
-
-      {/* planning something bigger, always in view at the foot of the water
-          (habits are frozen: no new ones, SCOPE.md) */}
-      {!searching && (
-        <LinearGradient pointerEvents="box-none" colors={['rgba(7,15,36,0)', 'rgba(7,15,36,0.94)']} locations={[0, 0.4]}
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 24, paddingTop: 26, paddingBottom: desk ? 20 : 12 }}>
-          <Pressable onPress={() => router.push('/project/new')} accessibilityRole="button"
-            style={({ pressed }) => ({
-              flex: desk ? undefined : 1, width: desk ? 320 : undefined, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
-              borderWidth: 1, borderColor: sea.strokeStrong, backgroundColor: pressed ? sea.subtle : sea.layer,
-            })}>
-            <Text style={{ color: sea.ink, fontSize: 14.5, fontFamily: T.display }}>Plan a project</Text>
-          </Pressable>
-        </LinearGradient>
-      )}
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />

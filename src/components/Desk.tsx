@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect } from 'react';
 import { View, Text, Pressable, Image, Platform, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { usePathname } from 'expo-router';
@@ -11,7 +12,6 @@ import { Avatar } from './Avatar';
 import { TABS, goToTab } from './TabBar';
 
 const CORAL = '#FF6B35';
-const ON_CORAL = '#3B1204';
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 /**
@@ -64,6 +64,21 @@ export function Sidebar() {
   const t = useTheme();
   const tab = useStore(s => s.tab);
   const path = usePathname();
+  // N opens Tell Nu, except while typing somewhere or with a modifier held
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N') return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (useStore.getState().telling) return;
+      e.preventDefault();
+      useStore.setState({ telling: true });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   return (
     <View role="navigation" style={{
       width: SIDEBAR, paddingHorizontal: 16, paddingTop: 28, paddingBottom: 12,
@@ -72,18 +87,24 @@ export function Sidebar() {
       <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
         style={{ height: 22, width: 22 * 799 / 222, tintColor: t.ink, marginLeft: 12 }} />
 
-      {/* Tell Nu: the round + of the tab bar, as the sidebar's one coral action */}
+      {/* Tell Nu: the tab bar's +, kept quiet here so the room's one coral
+          thing (the front card, Begin) stays the only loud one. N opens it too. */}
       <Pressable onPress={() => useStore.setState({ telling: true })}
         accessibilityRole="button" accessibilityLabel="Tell Nu anything"
         {...({ dataSet: { deskNav: '' } } as object)}
-        style={({ pressed }) => ({
-          height: 48, borderRadius: 24, marginTop: 30, marginBottom: 22, flexDirection: 'row', alignItems: 'center', gap: 10,
-          paddingLeft: 16, backgroundColor: CORAL, transform: [{ scale: pressed ? 0.98 : 1 }],
-        })}>
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={ON_CORAL} strokeWidth={2.4} strokeLinecap="round">
+        style={(s) => {
+          const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+          return {
+            height: 46, borderRadius: 23, marginTop: 30, marginBottom: 22, flexDirection: 'row', alignItems: 'center', gap: 12,
+            paddingLeft: 16, paddingRight: 14, borderWidth: 1, borderColor: t.strokeStrong,
+            backgroundColor: pressed || hovered ? t.subtle : 'transparent',
+          };
+        }}>
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={t.ink} strokeWidth={2.2} strokeLinecap="round">
           <Path d="M12 5v14M5 12h14" />
         </Svg>
-        <Text style={{ color: ON_CORAL, fontSize: 15.5, fontFamily: T.display, letterSpacing: -0.2 }}>Tell Nu</Text>
+        <Text style={{ flex: 1, color: t.ink, fontSize: 15, fontFamily: T.display, letterSpacing: -0.2 }}>Tell Nu</Text>
+        <Text style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand }}>N</Text>
       </Pressable>
 
       <View accessibilityRole="tablist" style={{ gap: 4 }}>
