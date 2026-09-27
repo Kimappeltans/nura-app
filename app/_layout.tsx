@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, LogBox, Platform } from 'react-native';
+import { AppState, LogBox, Platform, View, useWindowDimensions } from 'react-native';
 import {
   useFonts, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold,
 } from '@expo-google-fonts/inter-tight';
@@ -10,12 +10,15 @@ import {
   initNotifications,
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
-import { useStore, useRoomsLight, type Tab } from '../src/store';
+import { useStore, useRoomsLight, useTheme, type Tab } from '../src/store';
 import { supabase } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
 import { CaptureSheet } from '../src/components/CaptureSheet';
+import { keepNameFrom } from '../src/useAuthActions';
+import { COLUMN, isWide } from '../src/screen';
+import { AppMenu } from '../src/components/AppMenu';
 
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
@@ -41,6 +44,21 @@ export default function Root() {
 
   useEffect(() => onOpenElsewhere(setElsewhere), []);
 
+  // An account is required: signed out past onboarding (a sign out, a
+  // deleted account, or a web address typed straight in), every screen but
+  // a password reset goes home, where app/index.tsx shows only the sign-in.
+  const session = useStore(s => s.session);
+  const authLoading = useStore(s => s.authLoading);
+  const devSkipAuth = useStore(s => s.devSkipAuth);
+  const pathname = usePathname();
+  const ready = fontsLoaded && !elsewhere;
+  useEffect(() => {
+    if (!ready || authLoading || !onboarded || session || devSkipAuth) return;
+    if (pathname === '/' || pathname === '/reset') return;
+    if (router.canDismiss()) router.dismissAll();
+    router.replace('/');
+  }, [ready, authLoading, onboarded, session, devSkipAuth, pathname]);
+
   // By the sun: the rooms go navy when the day you set ends, without a reload
   useEffect(() => {
     const id = setInterval(() => useStore.getState().tickDaylight(), 60_000);
@@ -61,6 +79,7 @@ export default function Root() {
       // next mutation.
       const { data: { session } } = await supabase.auth.getSession();
       useStore.getState().setSession(session);
+      if (__DEV__) useStore.setState({ devSkipAuth: (await getFlag('dev.skipAuth')) === '1' });
       useStore.setState({ authLoading: false });
       await refresh();
       // Someone who said choosing is what gets in the way opens on the one
@@ -116,9 +135,17 @@ export default function Root() {
     const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
       useStore.getState().setSession(session);
       if (event === 'SIGNED_IN') {
+        // back from Google, a magic link or a reset link on the web: the code
+        // has been swapped for the session, so take it out of the address
+        if (Platform.OS === 'web' && /[?&](code|error)=/.test(window.location.search)) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        await keepNameFrom(session?.user.user_metadata);
         if (await hasAdopted()) await runSync(); else await adoptLocalData();
         await refresh();
       }
+      // a reset link that came back as a recovery: straight to a new password
+      if (event === 'PASSWORD_RECOVERY') router.push('/reset');
     });
 
     const app = AppState.addEventListener('change', async s => {
@@ -144,6 +171,7 @@ export default function Root() {
     <>
       {/* Ra's world is cream; the rooms follow Settings → Appearance (src/world.tsx) */}
       <StatusBar style={mode === 'ra' || roomsLight ? 'dark' : 'light'} />
+      <WebColumn>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="timer" options={{ presentation: 'fullScreenModal' }} />
@@ -157,6 +185,7 @@ export default function Root() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="integrations" options={{ presentation: 'modal' }} />
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="reset" />
         <Stack.Screen name="retro" />
         <Stack.Screen name="triage" />
         <Stack.Screen name="tide" options={{ presentation: 'modal' }} />
@@ -168,14 +197,41 @@ export default function Root() {
       {/* Above everything, including the native modals — a reward that appears
           behind the screen you earned it on is not a reward. */}
       <TellNu />
+      <MoreSheet />
       <Celebrate />
       <Toast />
+      </WebColumn>
     </>
   );
+}
+
+/** More, from the tab bar's You, over whichever screen you're on. */
+function MoreSheet() {
+  const open = useStore(s => s.moreOpen);
+  return <AppMenu visible={open} onClose={() => useStore.setState({ moreOpen: false })} />;
 }
 
 /** Tell Nu, over whichever screen you're on — opened by the tab bar's round button. */
 function TellNu() {
   const telling = useStore(s => s.telling);
   return <CaptureSheet visible={telling} onClose={() => useStore.setState({ telling: false })} />;
+}
+
+/**
+ * On a wide web window (a laptop, a desktop), Nura is a phone-width column in
+ * the middle, on the room's own ground, instead of stretching the day's path
+ * and the front card across the screen (src/screen.ts). Phones, and narrow
+ * windows, get the app as it is.
+ */
+function WebColumn({ children }: { children: React.ReactNode }) {
+  const t = useTheme();
+  const { width } = useWindowDimensions();
+  if (!isWide(width)) return <>{children}</>;
+  return (
+    <View style={{ flex: 1, backgroundColor: t.base, alignItems: 'center' }}>
+      <View style={{ flex: 1, width: COLUMN, overflow: 'hidden', borderLeftWidth: 1, borderRightWidth: 1, borderColor: t.stroke }}>
+        {children}
+      </View>
+    </View>
+  );
 }

@@ -44,7 +44,8 @@ export function HeldRow({ task, onPress, onHold, faint, meta }: {
       style={({ pressed }) => ({
         minHeight: faint === 2 ? 48 : 54, flexDirection: 'row', alignItems: 'center', gap: 12,
         borderBottomWidth: 1, borderBottomColor: t.stroke,
-        opacity: (faint === 2 ? 0.5 : faint === 1 ? 0.68 : 1) * (pressed ? 0.7 : 1),
+        // deeper reads quieter, not disabled: a softer ink, never a faded row
+        opacity: pressed ? 0.7 : 1,
       })}>
       <View style={{
         width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
@@ -53,11 +54,11 @@ export function HeldRow({ task, onPress, onHold, faint, meta }: {
         {l && <LabelGlyph id={l.id} size={16} color={dark ? l.color : l.onLight} />}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ color: t.ink, fontSize: faint === 2 ? 14.5 : 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{task.title}</Text>
+        <Text numberOfLines={1} style={{ color: faint ? t.ink2 : t.ink, fontSize: faint === 2 ? 14.5 : 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{task.title}</Text>
         {!!meta && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 12, fontFamily: T.brand, marginTop: 1 }}>{meta}</Text>}
       </View>
       {v && (
-        <Text style={{ color: t.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
+        <Text style={{ color: faint ? t.ink2 : t.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
           {v.big}<Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>{v.small}</Text>
         </Text>
       )}

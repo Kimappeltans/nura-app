@@ -7,6 +7,9 @@ import { router, usePathname } from 'expo-router';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { LivePill } from './LivePill';
+import { Avatar } from './Avatar';
+
+const CORAL = '#FF6B35';
 
 /**
  * Nura is three rooms and one mode:
@@ -54,44 +57,54 @@ export function TabBar() {
     else if (path !== '/') router.replace('/');
   };
   const insets = useSafeAreaInsets();
-  const warm = t.key === 'nu' ? t.raSoft : t.raDeep;
+  const running = useStore(s => s.running);
+  const moreOpen = useStore(s => s.moreOpen);
+  const dark = t.key === 'nu';
+
+  const Slot = ({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) => (
+    <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }}
+      accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}
+      style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 10 }}>
+      {/* where you are: a small coral dot over the icon */}
+      {on && <View style={{ position: 'absolute', top: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: CORAL }} />}
+      {icon}
+      <Text style={{ color: on ? t.ink : t.ink3, fontSize: 10.5, fontFamily: T.brand }}>{label}</Text>
+    </Pressable>
+  );
+
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: Math.max(insets.bottom - 4, 12), backgroundColor: t.base }}>
-      {/* a session left running with ⌄ — tap to go back to it */}
-      <LivePill />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        {/* the three rooms, in one floating pill */}
-        <View accessibilityRole="tablist" style={{
-          flex: 1, flexDirection: 'row', height: 62, borderRadius: 31, padding: 5,
-          borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer,
-        }}>
-          {TABS.map(x => {
-            const on = x.key === tab;
-            return (
-              <Pressable key={x.key} onPress={() => { Haptics.selectionAsync(); onTab(x.key); }}
-                accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={x.label}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 26, backgroundColor: on ? t.raWash : 'transparent' }}>
-                {x.icon(on ? warm : t.ink3)}
-                <Text style={{ color: on ? t.ink : t.ink3, fontSize: 10.5, fontFamily: T.brand }}>{x.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {/* Tell Nu — the one way in, from anywhere */}
-        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); useStore.setState({ telling: true }); }}
-          accessibilityRole="button" accessibilityLabel="Tell Nu anything"
-          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-          {/* dark, flat (rule 1): ink by day; a lifted navy with a hairline at night */}
-          <View style={{
-            width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: t.key === 'nu' ? '#1E2652' : '#1B1830',
-            borderWidth: t.key === 'nu' ? 1 : 0, borderColor: 'rgba(170,185,255,0.30)',
-          }}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round">
+    <View style={{ backgroundColor: t.base }}>
+      {/* a session left running with ⌄: tap to go back to it (room for the raised + under it) */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: running ? 16 : 0 }}><LivePill /></View>
+      {/* B: a full-width bar; Tell Nu raised in the middle; You (More) at the end */}
+      <View accessibilityRole="tablist" style={{
+        flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8,
+        paddingBottom: Math.max(insets.bottom, 10), borderTopWidth: 1, borderTopColor: t.stroke, backgroundColor: t.base,
+      }}>
+        {TABS.slice(0, 2).map(x => (
+          <Slot key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab && !moreOpen}
+            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab && !moreOpen ? t.ink : t.ink3)} />
+        ))}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); useStore.setState({ telling: true }); }}
+            accessibilityRole="button" accessibilityLabel="Tell Nu anything"
+            style={({ pressed }) => ({
+              width: 60, height: 60, marginTop: -22, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+              borderWidth: 4, borderColor: t.base, backgroundColor: dark ? '#1E2652' : '#1B1830',
+              shadowColor: '#1B1830', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 6 },
+              transform: [{ scale: pressed ? 0.95 : 1 }],
+            })}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round">
               <Path d="M12 5v14M5 12h14" />
             </Svg>
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
+        {TABS.slice(2).map(x => (
+          <Slot key={x.key} label={x.label} on={x.key === tab && !moreOpen}
+            onPress={() => onTab(x.key)} icon={x.icon(x.key === tab && !moreOpen ? t.ink : t.ink3)} />
+        ))}
+        <Slot label="You" on={moreOpen} onPress={() => useStore.setState({ moreOpen: true })}
+          icon={<Avatar size={22} ring={moreOpen} />} />
       </View>
     </View>
   );

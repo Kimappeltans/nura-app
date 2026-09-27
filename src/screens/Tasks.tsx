@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { useStore, useTheme } from '../store';
+import { useStore, useTheme, PinnedPalette } from '../store';
 import { search as searchTasks, type Task } from '../db';
-import { type as T } from '../theme';
-import { Mica, poseImage } from '../ui';
+import { factLine } from '../priority';
+import { type as T, nuTheme, type Theme } from '../theme';
+import { Mica, Character } from '../ui';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { SearchBar } from '../components/SearchField';
@@ -15,6 +16,9 @@ import { HeldRow, taskValue } from '../components/HeldRow';
 import { LabelGlyph } from '../components/LabelIcon';
 import { byPriority } from './Home';
 import type { LabelId } from '../labels';
+import { useScreen } from '../screen';
+import { Tide, Bubbles } from '../components/Tide';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const CORAL = '#FF6B35';
 const ON_CORAL = '#3B1204';
@@ -32,8 +36,8 @@ const INK_NU = '#1B1830';
  */
 export default function Tasks() {
   const t = useTheme();
-  const { width } = useWindowDimensions();
-  const { inbox, todayPicked, projects, now, focusOn } = useStore();
+  const { width } = useScreen();
+  const { inbox, todayPicked, projects, now, focusOn, agenda, dayEndMin } = useStore();
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Task[]>([]);
@@ -63,22 +67,16 @@ export default function Tasks() {
     const somedayRows = take(open);
     return { pick, today: todayRows, week: weekRows, someday: somedayRows };
   }, [inbox, todayPicked, now]);
-  const heldCount = water.today.length + water.week.length + water.someday.length;
-  const summary = water.pick ? `1 now, ${heldCount} held.` : heldCount ? `${heldCount} held.` : 'Nothing held yet.';
 
-  const dark = t.key === 'nu';
-  const waterFill = dark ? t.layer : t.subtle;
-  const waterLine = dark ? 'rgba(242,244,251,0.40)' : 'rgba(23,19,19,0.28)';
-  const seg = width / 8;
-  let wave = `M0 14 Q ${seg / 2} 5 ${seg} 14`;
-  for (let i = 2; i <= 8; i++) wave += ` T ${seg * i} 14`;
+  // underwater is Nu's water from the opening, in any appearance
+  const sea = nuTheme;
 
-  const label = (text: string, action?: { label: string; onPress: () => void }) => (
+  const label = (text: string, action?: { label: string; onPress: () => void }, p: Theme = t) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 2, minHeight: 20 }}>
-      <Text style={{ flex: 1, color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display }}>{text}</Text>
+      <Text style={{ flex: 1, color: p.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display }}>{text}</Text>
       {action && (
         <Pressable onPress={action.onPress} hitSlop={10} accessibilityRole="button">
-          <Text style={{ color: t.nu, fontSize: 13, fontFamily: T.display }}>{action.label}</Text>
+          <Text style={{ color: p.nu, fontSize: 13, fontFamily: T.display }}>{action.label}</Text>
         </Pressable>
       )}
     </View>
@@ -93,11 +91,10 @@ export default function Tasks() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-        {/* two-tone: the room, then what's in it */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 24, paddingTop: 14 }}>
+        {/* the room, and search */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 14 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Your Tasks</Text>
-            <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{summary}</Text>
           </View>
           <Pressable onPress={() => { Haptics.selectionAsync(); setSearching(v => !v); setQ(''); }} hitSlop={8}
             accessibilityRole="button" accessibilityLabel={searching ? 'Close search' : 'Search tasks and projects'}
@@ -119,10 +116,11 @@ export default function Tasks() {
           </View>
         ) : (
           <>
-            {/* above the water: the one Nu found (Home's front card, a size down) */}
-            <View style={{ marginHorizontal: 12, marginTop: 20 }}>
+            {/* above the water: the one Nu found (Home's front card, a size down), held up by Nu */}
+            <View style={{ marginHorizontal: 24, marginTop: 20, zIndex: 2 }}>
               {water.pick ? (
-                <View style={{ borderRadius: 28, backgroundColor: CORAL, paddingHorizontal: 18, paddingVertical: 16 }}>
+                <View style={{ borderRadius: 28, backgroundColor: CORAL, paddingHorizontal: 18, paddingVertical: 16,
+                  shadowColor: '#FF8A5C', shadowOpacity: 0.4, shadowRadius: 25, shadowOffset: { width: 0, height: 0 } }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(59,18,4,0.10)' }}>
                       {!!water.pick.label && <LabelGlyph id={water.pick.label as LabelId} size={17} color={ON_CORAL} />}
@@ -132,6 +130,14 @@ export default function Tasks() {
                   <Pressable onPress={() => setPeek(water.pick!)} hitSlop={4}>
                     <Text style={{ color: ON_CORAL, fontSize: 21, lineHeight: 23, fontFamily: T.display, letterSpacing: -0.9, marginTop: 8, paddingRight: 30 }}>{water.pick.title}</Text>
                   </Pressable>
+                  {(() => {
+                    const pick = water.pick!;
+                    const fact = factLine(pick, [
+                      ...agenda.map(e => e.startsAt),
+                      ...[...todayPicked, ...inbox].filter(x => x.id !== pick.id && x.has_time && x.due_at).map(x => x.due_at as number),
+                    ], dayEndMin);
+                    return fact ? <Text style={{ color: 'rgba(59,18,4,0.66)', fontSize: 12.5, fontFamily: T.brand, marginTop: 5 }}>{fact}</Text> : null;
+                  })()}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 12 }}>
                     <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); focusOn(water.pick!.id); }}
                       accessibilityRole="button" accessibilityLabel={`Begin ${water.pick.title}`}
@@ -158,45 +164,49 @@ export default function Tasks() {
               )}
             </View>
 
-            {/* the surface — the story's sea — and Nu on it */}
-            <View style={{ height: 28, marginTop: 44 }}>
-              <Svg width={width} height={28} style={{ position: 'absolute' }}>
-                <Path d={`${wave} V 28 H 0 Z`} fill={waterFill} />
-                <Path d={wave} fill="none" stroke={waterLine} strokeWidth={1.6} />
-              </Svg>
-              <Image source={poseImage('nu-hello')} resizeMode="contain" style={{ position: 'absolute', left: 20, top: -44, width: 66, height: 66 }} />
+            {/* the surface, the story's sea, just under the card */}
+            <View style={{ height: 28, marginTop: 72 }}>
+              <Tide width={width} fill="#1C4A78" line="rgba(184,229,248,0.9)" backFill="rgba(36,99,146,0.28)" />
             </View>
 
             {/* underwater: everything Nu is holding, deeper the later it is */}
-            <View style={{ flexGrow: 1, backgroundColor: waterFill, paddingHorizontal: 24, paddingTop: 2, paddingBottom: 28 }}>
+            <PinnedPalette.Provider value={sea}>
+            <View style={{ flexGrow: 1, marginTop: -1, paddingHorizontal: 24, paddingTop: 34, paddingBottom: 96 }}>
+              <LinearGradient colors={['#1C4A78', '#153E6A', '#102749', '#070F24']} locations={[0, 0.18, 0.55, 1]}
+                style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+              <Bubbles width={width} />
+              {/* Nu, come up to the surface, reaching up to the one */}
+              <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - 58, top: -71, zIndex: 3 }}>
+                <Character name="nu-surface" size={116} motion="bob" />
+              </View>
               {water.today.length > 0 && (
                 <>
-                  {label(`TODAY · ${water.today.length}`, { label: 'Sort ›', onPress: () => router.push('/triage') })}
+                  {label(`TODAY · ${water.today.length}`, { label: 'Sort ›', onPress: () => router.push('/triage') }, sea)}
                   {rows(water.today, 0)}
                 </>
               )}
               {water.week.length > 0 && (
                 <>
-                  {label(`THIS WEEK · ${water.week.length}`)}
+                  {label(`THIS WEEK · ${water.week.length}`, undefined, sea)}
                   {rows(water.week, 1)}
                 </>
               )}
               {projects.length > 0 && (
                 <>
-                  {label(`PROJECTS · ${projects.length}`)}
+                  {label(`PROJECTS · ${projects.length}`, undefined, sea)}
                   {projects.map(p => (
                     <Pressable key={p.project.id} onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })}
                       accessibilityRole="button" accessibilityLabel={p.project.title}
-                      style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: t.stroke, opacity: 0.68 * (pressed ? 0.7 : 1) })}>
+                      style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: sea.stroke, opacity: pressed ? 0.7 : 1 })}>
                       {/* the path, as dots lit by the moves done */}
                       <View style={{ width: 30, flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
                         {Array.from({ length: Math.min(p.total, 6) }, (_, i) => (
-                          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < p.done ? CORAL : 'transparent', borderWidth: 1.2, borderColor: i < p.done ? CORAL : t.strokeStrong }} />
+                          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < p.done ? CORAL : 'transparent', borderWidth: 1.2, borderColor: i < p.done ? CORAL : sea.strokeStrong }} />
                         ))}
                       </View>
-                      <Text numberOfLines={1} style={{ flex: 1, color: t.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{p.project.title}</Text>
-                      <Text style={{ color: t.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
-                        {p.total - p.done}<Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>left</Text>
+                      <Text numberOfLines={1} style={{ flex: 1, color: sea.ink, fontSize: 15.5, fontFamily: T.brand, letterSpacing: -0.3 }}>{p.project.title}</Text>
+                      <Text style={{ color: sea.ink, fontSize: 21, letterSpacing: -0.9, fontFamily: T.displayLight }}>
+                        {p.total - p.done}<Text style={{ color: sea.ink3, fontSize: 11, letterSpacing: 0, fontFamily: T.brand }}>left</Text>
                       </Text>
                     </Pressable>
                   ))}
@@ -204,22 +214,31 @@ export default function Tasks() {
               )}
               {water.someday.length > 0 && (
                 <>
-                  {label(`SOMEDAY · ${water.someday.length}`)}
+                  {label(`SOMEDAY · ${water.someday.length}`, undefined, sea)}
                   {rows(water.someday, 2)}
                 </>
               )}
-              <View style={{ flexDirection: 'row', gap: 20, marginTop: 18 }}>
-                <Pressable onPress={() => router.push('/project/new')} hitSlop={6}>
-                  <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Plan a project ›</Text>
-                </Pressable>
-                <Pressable onPress={() => router.push('/habit')} hitSlop={6}>
-                  <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>New habit ›</Text>
-                </Pressable>
-              </View>
             </View>
+            </PinnedPalette.Provider>
           </>
         )}
       </ScrollView>
+
+      {/* two ways to add something bigger, always in view at the foot of the water */}
+      {!searching && (
+        <LinearGradient pointerEvents="box-none" colors={['rgba(7,15,36,0)', 'rgba(7,15,36,0.94)']} locations={[0, 0.4]}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 12 }}>
+          {([['Plan a project', '/project/new'], ['New habit', '/habit']] as const).map(([name, to]) => (
+            <Pressable key={to} onPress={() => router.push(to)} accessibilityRole="button"
+              style={({ pressed }) => ({
+                flex: 1, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center',
+                borderWidth: 1, borderColor: sea.strokeStrong, backgroundColor: pressed ? sea.subtle : sea.layer,
+              })}>
+              <Text style={{ color: sea.ink, fontSize: 14.5, fontFamily: T.display }}>{name}</Text>
+            </Pressable>
+          ))}
+        </LinearGradient>
+      )}
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />

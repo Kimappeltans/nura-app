@@ -67,7 +67,8 @@ function findTime(s: string): TimeFound | null {
        || s.match(/\b(\d{1,2})\s*(am|pm)\b/i);
   if (m) {
     let h = parseInt(m[1], 10);
-    const min = m[2] && m[2].length === 2 ? parseInt(m[2], 10) : 0;
+    // only real minutes: in "6pm" the second group is the "pm", not two digits
+    const min = m[2] && /^\d{2}$/.test(m[2]) ? parseInt(m[2], 10) : 0;
     const ap = (m[3] || m[2] || '').toLowerCase();
     if (ap === 'pm' && h < 12) h += 12;
     if (ap === 'am' && h === 12) h = 0;
@@ -144,7 +145,7 @@ export function parseTask(input: string): Draft {
   /* --- when --- */
   let due: Date | null = null;
   if (/\btoday\b/i.test(s))          { due = new Date(); found.push('today'); eat(/\btoday\b/i); }
-  else if (/\btomorrow\b/i.test(s))  { due = new Date(); due.setDate(due.getDate() + 1); found.push('tomorrow'); eat(/\btomorrow\b/i); }
+  else if (/\b(tomorrow|tmrw|tmr)\b/i.test(s))  { due = new Date(); due.setDate(due.getDate() + 1); found.push('tomorrow'); eat(/\b(tomorrow|tmrw|tmr)\b/i); }
   else if (/\btonight\b/i.test(s))   { due = new Date(); found.push('tonight'); }
   else if (/\bnext week\b/i.test(s)) { due = new Date(); due.setDate(due.getDate() + 7); found.push('next week'); eat(/\bnext week\b/i); }
 

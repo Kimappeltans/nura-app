@@ -31,6 +31,21 @@ METRO_PORT=8100 bash scripts/site-shots.sh     # Metro elsewhere
 ONLY="home night" bash scripts/site-shots.sh   # just some
 ```
 
+## A recorded demo in the hero
+
+Record the screen on the iPhone, trim it to 10 to 15 seconds, and export it
+about 780 px wide as `assets/demo.mp4` (and `assets/demo.webm` if you can).
+Then swap the hero's `<picture>` for:
+
+```html
+<video autoplay muted loop playsinline preload="metadata" poster="assets/app-home.webp">
+  <source src="assets/demo.webm" type="video/webm">
+  <source src="assets/demo.mp4" type="video/mp4">
+</video>
+```
+
+The phone frame already styles a video like the screenshot.
+
 ## The moving characters
 
 Real clips from the Midjourney sources (`../nu-characters/`), cut out frame by

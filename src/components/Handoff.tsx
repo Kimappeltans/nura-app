@@ -1,37 +1,52 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { View, Image } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Line, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { useTheme } from '../store';
 import { poseImage } from '../ui';
 
 const CORAL = '#FF6B35';
 
-/** A sun drawn in dots: rings of dots, smaller and fainter outward. `half` keeps the top half (on a horizon). */
-export function DotSun({ size, color = CORAL, half }: { size: number; color?: string; half?: boolean }) {
-  const r0 = size / 2;
-  const rings = [0, 0.13, 0.24, 0.35, 0.46, 0.57, 0.67, 0.78, 0.89, 1].map(f => f * r0);
-  const dots: { x: number; y: number; r: number; o: number }[] = [];
-  rings.forEach((r, i) => {
-    const n = r ? Math.round((2 * Math.PI * r) / (size / 20)) : 1;
-    const dotR = r ? Math.max(size / 212, (size / 55) - i * (size / 680)) : size / 20;
-    for (let k = 0; k < n; k++) {
-      const a = (k / n) * Math.PI * 2 + i * 0.3;
-      const x = r * Math.cos(a), y = r * Math.sin(a);
-      if (half && y > 2) continue;
-      dots.push({ x, y, r: dotR, o: 1 - i * 0.075 });
-    }
-  });
-  const h = half ? r0 + 4 : size + 8;
+/**
+ * The sun, as in the opening: a soft halo, twelve rays and a disc from pale
+ * gold into sunrise orange. `half` keeps the top half, rising on a horizon.
+ */
+export function Sun({ size, half, glow = '#FFB067' }: { size: number; half?: boolean; glow?: string }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const r = size / 2, disc = size * 0.42;
+  const rayIn = disc / 2 + size * 0.07, rayOut = r * 0.9;
   return (
-    <Svg width={size + 8} height={h} viewBox={`${-r0 - 4} ${-r0 - 4} ${size + 8} ${h}`}>
-      {dots.map((d, i) => <Circle key={i} cx={d.x} cy={d.y} r={d.r} fill={color} opacity={d.o} />)}
-    </Svg>
+    <View style={{ width: size, height: half ? r + 2 : size, overflow: 'hidden' }}>
+      <Svg width={size} height={size}>
+        <Defs>
+          <RadialGradient id={`halo${id}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={glow} stopOpacity={0.6} />
+            <Stop offset="0.45" stopColor={glow} stopOpacity={0.22} />
+            <Stop offset="1" stopColor={glow} stopOpacity={0} />
+          </RadialGradient>
+          <SvgLinearGradient id={`disc${id}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#FFF0D6" />
+            <Stop offset="0.5" stopColor="#FFB067" />
+            <Stop offset="1" stopColor="#FF7A3D" />
+          </SvgLinearGradient>
+        </Defs>
+        <Circle cx={r} cy={r} r={r} fill={`url(#halo${id})`} />
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i * Math.PI) / 6;
+          return (
+            <Line key={i} x1={r + rayIn * Math.cos(a)} y1={r + rayIn * Math.sin(a)}
+              x2={r + rayOut * Math.cos(a)} y2={r + rayOut * Math.sin(a)}
+              stroke={CORAL} strokeOpacity={0.45} strokeWidth={Math.max(2, size / 110)} strokeLinecap="round" />
+          );
+        })}
+        <Circle cx={r} cy={r} r={disc / 2} fill={`url(#disc${id})`} />
+      </Svg>
+    </View>
   );
 }
 
 /**
  * FOCUS: Nu hands the one thing to Ra (guidelines/components/overview.md).
- * A sun made of dots on a horizon, Ra standing in it, Nu at the left, and a
+ * The sun rising on a horizon, Ra standing in it, Nu at the left, and a
  * dotted line from one to the other.
  */
 export function Handoff({ height = 250 }: { height?: number }) {
@@ -40,7 +55,7 @@ export function Handoff({ height = 250 }: { height?: number }) {
   return (
     <View style={{ height, overflow: 'hidden' }} onLayout={e => setW(e.nativeEvent.layout.width)} pointerEvents="none">
       <View style={{ position: 'absolute', left: (w - 348) / 2, bottom: 0 }}>
-        <DotSun size={340} half />
+        <Sun size={340} half />
       </View>
       <Svg width={w} height={height} style={{ position: 'absolute' }}>
         <Path d={`M${w * 0.2} ${height - 60} C ${w * 0.29} ${height - 130}, ${w * 0.41} ${height - 140}, ${w * 0.5} ${height - 100}`}

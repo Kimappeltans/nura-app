@@ -57,7 +57,12 @@ export function MicButton({ value, onChange, label = 'Speak to Nu', compact, siz
           borderWidth: 1.5, borderColor: on ? t.ra : t.strokeStrong,
           backgroundColor: on ? t.raWash : pressed ? t.subtle : 'transparent',
         })}>
-        <View style={{ width: 9, height: 9, borderRadius: on ? 2 : 5, backgroundColor: on ? t.ra : t.nu }} />
+        {/* a microphone; while listening, the square that stops it */}
+        {on
+          ? <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: t.ra }} />
+          : <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={t.ink} strokeWidth={2} strokeLinecap="round">
+              <Rect x={9} y={3} width={6} height={12} rx={3} /><Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+            </Svg>}
         <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{on ? 'Stop listening' : label}</Text>
       </Pressable>
       {!!note && <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 17 }}>{note}</Text>}

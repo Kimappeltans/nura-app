@@ -98,6 +98,277 @@ export function IconChevron({ size = 28, color }: IconProps) {
   );
 }
 
+export function IconPencil({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 20h4L18.6 9.4a2.8 2.8 0 00-4-4L4 16z" />
+      <Path d="M13.2 6.8l4 4" />
+    </Svg>
+  );
+}
+
+export function IconPhoto({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <SvgCircle cx="9" cy="9.5" r="1.6" />
+      <Path d="M4 17.5l5-5 4 4 2.5-2.5 5 5" />
+    </Svg>
+  );
+}
+
+/** Wins: a small sun, the light you've earned. */
+export function IconSun({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <SvgCircle cx="12" cy="12" r="4" />
+      <Path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" />
+    </Svg>
+  );
+}
+
+/** Connected apps: two links. */
+export function IconLink({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1" />
+      <Path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />
+    </Svg>
+  );
+}
+
+/** Settings: a gear. */
+export function IconGear({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <SvgCircle cx="12" cy="12" r="3" />
+      <Path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+    </Svg>
+  );
+}
+
+/* Settings' icons: one per section and per row (app/settings.tsx). */
+
+/** The line every icon below is drawn with. */
+function Line24({ size, color, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </Svg>
+  );
+}
+
+/** The day starts: the sun half up, rising. */
+export function IconSunrise({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M2.5 18.5h19M6 18.5a6 6 0 0112 0" />
+      <Path d="M12 2.5v7M9 5.5l3-3 3 3" />
+      <Path d="M3.6 11.6l1.5 1.5M20.4 11.6l-1.5 1.5" />
+    </Line24>
+  );
+}
+
+/** The day ends: the sun half down, setting. */
+export function IconSunset({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M2.5 18.5h19M6 18.5a6 6 0 0112 0" />
+      <Path d="M12 2.5v7M9 6.5l3 3 3-3" />
+      <Path d="M3.6 11.6l1.5 1.5M20.4 11.6l-1.5 1.5" />
+    </Line24>
+  );
+}
+
+export function IconMoon({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M19.5 14.6A7.8 7.8 0 019.4 4.5a7.8 7.8 0 1010.1 10.1z" />
+    </Line24>
+  );
+}
+
+/** Focus: a stopwatch. */
+export function IconTimer({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="13.5" r="7.5" />
+      <Path d="M12 13.5V10M9.5 2.5h5M12 2.5V6M18.3 7.2l1.2-1.2" />
+    </Line24>
+  );
+}
+
+/** A break: a cup. */
+export function IconCup({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4.5 9.5h11v4.5a5 5 0 01-5 5h-1a5 5 0 01-5-5z" />
+      <Path d="M15.5 10.5h1.8a2.3 2.3 0 010 4.6h-1.9" />
+      <Path d="M8 3.5v2.5M12 3.5v2.5" />
+    </Line24>
+  );
+}
+
+/** The screen stays on: a phone, lit at its sides. */
+export function IconPhone({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Rect x="7" y="3" width="10" height="18" rx="2.5" />
+      <Path d="M10.5 18h3M3.8 9.5v5M20.2 9.5v5" />
+    </Line24>
+  );
+}
+
+/** Tasks: a list with two ticks. */
+export function IconTasks({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M3.5 7.2l1.8 1.8 3.2-3.3M3.5 15.2l1.8 1.8 3.2-3.3" />
+      <Path d="M12 7.5h8.5M12 15.5h8.5" />
+    </Line24>
+  );
+}
+
+/** The backlog: a tray. */
+export function IconTray({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M3.5 13.5l2.6-7.2A2 2 0 018 5h8a2 2 0 011.9 1.3l2.6 7.2" />
+      <Path d="M3.5 13.5V17a2 2 0 002 2h13a2 2 0 002-2v-3.5h-5l-1.5 2.5h-4l-1.5-2.5z" />
+    </Line24>
+  );
+}
+
+/** A habit: round and round. */
+export function IconRepeat({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M17 3l3 3-3 3" />
+      <Path d="M4 11.5v-.5a5 5 0 015-5h11" />
+      <Path d="M7 21l-3-3 3-3" />
+      <Path d="M20 12.5v.5a5 5 0 01-5 5H4" />
+    </Line24>
+  );
+}
+
+/** Which calendars: three sheets, stacked. */
+export function IconLayers({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 3.5l8.5 4.3L12 12 3.5 7.8z" />
+      <Path d="M3.5 12L12 16.3 20.5 12M3.5 16.2L12 20.5l8.5-4.3" />
+    </Line24>
+  );
+}
+
+/** A focus session, added to the calendar. */
+export function IconCalendarPlus({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+      <Path d="M4 9h16M9 3v4M15 3v4M12 12.5v5M9.5 15h5" />
+    </Line24>
+  );
+}
+
+/** Appearance: half light, half dark. */
+export function IconContrast({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M12 3.5a8.5 8.5 0 010 17z" fill={color} />
+    </Line24>
+  );
+}
+
+/** Language. */
+export function IconGlobe({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5z" />
+    </Line24>
+  );
+}
+
+/** A voice: a speaker and its sound. */
+export function IconSpeaker({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+      <Path d="M15.5 9.2a4 4 0 010 5.6M18.2 6.6a7.6 7.6 0 010 10.8" />
+    </Line24>
+  );
+}
+
+/** A reply: a speech bubble. */
+export function IconBubble({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M20 11.5a7.5 7.5 0 01-11.1 6.6L4 19.5l1.4-4.4A7.5 7.5 0 1120 11.5z" />
+    </Line24>
+  );
+}
+
+/** Your data: kept safe. */
+export function IconShield({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 3l7.5 3v5.5c0 4.4-3.1 7.9-7.5 9.5-4.4-1.6-7.5-5.1-7.5-9.5V6z" />
+    </Line24>
+  );
+}
+
+/** Out of the app, as a file: a box and an arrow. */
+export function IconExport({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M12 14.5v-11M8 7.5l4-4 4 4" />
+      <Path d="M5 12v6.5a2 2 0 002 2h10a2 2 0 002-2V12" />
+    </Line24>
+  );
+}
+
+export function IconHelp({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M9.6 9.4a2.5 2.5 0 014.9.8c0 1.7-2.5 2.2-2.5 3.8M12 17.2v.1" />
+    </Line24>
+  );
+}
+
+/** The opening, played again. */
+export function IconPlay({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <SvgCircle cx="12" cy="12" r="8.5" />
+      <Path d="M10.2 8.8v6.4l5-3.2z" />
+    </Line24>
+  );
+}
+
+/** From the beginning: once round, backwards. */
+export function IconRestart({ size = 20, color }: IconProps) {
+  return (
+    <Line24 size={size} color={color}>
+      <Path d="M4.5 12a7.5 7.5 0 102.2-5.3L4.5 9" />
+      <Path d="M4.5 4.5V9H9" />
+    </Line24>
+  );
+}
+
+/** Settings: two sliders. */
+export function IconSliders({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 8h9M18 8h2M4 16h3M12 16h8" />
+      <SvgCircle cx="15.5" cy="8" r="2.5" />
+      <SvgCircle cx="9.5" cy="16" r="2.5" />
+    </Svg>
+  );
+}
+
 /**
  * The background. Reads the MODE's atmosphere, so it is deep navy in Nu and
  * cream in Ra — the temperature change that makes switching modes feel like
@@ -112,13 +383,43 @@ export function IconChevron({ size = 28, color }: IconProps) {
  * it (mode defaults to 'nu' before onboarding ever sets anything).
  */
 export function Mica(
-  { force }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
+  { force, sunProgress }: { force?: Parameters<typeof useTheme>[0]; sunProgress?: number } = {},
 ) {
   const t = useTheme(force);
-  // Flat (guidelines/Guidelines.md, rule 1): the ground is one colour — no
-  // atmosphere gradient, no glows. `sunProgress` is still accepted so callers
-  // needn't change; the day's progress lives on the day's path now.
-  return <View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: t.base }} />;
+  // The coral glow literally rises and brightens as the day's completions add
+  // up — Home's "the sun comes up as you do things" mechanic. 0 when nothing
+  // has been finished yet (glow sits low, at its normal resting strength); 1
+  // once the day's target is well underway (glow climbs toward centre and
+  // warms). Every other screen just omits the prop and gets the old static glow.
+  const s = sunProgress == null ? 0 : Math.max(0, Math.min(1, sunProgress));
+  const raCy = 86 - s * 32;       // 86% (low, resting) -> 54% (risen)
+  const raOpacity = t.glowRa + s * 0.20;
+
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
+      <LinearGradient colors={t.atmosphere} start={{ x: 0, y: 0 }} end={{ x: t.atmosphereVertical ? 0 : 1, y: 1 }} locations={[0, 0.55, 1]}
+        style={{ position: 'absolute', inset: 0 }} />
+      {/* Two ambient glows — indigo high-left, coral low-right — bled into the
+          ground the way Fluent's Mica does. A flat fill behind rounded cards
+          is what makes a dark app look like a wireframe: there is nothing for
+          the elevation to be measured against. These give the surfaces
+          something to sit ON. */}
+      <Svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+        <Defs>
+          <RadialGradient id="mica-nu" cx="14%" cy="4%" r="62%">
+            <Stop offset="0" stopColor={t.nu} stopOpacity={t.glowNu} />
+            <Stop offset="1" stopColor={t.nu} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="mica-ra" cx="96%" cy={`${raCy}%`} r="66%">
+            <Stop offset="0" stopColor={t.ra} stopOpacity={raOpacity} />
+            <Stop offset="1" stopColor={t.ra} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#mica-nu)" />
+        <Rect width="100%" height="100%" fill="url(#mica-ra)" />
+      </Svg>
+    </View>
+  );
 }
 
 /**
@@ -131,17 +432,28 @@ export function Mica(
  * across it.
  */
 export function Surface(
-  { children, style }:
+  { children, style, raised = true, accent }:
   { children: React.ReactNode; style?: ViewStyle; raised?: boolean; accent?: Tone },
 ) {
   const t = useTheme();
-  // a flat fill and a hairline — no wash, no shadow, no accent rule
+  const a = accent === 'ra' ? t.raBtn : accent === 'nu' ? t.nuBtn : null;
   return (
     <View style={[{
       borderRadius: radius.lg, overflow: 'hidden',
-      borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card,
-    }, style]}>
-      {children}
+      borderWidth: 1, borderColor: t.stroke,
+    }, raised ? elevation.e8 : elevation.e2, style]}>
+      <LinearGradient pointerEvents="none"
+        colors={t.surface} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }}
+        style={{ position: 'absolute', inset: 0 }}
+      />
+      {/* a 2px gradient rule along the top edge, where an accent is wanted */}
+      {!!a && (
+        <LinearGradient pointerEvents="none" colors={a} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }} />
+      )}
+      {/* above the wash: on the web a text field isn't positioned, so an
+          absolute wash would sit on top of it and take its taps */}
+      <View style={{ position: 'relative' }}>{children}</View>
     </View>
   );
 }
@@ -902,11 +1214,13 @@ export function Primary(
         ...style,
       })}>
       <View
-        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: fill }}>
+        style={{ minHeight: b.height, borderRadius: b.radius, paddingVertical: sub ? 8 : 0, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: fill,
+          // not yet: plainly unavailable, still readable (a hairline and the second ink, not a faded label)
+          borderWidth: disabled ? 1 : 0, borderColor: t.strokeStrong }}>
         {/* one line, ending in … — a long task title in "Focus · …" ran
             out past the button's edges */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', paddingHorizontal: size === 'sm' ? 15 : 18 }}>
-          <Text numberOfLines={1} style={{ color: disabled ? t.ink3 : onColor, fontSize: b.font, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
+          <Text numberOfLines={1} style={{ color: disabled ? t.ink2 : onColor, fontSize: b.font, fontFamily: T.display, flexShrink: 1 }}>{label}</Text>
           {icon}
         </View>
         {!!sub && <Text style={{ color: onColor, opacity: 0.72, fontSize: 12 }}>{sub}</Text>}

@@ -19,3 +19,6 @@ expo-env.d.ts
 
 # raw Midjourney sources; the cut-outs used by the app live in assets/story
 /nu-characters/
+
+# the Supabase CLI keeps its link to the project here; local only
+supabase/.temp/

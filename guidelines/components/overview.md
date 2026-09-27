@@ -38,13 +38,14 @@ Today as stacked cards. The ones behind are in their label's colour, blended
 soft so they sit with the coral and the ground: 30% of the label colour into
 the cream by day, 20% into the navy at night (`labelTint` in
 `src/components/TodayStack.tsx`) — never the raw label colour. The front card is coral:
-"Nu found this one", the title at 23–26px, Begin (dark circle), minutes at
-58px. Nu (nu-hold) sits on the front card's corner. Above the stack: NU IS HOLDING · N.
+"Nu found this one", the title at 23–26px, one line of facts under it
+(Fits before 7:30 PM · High priority), Begin (dark circle), minutes at 58px. Nu (nu-hold) sits on the front card's corner. Above the stack: NU IS HOLDING · N.
 
 ## The day's path
 
-The sun's path from the start of the day (7:00) to when it ends (the Day ends
-setting): solid while the day runs, dotted below the horizon either side.
+The sun's path from the start of the day (Settings → Day starts, 7:00 by
+default) to when it ends (the Day ends setting): solid while the day runs,
+dotted below the horizon either side.
 Ra rides it at the current time; coral dots mark where things got done;
 ticks under the horizon (`--sub`) are calendar events. Under it: 7:00 Start ·
 N done · 11:45 Day ends. The path is on Home only.
@@ -64,7 +65,7 @@ task row below.
 ## Focus and More options
 
 Focus: exit, the two-tone title (task / ≈ 15 min), Nu handing the task to Ra
-along a dotted line over a sun made of dots, the coral Begin circle, and
+along a dotted line over the rising sun (`Sun`, halved on the horizon), the coral Begin circle, and
 "More options". The sheet holds the knobs (Length, Energy — black dials with
 a coral dot), Break it down, Remind me, Waiting on someone, and "Begin · N
 min".
@@ -74,7 +75,7 @@ min".
 60 ticks around a light disc (hairline edge); ticks behind you are coral and
 longer. Ra (resting) walks the ring at the current point. In the middle the
 time left in dot-matrix numbers, leading zeros muted, and "of 15 min". Below:
-Stop · Pause · Done, "Stop here — it still counts", "+ a thought just arrived".
+Stop · Pause · Done, "Stop here, it still counts", "+ a thought just arrived".
 
 ## Done
 
@@ -83,7 +84,7 @@ A soft ground: warm white at the top into a light orange at the bottom
 moment just before it (+N light, a rank-up) sits on the same ground with dark
 text. ← Back to Nu top left, "You did it / together." (two-tone),
 what and how long, Ra holding up a tiny pebble (the moving clip, below) over a
-cream sun made of dots with Nu beside it, then the Next circle and the next task.
+glowing sun (`Sun`) with Nu beside it, then the Next circle and the next task.
 
 ## Calendar: a month of suns
 
@@ -120,7 +121,7 @@ Nu and Ra only, from `assets/story/` and `assets/characters/` (see POSES in
 | Done | nu-hello | ra-pebble (moving) |
 | Night | nu-rest (lying down) | ra-rest at the horizon |
 
-No glow, halo or drop shadow on a character.
+Nu keeps his pale glow (`NuGlow`); Ra stands in the sun's light. No drop shadows on characters.
 
 Big enough to read on the smallest phone: 42pt inside a 46pt circle (the
 corner tiles), 66pt on the path and on the water, 70pt on the front card,

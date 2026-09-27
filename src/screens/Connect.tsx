@@ -104,7 +104,7 @@ export default function Connect(
       rows: [
         {
           key: 'calendar', title: 'Calendar', syncable: true,
-          body: 'Your real day, next to your tasks. Covers whatever is already in iOS — iCloud, Google, Outlook.',
+          body: 'Your real day, next to your tasks. Covers whatever is already in iOS: iCloud, Google, Outlook.',
           icon: c => <IconCalendar size={21} color={c} />,
           status: cal, onPress: connectCalendar,
         },

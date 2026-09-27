@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, ScrollView, useWindowDimensions } from 'r
 import * as Haptics from 'expo-haptics';
 import { radius, elevation, type as T } from '../theme';
 import { useTheme } from '../store';
+import { COLUMN } from '../screen';
 
 export interface SheetAction {
   key: string;
@@ -47,6 +48,7 @@ export function ActionSheet(
           backgroundColor: t.layer, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
           borderWidth: 1, borderColor: t.strokeStrong, borderBottomWidth: 0,
           paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, maxHeight: height * 0.88,
+          width: '100%', maxWidth: COLUMN, alignSelf: 'center',   // a phone's width on a wide screen
         }]}>
           <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: t.strokeStrong, alignSelf: 'center', marginBottom: 16 }} />
 

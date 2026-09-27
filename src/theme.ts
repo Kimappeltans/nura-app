@@ -119,8 +119,8 @@ export const raTheme: Palette = {
   subtle: '#EFE9DB',
   ink: '#171313',                    // 16.4:1
   ink2: '#4A4340',                   // 8.6:1
-  ink3: '#7B7360',                   // 4.5:1 — the floor, nothing dimmer than this
-  mute: '#958B77',                   // large display text only (>= 3:1)
+  ink3: '#6E6654',                   // 5.3:1 on cream: small labels and captions stay readable (was #7B7360, 4.4:1)
+  mute: '#7F745F',                   // a headline's second line: 4.4:1 (was #958B77, 3.2:1)
   stroke: 'rgba(23,19,19,0.08)',
   strokeStrong: 'rgba(23,19,19,0.16)',
 
@@ -235,8 +235,8 @@ export const copy = {
   emptyTitle: 'Nothing left today.',
   emptyBody: 'Want to pull something forward, or call it a day?',
   // said at the end of a session, whatever length it was
-  contract: (m: number) => `${m} minute${m === 1 ? '' : 's'} done. Stop here — or keep the momentum.`,
-  stop: 'Stop here — it still counts',
+  contract: (m: number) => `${m} minute${m === 1 ? '' : 's'} done. Stop here, or keep the momentum.`,
+  stop: 'Stop here, it still counts',
   nextStep: 'FOCUS',
 } as const;
 

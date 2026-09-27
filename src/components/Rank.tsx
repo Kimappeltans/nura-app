@@ -85,7 +85,7 @@ export function SceneGallery({ unlocked }: { unlocked: Set<string> }) {
                   color: got ? c : t.ink3, fontSize: 11.5, marginTop: 2,
                   fontFamily: got ? T.brand : undefined,
                 }}>
-                  {got ? a.name : '—'}
+                  {got ? a.name : 'Not yet'}
                 </Text>
               </View>
             </View>

@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 /**
  * One client, module-scoped — the same shape as getDb() in db.ts being one
@@ -8,8 +9,10 @@ import { createClient } from '@supabase/supabase-js';
  * screen and src/sync.ts go through this.
  *
  * PKCE + AsyncStorage session persistence is the standard native-app
- * pattern: detectSessionInUrl is off because there's no browser address bar
- * on native to read a session out of. AsyncStorage over expo-secure-store
+ * pattern. detectSessionInUrl is on for the web only: a Google sign-in, a
+ * magic link or a password reset comes back to the page with a code in the
+ * address, and the client swaps it for the session. The phone has no address
+ * bar; its links come back through the nura:// scheme instead. AsyncStorage over expo-secure-store
  * deliberately — SecureStore's ~2KB per-value iOS Keychain ceiling is a
  * known trap for a full session payload (access + refresh JWT + user
  * metadata), and everything else this app persists is already plaintext
@@ -20,8 +23,8 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!url || !anonKey) {
   throw new Error(
-    'Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY — ' +
-    'copy .env.example to .env and fill in your Supabase project values.',
+    'Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY. ' +
+    'Copy .env.example to .env and fill in your Supabase project values.',
   );
 }
 
@@ -30,7 +33,7 @@ export const supabase = createClient(url, anonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web',
     flowType: 'pkce',
   },
 });

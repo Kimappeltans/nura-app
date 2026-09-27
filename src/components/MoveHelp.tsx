@@ -111,7 +111,7 @@ export function MoveHelp({ projectId, onMoved }: {
         onDismiss={() => setAsking(false)}
         actions={[
           ...IN_THE_WAY.map((label, i) => ({ key: `w${i}`, glyph: '·', label, onPress: () => run('blocked', label) })),
-          { key: 'skip', glyph: '↔', label: 'Skip — just find another move', tone: 'quiet' as const, onPress: () => run('blocked') },
+          { key: 'skip', glyph: '↔', label: 'Skip, just find another move', tone: 'quiet' as const, onPress: () => run('blocked') },
         ]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
           <TextInput value={typed} onChangeText={setTyped} placeholder="Or in your own words"

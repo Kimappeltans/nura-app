@@ -1,12 +1,13 @@
 import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, TextInput, Image, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, TextInput, Image } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useTheme, useStore } from '../src/store';
 import { complete, endSession, logEvent, capture, dropCrumb, getFlag, getTask, updateTask, type Task } from '../src/db';
 import { writeFocusBlock } from '../src/calendar';
@@ -15,8 +16,9 @@ import { stepForTask } from '../src/projects';
 import { Primary, Ghost, Mica, poseImage } from '../src/ui';
 import { type as T, copy, radius, doneGround, doneStops } from '../src/theme';
 import { DotMatrix } from '../src/components/DotMatrix';
-import { DotSun } from '../src/components/Handoff';
+import { Sun } from '../src/components/Handoff';
 import { Moving } from '../src/components/Moving';
+import { useScreen } from '../src/screen';
 
 const CORAL = '#FF6B35';
 const ON_CORAL = '#3B1204';
@@ -48,7 +50,7 @@ function breakMinutesFor(sessionMins: number) {
  */
 function Timer() {
   const t = useTheme();
-  const { width } = useWindowDimensions();
+  const { width } = useScreen();
   // the window's own insets: inside a full-screen modal the safe-area view can
   // report none on iOS, and the top row slid under the status bar
   const insets = useSafeAreaInsets();
@@ -67,7 +69,8 @@ function Timer() {
   const resumeRunning = useStore(s => s.resumeRunning);
 
   // mins=0 is an open session: no countdown, it runs until you say done
-  const open = Number(mins) === 0;
+  // no length, or 0: an open session, however long the task is; a length only when a timer was chosen
+  const open = !mins || Number(mins) === 0;
   const initial = (open ? 0 : Number(mins) || 5) * 60;
 
   // The task actually being timed — NOT store.now, which the engine can
@@ -81,6 +84,19 @@ function Timer() {
   const [spent, setSpent] = useState(devDone ? Number(mins ?? 0) : 0);      // minutes, for Done
   const [breakEnd, setBreakEnd] = useState(0);
   const [, setTick] = useState(0);
+  // Settings → Focus: the break ('' follows the session, a number of minutes,
+  // or 'off'), and whether the screen stays on while the clock runs
+  const [breakPref, setBreakPref] = useState('');
+  const [awake, setAwake] = useState(false);
+  useEffect(() => {
+    getFlag('focus.break').then(v => setBreakPref(v ?? ''));
+    getFlag('focus.awake').then(v => setAwake(v === '1'));
+  }, []);
+  useEffect(() => {
+    if (!awake || phase === 'breakOffer') return;
+    activateKeepAwakeAsync('nura.focus').catch(() => {});
+    return () => { deactivateKeepAwake('nura.focus').catch(() => {}); };
+  }, [awake, phase]);
 
   // begin — or pick up the session that's already running for this task
   useEffect(() => {
@@ -192,7 +208,8 @@ function Timer() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const breakMins = breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
+  const breakMins = Number(breakPref) > 0 ? Number(breakPref)
+    : breakMinutesFor(open ? Math.max(1, Math.round(elapsed / 60)) : Math.round(initial / 60));
 
   /* ───────────── DONE — warm light, together ───────────── */
   if (phase === 'breakOffer') {
@@ -215,7 +232,7 @@ function Timer() {
 
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
             <View style={{ width: 300, height: 300 }}>
-              <View style={{ position: 'absolute', left: -24, top: -24 }}><DotSun size={340} color="#FFCBAA" /></View>
+              <View style={{ position: 'absolute', left: -24, top: -24 }}><Sun size={340} /></View>
               <Moving name="ra-pebble" style={{ position: 'absolute', left: 50, top: 20, width: 220, height: 220 }} />
               <Image source={poseImage('nu-hello')} resizeMode="contain" style={{ position: 'absolute', left: 4, top: 140, width: 120, height: 120 }} />
             </View>
@@ -234,7 +251,7 @@ function Timer() {
                 </View>
               </View>
             )}
-            {!hasNext && (
+            {!hasNext && breakPref !== 'off' && (
               <Pressable onPress={() => runBreak(breakMins * 60)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
                 <Text style={{ color: ON_CORAL, fontSize: 14.5, fontFamily: T.display, opacity: 0.8 }}>Take a {breakMins}-minute break</Text>
               </Pressable>

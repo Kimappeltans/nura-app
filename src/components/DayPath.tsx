@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { View, Text, Image, type ViewStyle } from 'react-native';
-import Svg, { Path, Line, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
 
-/** Where the path starts. Its end is the Day ends setting. */
-const PATH_START_MIN = 7 * 60;
 const CORAL = '#FF6B35';
 
 const clock = (min: number) => {
@@ -33,6 +31,8 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
 }) {
   const t = useTheme();
   const dayEndMin = useStore(s => s.dayEndMin);
+  // where the path starts: the Day starts setting, as its end is Day ends
+  const pathStart = useStore(s => s.dayStartMin);
   const [W, setW] = useState(342);
   const dark = t.key === 'nu';
   const H = height, hz = H - 34, A = H - 58, x0 = 34, x1 = W - 34;
@@ -40,9 +40,9 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
   // minutes since midnight, carried past midnight when the day runs that late
   const minOf = (ms: number) => {
     const d = new Date(ms), m = d.getHours() * 60 + d.getMinutes();
-    return dayEndMin > 24 * 60 && m < PATH_START_MIN ? m + 24 * 60 : m;
+    return dayEndMin > 24 * 60 && m < pathStart ? m + 24 * 60 : m;
   };
-  const pOf = (ms: number) => (minOf(ms) - PATH_START_MIN) / (dayEndMin - PATH_START_MIN);
+  const pOf = (ms: number) => (minOf(ms) - pathStart) / (dayEndMin - pathStart);
   const xAt = (p: number) => x0 + p * (x1 - x0);
   const yAt = (p: number) => hz - A * Math.sin(Math.PI * p);
 
@@ -61,6 +61,21 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
     <View style={style} onLayout={e => setW(e.nativeEvent.layout.width)}>
       <View style={{ height: H }}>
         <Svg width={W} height={H} style={{ position: 'absolute' }}>
+          <Defs>
+            {/* the sunrise: warm light low on the horizon, fading up the sky */}
+            <SvgLinearGradient id="dawn" x1="0" y1="1" x2="0" y2="0">
+              <Stop offset="0" stopColor="#FF8A5C" stopOpacity={dark ? 0.28 : 0.22} />
+              <Stop offset="1" stopColor="#FFB067" stopOpacity={0} />
+            </SvgLinearGradient>
+            {/* and the glow around Ra, the sun on the path */}
+            <RadialGradient id="raglow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#FFB067" stopOpacity={0.55} />
+              <Stop offset="0.5" stopColor="#FF8A5C" stopOpacity={0.18} />
+              <Stop offset="1" stopColor="#FF8A5C" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Path d={`${d}L${xAt(1).toFixed(1)} ${hz}L${xAt(0).toFixed(1)} ${hz}Z`} fill="url(#dawn)" />
+          {!ended && <Circle cx={xAt(raP)} cy={yAt(raP) - raSize * 0.28} r={raSize * 0.95} fill="url(#raglow)" />}
           <Line x1={0} y1={hz} x2={W} y2={hz} stroke={dim} strokeWidth={1.2} />
           <Path d={d} fill="none" stroke={ink} strokeWidth={2} strokeLinecap="round" opacity={ended ? 0.45 : 0.9} />
           {below.map((p, i) => <Circle key={i} cx={xAt(p)} cy={yAt(p)} r={1.6} fill={dim} />)}
@@ -87,7 +102,7 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
           }} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8 }}>
-        <Ends value={clock(PATH_START_MIN)} label="Start" />
+        <Ends value={clock(pathStart)} label="Start" />
         <View style={{ alignItems: 'center' }}>
           <Svg width={26} height={18} viewBox="-13 -16 26 18">
             {[0, 1, 2, 3, 4, 5, 6].map(k => {

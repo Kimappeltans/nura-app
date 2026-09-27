@@ -2,6 +2,7 @@
 // "deprecated" at call time. The new object-oriented API is a later migration.
 import * as Calendar from 'expo-calendar/legacy';
 import { Platform } from 'react-native';
+import { getFlag, setFlag } from './db';
 
 /**
  * The calendar.
@@ -10,7 +11,8 @@ import { Platform } from 'react-native';
  * available before the next hard stop, so the energy filter and the transition
  * warning work from a real number instead of a guess.
  *
- * WRITE is opt-in, per the sync setting on the Connect screen. When two-way is
+ * WRITE is opt-in, per the sync setting on the Connect screen (or Settings →
+ * Calendar, which also picks the calendar it goes to). When two-way is
  * on, a finished focus session is written back as an event — so the hour you
  * actually spent shows up in the same place as the meetings that ate the rest
  * of the day. Nothing is ever written without that switch being turned on
@@ -31,6 +33,51 @@ export async function hasCalendarPermission(): Promise<boolean> {
 
 export type UpcomingEvent = { id: string; title: string; startsAt: number; endsAt: number };
 
+/** A calendar on the phone, for Settings → Calendar. */
+export type PhoneCalendar = { id: string; title: string; writable: boolean; shown: boolean };
+
+/** The calendars turned off in Settings → Calendar. Stored as the ones left
+ *  out, so a calendar added to the phone later shows up by itself. */
+async function hiddenIds(): Promise<Set<string>> {
+  try { return new Set(JSON.parse((await getFlag('calendar.hidden')) || '[]')); } catch { return new Set(); }
+}
+
+/** The ids of the calendars Nura reads: every one on the phone but those turned off. */
+async function shownCalendarIds(): Promise<string[]> {
+  const [cals, hidden] = await Promise.all([Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT), hiddenIds()]);
+  return cals.filter(c => !hidden.has(c.id)).map(c => c.id);
+}
+
+export async function phoneCalendars(): Promise<PhoneCalendar[]> {
+  if (Platform.OS === 'web' || !(await hasCalendarPermission())) return [];
+  try {
+    const [cals, hidden] = await Promise.all([Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT), hiddenIds()]);
+    return cals
+      .map(c => ({ id: c.id, title: c.title || 'Calendar', writable: !!c.allowsModifications, shown: !hidden.has(c.id) }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  } catch { return []; }
+}
+
+export async function showCalendar(id: string, shown: boolean) {
+  const hidden = await hiddenIds();
+  if (shown) hidden.delete(id); else hidden.add(id);
+  await setFlag('calendar.hidden', JSON.stringify([...hidden]));
+}
+
+/** Where a finished focus session is written (Settings → Calendar): null
+ *  when that's off. The same switch as the Connect screen's two-way sync. */
+export async function focusCalendar(): Promise<string | null> {
+  if ((await getFlag('sync.calendar')) !== 'two') return null;
+  // the one chosen, while it's still there and writable; else the first that is
+  const chosen = await getFlag('calendar.write');
+  const cals = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT).catch(() => []);
+  return cals.some(c => c.id === chosen && c.allowsModifications) ? chosen : await writableCalendarId();
+}
+export async function setFocusCalendar(id: string | null) {
+  await setFlag('sync.calendar', id ? 'two' : 'read');
+  if (id) await setFlag('calendar.write', id);
+}
+
 /**
  * The next real (non-all-day) event starting within `lookaheadMs`. Returns
  * null on web, without permission, or with nothing that close — callers
@@ -40,12 +87,12 @@ export async function nextEvent(lookaheadMs = 4 * 3600_000): Promise<UpcomingEve
   if (Platform.OS === 'web') return null;
   if (!(await hasCalendarPermission())) return null;
 
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  if (!calendars.length) return null;
+  const ids = await shownCalendarIds();
+  if (!ids.length) return null;
 
   const now = Date.now();
   const events = await Calendar.getEventsAsync(
-    calendars.map(c => c.id), new Date(now), new Date(now + lookaheadMs),
+    ids, new Date(now), new Date(now + lookaheadMs),
   );
   const upcoming = events
     .filter(e => !e.allDay)
@@ -68,11 +115,11 @@ export async function nextEvent(lookaheadMs = 4 * 3600_000): Promise<UpcomingEve
 export async function todayEvents(): Promise<UpcomingEvent[]> {
   if (Platform.OS === 'web') return [];
   if (!(await hasCalendarPermission())) return [];
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  if (!calendars.length) return [];
+  const ids = await shownCalendarIds();
+  if (!ids.length) return [];
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(); end.setHours(23, 59, 59, 999);
-  const events = await Calendar.getEventsAsync(calendars.map(c => c.id), start, end);
+  const events = await Calendar.getEventsAsync(ids, start, end);
   return events
     .filter(e => !e.allDay)
     .map(e => ({
@@ -88,10 +135,10 @@ export async function eventsBetween(fromMs: number, toMs: number): Promise<Upcom
   if (Platform.OS === 'web') return [];
   if (!(await hasCalendarPermission())) return [];
   try {
-    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-    if (!calendars.length) return [];
+    const ids = await shownCalendarIds();
+    if (!ids.length) return [];
     const events = await Calendar.getEventsAsync(
-      calendars.map(c => c.id), new Date(fromMs), new Date(toMs));
+      ids, new Date(fromMs), new Date(toMs));
     return events
       .filter(e => !e.allDay)
       .map(e => ({
@@ -120,7 +167,7 @@ async function writableCalendarId(): Promise<string | null> {
 export async function writeFocusBlock(title: string, startMs: number, endMs: number): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   if (!(await hasCalendarPermission())) return false;
-  const id = await writableCalendarId();
+  const id = await focusCalendar();       // the calendar chosen in Settings
   if (!id) return false;
   try {
     await Calendar.createEventAsync(id, {

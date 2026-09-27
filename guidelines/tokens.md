@@ -8,7 +8,7 @@ one, change the other.
 :root {
   /* the light: cream ground, Ra's coral */
   --cream: #FAF7F0; --layer: #F3EEE2; --subtle: #EFE9DB; --track: #E8E1D2; --card: #FFFFFF;
-  --ink: #171313; --ink-2: #4A4340; --ink-3: #7B7360; --mute: #958B77;
+  --ink: #171313; --ink-2: #4A4340; --ink-3: #6E6654; --mute: #7F745F;   /* darkened 26 Sep for contrast */
   --hair: rgba(23,19,19,.08);
   --coral: #FF6B35; --coral-deep: #C2410C; --on-coral: #3B1204;
   /* the water: Nu's navy. No indigo in the interface — links, rings and marks

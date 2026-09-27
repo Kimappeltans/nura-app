@@ -62,6 +62,25 @@ export default function Onboarding() {
     })();
   }, []);
 
+  // Back from Google on the web: the page left mid-onboarding, so it saved
+  // where it was (resumeAfterGoogle); carry on from there, signed in.
+  useEffect(() => {
+    (async () => {
+      const saved = await getFlag('onb.resume');
+      if (!saved) return;
+      await setFlag('onb.resume', '');
+      try {
+        const r = JSON.parse(saved) as { step: 'auth' | 'profile'; dumped?: string[] };
+        if (r.step === 'auth') return finishOnboarding();
+        dumped.current = r.dumped ?? [];
+        await log('profile', { signedIn: !!useStore.getState().session, via: 'google-web' });
+        afterProfile();
+      } catch { /* a stale flag: start from the welcome, as usual */ }
+    })();
+  }, []);
+  const resumeAfterGoogle = (step: 'auth' | 'profile') => () =>
+    setFlag('onb.resume', JSON.stringify({ step, dumped: dumped.current }));
+
   const log = (s: string, meta: object = {}) =>
     logEvent('onboarding', undefined, { step: s, ms: Date.now() - t0.current, ...meta });
 
@@ -86,14 +105,14 @@ export default function Onboarding() {
     if (start && task) {
       await pickForToday(task.id, true);     // what you start is on your Today
       await focusOn(task.id);
-      router.push({ pathname: '/timer', params: { id: task.id, mins: '5' } });
+      router.push({ pathname: '/timer', params: { id: task.id, mins: '0' } });   // open: it runs as long as the task needs
     } else {
       await toNu();
     }
   };
 
   if (step === 'auth') {
-    return <Auth onClose={finishOnboarding} onBack={() => setStep('welcome')} />;
+    return <Auth onClose={finishOnboarding} onBack={() => setStep('welcome')} beforeRedirect={resumeAfterGoogle('auth')} />;
   }
 
   if (step === 'blockers') {
@@ -130,7 +149,7 @@ export default function Onboarding() {
 
   if (step === 'profile') {
     return (
-      <ProfileStep onDone={async () => {
+      <ProfileStep beforeRedirect={resumeAfterGoogle('profile')} onDone={async () => {
         await log('profile', { signedIn: !!useStore.getState().session });
         afterProfile();
       }} />

@@ -27,7 +27,7 @@ export function TaskPeek({ task, onClose, onMore }: { task: Task | null; onClose
   ].filter(Boolean).join(' · ');
   const rows: [string, string][] = [
     ['When', when],
-    ['Duration', task.est_minutes ? `${task.est_minutes} min` : '—'],
+    ['Duration', task.est_minutes ? `${task.est_minutes} min` : 'Not set'],
     ...(project ? [['Project', project] as [string, string]] : []),
   ];
 

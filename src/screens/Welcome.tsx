@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, Image, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { type as T, copy } from '../theme';
 import { useTheme } from '../store';
 import { Primary, Mica, GradientText } from '../ui';
 import { IntroClip } from '../components/IntroClip';
 import { SpeechBubble } from '../components/SpeechBubble';
+import { useScreen } from '../screen';
 
 /**
  * Both marks are TIGHT crops (see assets/brand): the source artwork had ~10%
@@ -38,7 +39,7 @@ export default function Welcome(
   { onNext, onSignIn }: { onNext: () => void; onSignIn: () => void },
 ) {
   const t = useTheme();
-  const { width } = useWindowDimensions();
+  const { width } = useScreen();
   // Nu and Ra introduce themselves once the clip has played through
   const [said, setSaid] = useState(false);
 

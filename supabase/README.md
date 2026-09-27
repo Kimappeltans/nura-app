@@ -6,6 +6,8 @@ Three things live here:
 - **`functions/nura-plan`**: Nu's planner. When someone asks Nu to plan a
   project, the app sends the goal (and later the project's compact state) to
   this function, which calls Claude and returns a checked, structured answer.
+- **`functions/nura-account`**: deletes the signed-in person's account (Settings,
+  Delete account). Their synced rows go with it; nothing on their devices is touched.
 - **`functions/nura-coach`**: the model half of the learning loop
   (`src/coach.ts`, `src/learn/`): reading a sentence the phone wasn't sure
   about, suggestions for today, and the weekly working notes.
@@ -42,9 +44,27 @@ brew install supabase/tap/supabase
 supabase login
 supabase link --project-ref <your-project-ref>      # the part before .supabase.co
 supabase secrets set ANTHROPIC_API_KEY=<your key>
-supabase functions deploy nura-plan
-supabase functions deploy nura-coach
+supabase functions deploy nura-plan --use-api        # --use-api: no Docker needed
+supabase functions deploy nura-coach --use-api
+supabase functions deploy nura-account --use-api
 ```
+
+If the planner answers "The planner is having a moment" and Anthropic says the
+key "is not scoped to a workspace", the key was made outside a workspace. Either
+make a new key inside a workspace in the Anthropic Console and set it again, or
+name the workspace (its ID is on the workspace's page in the Console):
+
+```bash
+supabase secrets set ANTHROPIC_WORKSPACE_ID=<workspace id>
+```
+
+### Sign-in on the web
+
+In the Supabase dashboard, Authentication, URL Configuration: add every web
+address the app runs on to **Redirect URLs** (for example
+`http://localhost:8081/**` and your site's `https://…/**`), and `nura://**`
+for the phone. Google sign-in, magic links and password resets come back to
+these; one that isn't listed is sent to the Site URL instead.
 
 Then paste `ai-usage.sql` into the SQL Editor and run it. It adds the daily
 limits for both functions. Without it they still work, with no limits (and

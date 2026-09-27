@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { View, Image, Pressable, useWindowDimensions, type ViewStyle } from 'react-native';
+import { useScreen } from '../screen';
 
 /**
  * The intro animation, played as a frame sequence.
@@ -128,7 +129,7 @@ export function IntroClip({ fps = 12, style, maxWidth = 200, onStart, onEnd, ove
   // renders on web (see the resolveAssetSource guard below), where the
   // window can resize after mount; a frozen constant would leave the clip
   // stuck at whatever width happened to be current on first load.
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useScreen();
   const W = Math.min(windowWidth - 52, maxWidth);
   const H = W * (402 / 700);   // the cut-out frames' own aspect
 

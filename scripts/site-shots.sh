@@ -78,7 +78,7 @@ insert into task (id, title, state, created_at, priority, label, est_minutes, du
   ('demo_2', 'Prepare slides for Monday',    'today', $NOW, 2, 'work',     45,   NULL, 0, $NOW),
   ('demo_3', 'Send invoice to Studio North', 'inbox', $NOW, 1, 'money',    10,   NULL, 0, $NOW),
   ('demo_4', 'Renew passport',               'inbox', $NOW, 0, 'personal', NULL, NULL, 0, $NOW),
-  ('demo_5', 'Call mum',                     'today', $NOW, 1, 'people',   10,   $(at $((HOUR < 20 ? HOUR + 1 : 20)) 30), 1, $NOW),
+  ('demo_5', 'Call mum',                     'today', $NOW, 1, 'people',   10,   $(at $((HOUR < 22 ? HOUR + 1 : 22)) 30), 1, $NOW),
   ('demo_6', 'Run 5k',                       'inbox', $NOW, 0, 'health',   30,   NULL, 0, $NOW);
 insert into task (id, title, state, created_at, completed_at, updated_at) values
   ('done_1', 'Reply to Sam',       'done', $(at 9 0),  $(at 9 40),  $(at 9 40)),

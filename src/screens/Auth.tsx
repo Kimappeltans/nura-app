@@ -1,4 +1,5 @@
-import { useTheme } from '../store';
+import { useTheme, useStore } from '../store';
+import { setFlag } from '../db';
 import { useState } from 'react';
 import {
   View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform, Alert,
@@ -8,8 +9,9 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
-import { Primary, Mica, Character, Eyebrow } from '../ui';
+import { Primary, Mica, Character } from '../ui';
 import { useAuthActions } from '../useAuthActions';
+import { notify } from '../notify';
 
 /* --- brand glyphs, drawn rather than shipped as logo files ---------------- */
 
@@ -37,19 +39,20 @@ type Mode = 'choose' | 'email';
 /**
  * Sign in / create an account.
  *
- * Deliberately NOT a gate. It sits behind a "Sign in" link on the welcome
- * screen and behind Settings, and the app is fully usable without ever opening
- * it — everything is on the device already. Signing in buys sync across
- * devices, a backup, and the integrations that need a server.
+ * An account is required (Kim, 26 September): this is the gate. It opens from
+ * "Sign in" on the welcome screen, and it's all app/index.tsx shows to someone
+ * signed out past onboarding. The account is what carries sync across
+ * devices, a backup, the planner and the coach.
  *
  * Two rules that are not negotiable when this goes live:
  *
  *  1. SIGN IN WITH APPLE IS MANDATORY on iOS the moment Google sign-in is
  *     offered (App Store Guideline 4.8). Apps get rejected for missing it, so
  *     Apple is listed first and given equal weight.
- *  2. Requiring registration to use core features that work fine without an
- *     account trips Guideline 5.1.1(v). Hence the "keep using without an
- *     account" escape at the bottom, which is also simply better product.
+ *  2. Guideline 5.1.1(v) rejects apps that demand an account for features
+ *     that don't need one. Nura's account carries account-based features
+ *     (sync, the planner and coach on the server), which is the case to make
+ *     in review if it's questioned.
  *
  * Email used to be magic-link only ("nothing to invent, nothing to forget").
  * That's still offered as a fallback on sign-in, but a proper account needs a
@@ -69,7 +72,11 @@ type Mode = 'choose' | 'email';
  * moment you navigate away.
  */
 export default function Auth(
-  { onClose, onBack }: { onClose: () => void; onBack?: () => void },
+  { onClose, onBack, beforeRedirect }: {
+    onClose: () => void; onBack?: () => void;
+    /** onboarding: remember where it was, before the web page leaves for Google */
+    beforeRedirect?: () => Promise<void>;
+  },
 ) {
   // Fixed bright, like Connect.tsx and Compose.tsx — this is onboarding
   // chrome, not the Nu/Ra experience, so it shouldn't inherit whatever mode
@@ -96,14 +103,14 @@ export default function Auth(
   const onFieldFocus = (id: string) => () => setFocused(id);
   const onFieldBlur = () => setFocused(null);
 
-  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword } = useAuthActions(onClose);
+  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword } = useAuthActions(onClose, { beforeRedirect });
 
   const submit = async () => {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onClose();
     if (r === 'check-email') {
-      Alert.alert('Almost there', 'Check your email to confirm your account, then sign in.',
-        [{ text: 'OK', onPress: () => { setCreating(false); setMode('choose'); } }]);
+      notify('Almost there', 'Check your email to confirm your account, then sign in.',
+        () => { setCreating(false); setMode('choose'); });
     }
   };
 
@@ -137,24 +144,22 @@ export default function Auth(
         <StatusBar style="dark" />
 
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 14 }}>
-          <Pressable onPress={onBack ?? onClose} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
-            <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
-          </Pressable>
+          {/* back to the welcome screen in onboarding; as the gate there's nowhere to go back to */}
+          {onBack ? (
+            <Pressable onPress={onBack} hitSlop={14} style={{ paddingVertical: 8, alignSelf: 'flex-start' }}>
+              <Text style={{ color: t.ink3, fontSize: 15 }}>← Back</Text>
+            </Pressable>
+          ) : <View style={{ height: 34 }} />}
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ flexGrow: 1 }}>
             <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
 
-            <Eyebrow label={creating ? 'New here' : 'Welcome back'} tone="ra" />
             <Text style={{
               color: t.ink, fontSize: 29, lineHeight: 37, fontFamily: T.display,
-              letterSpacing: -0.9, marginTop: 6,
+              letterSpacing: -0.9, marginTop: 14, textAlign: 'center',
             }}>
               {creating ? 'Create your account.' : 'Welcome back.'}
-            </Text>
-            <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, marginTop: 8, maxWidth: 310 }}>
-              An account keeps your tasks and habits on every device. Everything
-              already on this phone stays put, and nothing needs one.
             </Text>
 
             <View style={{ height: 24 }} />
@@ -236,11 +241,14 @@ export default function Auth(
                     offered on the signup side: creating an account is where the
                     password gets set in the first place. */}
                 {!creating && (
-                  <Pressable onPress={() => withEmailLink(email)} hitSlop={10}>
-                    <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center' }}>
-                      {busy === 'email' ? 'Sending…' : 'Forgot it? Email me a sign-in link instead'}
-                    </Text>
-                  </Pressable>
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', columnGap: 18, rowGap: 8 }}>
+                    <Pressable onPress={() => resetPassword(email)} hitSlop={10} accessibilityRole="button">
+                      <Text style={{ color: t.ink3, fontSize: 13.5 }}>{busy === 'reset' ? 'Sending…' : 'Forgot your password?'}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => withEmailLink(email)} hitSlop={10} accessibilityRole="button">
+                      <Text style={{ color: t.ink3, fontSize: 13.5 }}>{busy === 'email' ? 'Sending…' : 'Email me a sign-in link'}</Text>
+                    </Pressable>
+                  </View>
                 )}
 
                 <Pressable onPress={() => setMode('choose')} hitSlop={10}>
@@ -271,16 +279,21 @@ export default function Auth(
               </Text>
             </Pressable>
 
-            {/* Not a gate. */}
-            <Pressable onPress={onClose} hitSlop={10} style={{ marginTop: 14 }}>
-              <Text style={{ color: t.ink3, fontSize: 13.5, textAlign: 'center', lineHeight: 19 }}>
-                {onBack ? 'Skip — start without an account' : 'Keep using Nura without an account'}
-              </Text>
-            </Pressable>
 
             <Text style={{ color: t.ink3, fontSize: 12.5, textAlign: 'center', lineHeight: 17, marginTop: 14 }}>
               By continuing you agree to the Terms and Privacy Policy.
             </Text>
+
+            {/* development only, and only at the gate: in without an account
+                (remembered in the flag `dev.skipAuth`; compiled out of release builds) */}
+            {__DEV__ && !onBack && (
+              <Pressable hitSlop={10} style={{ marginTop: 18 }} onPress={async () => {
+                await setFlag('dev.skipAuth', '1');
+                useStore.setState({ devSkipAuth: true });
+              }}>
+                <Text style={{ color: t.ink3, fontSize: 13, textAlign: 'center', textDecorationLine: 'underline' }}>Skip sign-in (dev)</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </View>
       </SafeAreaView>

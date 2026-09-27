@@ -32,11 +32,13 @@ export const labelTint = (id: string | null | undefined, dark: boolean) => {
  * on its corner and Begin. Tap a stone to bring it to the front instead;
  * hold one for what you can do with it.
  */
-export function TodayStack({ front, back, from, onBegin, onOpen, onPick, onHold, onPlan }: {
+export function TodayStack({ front, back, from, fact, onBegin, onOpen, onPick, onHold, onPlan }: {
   front: Task | null;
   back: Task[];
   /** a project's name, when the front card is a project's move */
   from?: string | null;
+  /** the facts behind the one in front (priority.ts → factLine) */
+  fact?: string | null;
   onBegin: () => void;
   onOpen: (task: Task) => void;
   onPick: (task: Task) => void;
@@ -50,7 +52,7 @@ export function TodayStack({ front, back, from, onBegin, onOpen, onPick, onHold,
       {back.map((x, i) => (
         <Pressable key={x.id} onPress={() => { Haptics.selectionAsync(); onPick(x); }}
           onLongPress={() => { Haptics.selectionAsync(); onHold(x); }}
-          accessibilityRole="button" accessibilityLabel={`${x.title} — bring to the front`}
+          accessibilityRole="button" accessibilityLabel={`${x.title}, bring to the front`}
           style={({ pressed }) => ({
             height: 82, marginBottom: -24, zIndex: i, borderRadius: 28, paddingHorizontal: 16,
             backgroundColor: labelTint(x.label, dark) ?? t.card, opacity: pressed ? 0.85 : 1,
@@ -76,6 +78,7 @@ export function TodayStack({ front, back, from, onBegin, onOpen, onPick, onHold,
             <Pressable onPress={() => onOpen(front)} hitSlop={4} style={{ marginTop: 10, paddingRight: 72 }}>
               <Text style={{ color: ON_CORAL, fontSize: 24, lineHeight: 26, fontFamily: T.display, letterSpacing: -1 }}>{front.title}</Text>
             </Pressable>
+            {!!fact && <Text style={{ color: 'rgba(59,18,4,0.66)', fontSize: 13, fontFamily: T.brand, marginTop: 6 }}>{fact}</Text>}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 22 }}>
               <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onBegin(); }}
                 accessibilityRole="button" accessibilityLabel={`Begin ${front.title}`}

@@ -1,37 +1,33 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useStore, useTheme } from '../store';
 import { getDb } from '../db';
 import { hasCalendarPermission } from '../calendar';
 import { canSpeak } from '../voice';
-import { askToReplayIntro } from '../intro';
 import { type as T } from '../theme';
-import { poseImage } from '../ui';
+import { IconSun, IconLink, IconGear } from '../ui';
 import { Sheet } from './Sheet';
+import { Avatar } from './Avatar';
 
 /**
- * MORE — behind the round button top right. A tall sheet with Nu at the top:
- * Profile, Companions, Wins, Connected apps and Settings open inside it (← to
- * come back), each with the few things you'd want at a glance and a way to
- * the full screen. The calendar is its own tab, the backlog pass and
- * habits in Your tasks. (The earlier every-place menu: src/legacy/AppMenu.tsx.)
+ * MORE, the tab bar's You. A tall sheet with you at the top (your picture
+ * and name: tap for your Profile, one screen for all of it) and a gear for
+ * Settings beside the close. Wins and Connected apps open inside the sheet
+ * (← to come back), each with the few things you'd want at a glance and a
+ * way to the full screen. The calendar is its own tab, the backlog pass and habits in Your
+ * tasks. (The earlier every-place menu: src/legacy/AppMenu.tsx.)
  */
-type View_ = 'menu' | 'profile' | 'companions' | 'wins' | 'connected' | 'settings';
+type View_ = 'menu' | 'wins' | 'connected';
 
-const APPEARANCE = { sun: 'By the sun', light: 'Light', dark: 'Dark' } as const;
-
-const ITEMS: { key: Exclude<View_, 'menu'>; glyph: string; label: string }[] = [
-  { key: 'profile', glyph: '◎', label: 'Profile' },
-  { key: 'companions', glyph: '✦', label: 'Companions' },
-  { key: 'wins', glyph: '✓', label: 'Wins' },
-  { key: 'connected', glyph: '↗', label: 'Connected apps' },
-  { key: 'settings', glyph: '⚙', label: 'Settings' },
+const ITEMS: { key: Exclude<View_, 'menu'>; Icon: typeof IconSun; label: string }[] = [
+  { key: 'wins', Icon: IconSun, label: 'Wins' },
+  { key: 'connected', Icon: IconLink, label: 'Connected apps' },
 ];
 
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useTheme();
-  const { session, wins, dayEndMin, profile, appearance } = useStore();
+  const { wins, profile } = useStore();
   const [view, setView] = useState<View_>('menu');
   const [focusMin, setFocusMin] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<boolean | null>(null);
@@ -58,7 +54,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const winsToday = wins.filter(w => (w.completed_at ?? 0) >= dayStart).length;
   const winsWeek = wins.filter(w => (w.completed_at ?? 0) >= weekStart).length;
   const span = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
-  const endLabel = new Date(new Date().setHours(0, dayEndMin, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   const Close = () => (
     <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"
@@ -87,9 +82,19 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     <Sheet visible={visible} onClose={onClose} tall>
       {view === 'menu' ? (
         <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <Image source={poseImage('nu-listen')} style={{ width: 56, height: 56 }} resizeMode="contain" />
-            <Text style={{ color: t.ink, fontSize: 23, fontFamily: T.display, letterSpacing: -0.4 }}>More</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <Pressable onPress={() => go('/profile')} accessibilityRole="button" accessibilityLabel="Profile"
+              style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 })}>
+              <Avatar size={56} edge />
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={{ color: t.ink, fontSize: 23, fontFamily: T.display, letterSpacing: -0.4 }}>{profile.name.trim() || 'You'}</Text>
+                <Text style={{ color: t.ink3, fontSize: 14, marginTop: 1 }}>Profile ›</Text>
+              </View>
+            </Pressable>
+            <Pressable onPress={() => go('/settings')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Settings"
+              style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: pressed ? t.subtle : t.layer })}>
+              <IconGear size={18} color={t.ink2} />
+            </Pressable>
             <Close />
           </View>
           <View style={{ borderTopWidth: 1, borderTopColor: t.stroke }}>
@@ -100,17 +105,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   borderBottomWidth: 1, borderBottomColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
                 })}>
                 <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash, borderWidth: 1, borderColor: t.stroke }}>
-                  <Text style={{ color: t.nu, fontSize: 14 }}>{i.glyph}</Text>
+                  <i.Icon size={18} color={t.nu} />
                 </View>
                 <Text style={{ flex: 1, color: t.ink, fontSize: 15.5 }}>{i.label}</Text>
                 <Text style={{ color: t.ink3, fontSize: 17 }}>›</Text>
               </Pressable>
             ))}
-          </View>
-          <View style={{ marginTop: 26, gap: 16 }}>
-            <Quiet label="Plan something bigger" onPress={() => go('/project/new')} />
-            <Quiet label="Watch the opening again" onPress={() => go('/opening')} />
-            <Quiet label="Start from the beginning" onPress={() => { onClose(); setTimeout(askToReplayIntro, 250); }} />
           </View>
         </>
       ) : (
@@ -124,37 +124,11 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
             <Close />
           </View>
 
-          {view === 'profile' && (
-            <Panel>
-              <Row label="Account" value={session ? 'Signed in' : 'Not signed in'} good={!!session}
-                onPress={session ? () => go('/settings') : () => go('/auth')} />
-              <Row label="Personal details" action="Edit" onPress={() => go('/profile')} />
-              <Row label="Name" value={profile.name || '—'} />
-              <Row label="Preferences" onPress={() => go('/settings')} />
-            </Panel>
-          )}
-          {view === 'companions' && (
-            <Panel>
-              {([['nu-listen', 'Nu', 'Capture and organise'], ['ra-icon', 'Ra', 'Focus and action']] as const).map(([pose, name, role]) => (
-                <Pressable key={name} onPress={() => go('/companions')} style={({ pressed }) => ({
-                  flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-                  borderBottomWidth: 1, borderBottomColor: t.stroke, backgroundColor: pressed ? t.subtle : 'transparent',
-                })}>
-                  <Image source={poseImage(pose)} style={{ width: 52, height: 52 }} resizeMode="contain" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.ink, fontSize: 15, fontFamily: T.display }}>{name}</Text>
-                    <Text style={{ color: t.ink3, fontSize: 13, marginTop: 1 }}>{role}</Text>
-                  </View>
-                  <Text style={{ color: t.ink3, fontSize: 17 }}>›</Text>
-                </Pressable>
-              ))}
-            </Panel>
-          )}
           {view === 'wins' && (
             <Panel>
               <Row label="Today" value={String(winsToday)} />
               <Row label="This week" value={String(winsWeek)} />
-              <Row label="Focus time this week" value={focusMin == null ? '—' : span(Math.round(focusMin))} />
+              <Row label="Focus time this week" value={focusMin == null ? 'None yet' : span(Math.round(focusMin))} />
               <Row label="Everything you’ve finished" onPress={() => go('/wins')} />
             </Panel>
           )}
@@ -167,25 +141,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 onPress={() => go('/settings')} />
             </Panel>
           )}
-          {view === 'settings' && (
-            <Panel>
-              <Row label="Day ends" value={endLabel} onPress={() => go('/settings')} />
-              <Row label="Appearance" value={APPEARANCE[appearance]} onPress={() => go('/settings')} />
-              <Row label="Reminders, language & voice" onPress={() => go('/settings')} />
-              <Row label="All settings" onPress={() => go('/settings')} />
-            </Panel>
-          )}
         </>
       )}
     </Sheet>
-  );
-}
-
-function Quiet({ label, onPress }: { label: string; onPress: () => void }) {
-  const t = useTheme();
-  return (
-    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button">
-      <Text style={{ color: t.ink2, fontSize: 14.5 }}>{label}</Text>
-    </Pressable>
   );
 }

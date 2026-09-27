@@ -94,7 +94,14 @@
           "speechRecognitionPermission": "Nura turns what you say into text you can check and edit before anything happens with it."
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nura uses a photo you pick as your profile picture. It stays on this phone.",
+          "cameraPermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

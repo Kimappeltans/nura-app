@@ -17,13 +17,17 @@ export interface Celebration { award: Award; line: string; at: number; rankUp: R
  *    light  rooms always light
  *    dark   rooms always navy */
 export type Appearance = 'sun' | 'light' | 'dark';
+export const appearanceName: Record<Appearance, string> = { sun: 'By the sun', light: 'Light', dark: 'Dark' };
 
-/** When the day starts, for By the sun. Its end is the Day ends setting. */
-const DAY_START_MIN = 5 * 60;
-/** Is it daytime — after 5am and before the day you set ends (which can run past midnight)? */
+/** When the day starts (Settings → Day starts), minutes after midnight: By
+ *  the sun turns the rooms light from here, and the day's path rises from
+ *  here. Kept outside the store too, so isDaylight() needs no store to read. */
+export const DAY_START_DEFAULT = 7 * 60;
+let dayStart = DAY_START_DEFAULT;
+/** Is it daytime — after the day starts and before the day you set ends (which can run past midnight)? */
 export function isDaylight(dayEndMin: number, at = new Date()): boolean {
   const m = at.getHours() * 60 + at.getMinutes();
-  return dayEndMin > 24 * 60 ? m >= DAY_START_MIN || m < dayEndMin - 24 * 60 : m >= DAY_START_MIN && m < dayEndMin;
+  return dayEndMin > 24 * 60 ? m >= dayStart || m < dayEndMin - 24 * 60 : m >= dayStart && m < dayEndMin;
 }
 /** A focus session that's running — kept here, not in the timer screen, so
  *  leaving it (⌄) doesn't stop it: it shows as the pill above the tab bar. */
@@ -79,21 +83,30 @@ interface State {
   /** non-blocking micro-toast (captures, small events). */
   toast: { text: string; at: number } | null;
   profile: db.Profile;
+  /** Save part of the profile, and show it at once everywhere it appears (Home's greeting, the You tab). */
+  saveProfile: (p: Partial<db.Profile>) => Promise<void>;
   /** null = signed out. Distinct from authLoading, which is only true until
    *  the very first getSession() resolves on boot — see app/_layout.tsx. */
   session: Session | null;
   authLoading: boolean;
+  /** Development only: past the sign-in gate without an account (the flag `dev.skipAuth`). */
+  devSkipAuth: boolean;
   /** TRIAL — which lighter ground the rooms use; see themeTrials.ts */
   trial: Trial;
   /** which room is open; the tab bar on any screen changes it */
   tab: Tab;
   /** Tell Nu is open — the tab bar's round button, on every screen that has it */
   telling: boolean;
+  /** More (profile, settings, wins…) is open: the tab bar's You */
+  moreOpen: boolean;
   /** what Tell Nu opens with, if anything (then cleared) */
   tellDraft: string | null;
   /** when the day ends, in minutes after midnight (1500 = 1:00 AM) — see capacity.ts */
   dayEndMin: number;
   setDayEnd: (min: number) => Promise<void>;
+  /** when the day starts, in minutes after midnight — see isDaylight() */
+  dayStartMin: number;
+  setDayStart: (min: number) => Promise<void>;
   /** TRIAL — how light the Tell Nu sheet is over a dark room */
   sheetTrial: SheetTrial;
   appearance: Appearance;
@@ -127,8 +140,12 @@ export const useStore = create<State>((set, get) => ({
   mode: 'nu', energy: 'steady', now: null, nowRule: null, crumb: null,
   inbox: [], todayPicked: [], projects: [], moveIds: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
-  profile: { name: '', tagline: '' },
-  session: null, authLoading: true, trial: 'night', tab: 'home', telling: false, tellDraft: null, dayEndMin: 21 * 60, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
+  profile: { name: '', tagline: '', pronouns: '', avatar: '' },
+  saveProfile: async (p) => {
+    await db.setProfile(p);
+    set({ profile: { ...get().profile, ...p } });
+  },
+  session: null, authLoading: true, devSkipAuth: false, trial: 'night', tab: 'home', telling: false, moreOpen: false, tellDraft: null, dayEndMin: 21 * 60, dayStartMin: DAY_START_DEFAULT, sheetTrial: 'dark', appearance: 'sun', daylight: isDaylight(21 * 60),
   setAppearance: async (appearance) => {
     await db.setFlag('appearance', appearance);
     set({ appearance });
@@ -208,6 +225,11 @@ export const useStore = create<State>((set, get) => ({
     await db.setFlag('day.end', String(min));
     set({ dayEndMin: min, daylight: isDaylight(min) });
   },
+  setDayStart: async (min) => {
+    await db.setFlag('day.start', String(min));
+    dayStart = min;
+    set({ dayStartMin: min, daylight: isDaylight(get().dayEndMin) });
+  },
 
   refresh: async () => {
     // projects first: reading them reconciles each step with its task (a
@@ -223,9 +245,11 @@ export const useStore = create<State>((set, get) => ({
       ]);
     const end = Number(await db.getFlag('day.end'));
     const dayEndMin = Number.isFinite(end) && end > 0 ? end : 21 * 60;
+    const start = Number(await db.getFlag('day.start'));
+    dayStart = Number.isFinite(start) && start > 0 ? start : DAY_START_DEFAULT;
     // 'nura' was Dark's name before By the sun
     const appearance: Appearance = look === 'light' || look === 'sun' ? look : look === 'dark' || look === 'nura' ? 'dark' : 'sun';
-    set({ dayEndMin, appearance, daylight: isDaylight(dayEndMin), mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
+    set({ dayEndMin, dayStartMin: dayStart, appearance, daylight: isDaylight(dayEndMin), mode, now: now?.task ?? null, nowRule: now?.rule ?? null, inbox, todayPicked, projects, moveIds, wins, total, light, today, momentum, grid, energy, crumb, onboarded, nextEvent: upcoming, agenda, profile });
     // Piggybacks the debounced sync onto refresh() rather than every
     // individual mutation — refresh() already runs after ~35 call sites
     // across the app, so no screen (compose, task detail, the action

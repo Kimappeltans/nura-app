@@ -48,7 +48,7 @@ function Wins() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{skyLabel(today)}</Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              {today} today. Tomorrow starts at the horizon again — nothing carries over,
+              {today} today. Tomorrow starts at the horizon again. Nothing carries over,
               and nothing is taken away.
             </Text>
           </View>
@@ -61,7 +61,7 @@ function Wins() {
               {momentum > 0.6 ? 'Strong' : momentum > 0.25 ? 'Building back' : 'Quiet'}
             </Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 3, lineHeight: 18 }}>
-              A decaying average, not a chain — one quiet day doesn't reset it.
+              A decaying average, not a chain. One quiet day doesn't reset it.
             </Text>
             <Text style={{ color: t.ink3, fontSize: 13, marginTop: 6 }}>{total} things done, all time.</Text>
           </View>

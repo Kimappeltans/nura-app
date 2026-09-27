@@ -246,7 +246,7 @@ function Compose() {
 
               {!actQuery && (
                 <Text style={{ color: t.ink3, fontSize: 12.5, marginTop: 8, marginLeft: 3 }}>
-                  {ACTIVITIES.length} in total — search to find the rest.
+                  {ACTIVITIES.length} in total. Search to find the rest.
                 </Text>
               )}
             </Section>
@@ -269,7 +269,7 @@ function Compose() {
               </View>
               {!!guessed && !touchedLabel && (
                 <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3 }}>
-                  Guessed from what you typed — tap to change.
+                  Guessed from what you typed. Tap to change.
                 </Text>
               )}
             </Section>
@@ -365,7 +365,7 @@ function Compose() {
                 })}
               </View>
               <Text style={{ color: t.ink3, fontSize: 13, marginTop: 8, marginLeft: 3, lineHeight: 17 }}>
-                A tiebreak, not a tier — deadlines and your energy still come first.
+                A tiebreak, not a tier. Deadlines and your energy still come first.
               </Text>
             </Section>
 

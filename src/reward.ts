@@ -123,7 +123,7 @@ export function skyLabel(todayLight: number): string {
   if (h < 0.55)  return 'Climbing';
   if (h < 0.85)  return 'High and warm';
   if (h < 1)     return 'Almost noon';
-  return 'Full sun — anything past here is extra';
+  return 'Full sun. Anything past here is extra';
 }
 
 /* ------------------------------------------------------------------ *
@@ -133,7 +133,7 @@ export function skyLabel(todayLight: number): string {
 
 const DONE_LINES = [
   'That one is gone. Really gone.',
-  'You did the hard part — the starting.',
+  'You did the hard part: the starting.',
   'Logged. It counts exactly as much as a big one.',
   'That was on your mind. Now it is not.',
   'One less thing pulling at you.',

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { getProfile, setProfile } from './db';
+import { notify } from './notify';
 
 /**
  * Signing in and creating an account, shared by the sign-in screen
@@ -14,9 +15,12 @@ import { getProfile, setProfile } from './db';
  *
  * Apple goes through the native Sign-in-with-Apple sheet (Apple requires
  * the native experience whenever another social login is offered). Google
- * goes through Supabase's hosted OAuth redirect in an in-app browser sheet,
- * bounced back via the app's `nura://` scheme. Email is name, email and
- * password, with a magic link as the sign-in fallback.
+ * goes through Supabase's hosted OAuth redirect: on the phone in an in-app
+ * browser sheet, bounced back via the app's `nura://` scheme; on the web the
+ * whole page goes to Google and comes back (a popup can't reach back to a
+ * page that's cross-origin isolated, which the web database needs). Email is
+ * name, email and password, with a magic link and a password reset for when
+ * the password's gone.
  *
  * Whatever name comes back becomes the local profile name when there isn't
  * one yet, so "Good morning, Kim" works straight after signing up.
@@ -28,13 +32,27 @@ async function keepName(name: string | null | undefined) {
   if (first && !(await getProfile()).name) await setProfile({ name: first });
 }
 
-export function useAuthActions(onDone: () => void) {
+/** The first name Google (or a sign-up form) put on the account, kept as the
+ *  local name if there isn't one — after a web redirect, the only moment the
+ *  app sees it is the SIGNED_IN event (app/_layout.tsx). */
+export async function keepNameFrom(meta: Record<string, unknown> | undefined) {
+  const full = (meta?.full_name ?? meta?.name) as string | undefined;
+  await keepName(full?.split(' ')[0]);
+}
+
+/** Where a link from an email or Google lands: this page on the web, the app's scheme on the phone. */
+const backTo = (path: string) => (Platform.OS === 'web' ? `${window.location.origin}${path}` : Linking.createURL(path));
+
+export function useAuthActions(onDone: () => void, opts: {
+  /** runs just before the web page leaves for Google, so the screen can pick up where it was */
+  beforeRedirect?: () => Promise<void>;
+} = {}) {
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const fail = (title: string, message?: string) => {
     setBusy(null);
-    Alert.alert(title, message ?? 'Try again in a moment.', [{ text: 'OK' }]);
+    notify(title, message ?? 'Try again in a moment.');
   };
 
   const withApple = async () => {
@@ -65,6 +83,14 @@ export function useAuthActions(onDone: () => void) {
   const withGoogle = async () => {
     setBusy('google'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      if (Platform.OS === 'web') {
+        // the page goes to Google and comes back to /; the client reads the
+        // code from the address (supabase.ts) and the name is kept on SIGNED_IN
+        await opts.beforeRedirect?.();
+        const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: backTo('/') } });
+        if (error) throw error;
+        return;
+      }
       const redirectTo = Linking.createURL('/');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -91,11 +117,22 @@ export function useAuthActions(onDone: () => void) {
     if (!email.includes('@')) return;
     setBusy('email'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const { error } = await supabase.auth.signInWithOtp({
-      email, options: { emailRedirectTo: Linking.createURL('/') },
+      email, options: { emailRedirectTo: backTo('/') },
     });
     setBusy(null);
     if (error) return fail('Couldn’t send the link', error.message);
-    Alert.alert('Check your email', `We sent a sign-in link to ${email}.`, [{ text: 'OK', onPress: onDone }]);
+    notify('Check your email', `We sent a sign-in link to ${email}.`, onDone);
+  };
+
+  /** Forgot the password: a link to set a new one, which opens the /reset page. */
+  const resetPassword = async (email: string) => {
+    setFormError(null);
+    if (!email.includes('@')) { setFormError('Add your email first.'); return; }
+    setBusy('reset'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: backTo('/reset') });
+    setBusy(null);
+    if (error) return fail('Couldn’t send the link', error.message);
+    notify('Check your email', `We sent a link to ${email} for setting a new password.`);
   };
 
   /** Checked before anything is sent: name present, password ≥ 8, the two passwords matching. */
@@ -120,5 +157,5 @@ export function useAuthActions(onDone: () => void) {
     return f.creating && !data.session ? 'check-email' : 'signed-in';
   };
 
-  return { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword };
+  return { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword };
 }

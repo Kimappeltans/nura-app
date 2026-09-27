@@ -13,6 +13,12 @@ import type { Task } from './db';
  */
 /** 9:00 PM, until someone says otherwise */
 export const DAY_END_DEFAULT = 21 * 60;
+/** The times a day can end: 9 PM to 1 AM (minutes after midnight, past 24h for after it). */
+export const DAY_ENDS = [21 * 60, 22 * 60, 23 * 60, 24 * 60, 25 * 60];
+/** The times a day can start (Settings → Day starts): 5 to 10 AM. */
+export const DAY_STARTS = [5 * 60, 6 * 60, 7 * 60, 8 * 60, 9 * 60, 10 * 60];
+export const dayEndLabel = (m: number) => m === 24 * 60 ? 'Midnight'
+  : new Date(new Date().setHours(0, m, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const DEFAULT_TASK_MIN = 15;   // a task with no estimate gets a plain, unremarkable guess
 
 export interface Capacity {

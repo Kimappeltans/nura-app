@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Svg, { Defs, RadialGradient, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme, useStore } from '../store';
 import { tasksBetween, type Task } from '../db';
 import { eventsBetween, type UpcomingEvent } from '../calendar';
@@ -13,6 +14,36 @@ import { Suggestions } from '../components/Suggestions';
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** A day's sun, small, as the opening draws it: a disc from pale gold into
+ *  sunrise orange, in a soft glow, with the date on it. The more got done,
+ *  the bigger the disc and the warmer the glow; five fills the day. */
+function MiniSun({ n, cell = 48 }: { n: number; cell?: number }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const level = Math.min(1, n / 5);
+  const G = 64, c = G / 2;                      // the glow spills a little past the day
+  const disc = 13 + level * 3;                  // wide enough to sit the date on
+  return (
+    // centred on the whole day, not inside its ring (a border would push it off)
+    <Svg width={G} height={G} style={{ position: 'absolute', left: '50%', marginLeft: -c, top: cell / 2 - c }}>
+      <Defs>
+        <RadialGradient id={`g${id}`} cx="50%" cy="50%" r="50%">
+          <Stop offset="0" stopColor="#FFE2B8" stopOpacity={0.6} />
+          <Stop offset="0.45" stopColor="#FFB067" stopOpacity={0.2 + level * 0.15} />
+          <Stop offset="0.75" stopColor="#FF8A5C" stopOpacity={0.06 + level * 0.08} />
+          <Stop offset="1" stopColor="#FF6B35" stopOpacity={0} />
+        </RadialGradient>
+        <SvgLinearGradient id={`d${id}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFF0D6" />
+          <Stop offset="0.45" stopColor="#FFB067" />
+          <Stop offset="1" stopColor="#FF7A3D" />
+        </SvgLinearGradient>
+      </Defs>
+      <Circle cx={c} cy={c} r={c} fill={`url(#g${id})`} />
+      <Circle cx={c} cy={c} r={disc} fill={`url(#d${id})`} />
+    </Svg>
+  );
+}
 
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
 const sameDay = (a: Date, b: Date) => iso(a) === iso(b);
@@ -103,6 +134,13 @@ export default function Calendar() {
             <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>{cursor.getFullYear()}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+            {(!sameDay(picked, today) || cursor.getMonth() !== today.getMonth() || cursor.getFullYear() !== today.getFullYear()) && (
+              <Pressable onPress={() => { Haptics.selectionAsync(); setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); setPicked(new Date()); }}
+                hitSlop={6} accessibilityRole="button"
+                style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.layer }}>
+                <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>Today</Text>
+              </Pressable>
+            )}
             {[-1, 1].map(n => (
               <Pressable key={n} onPress={() => step(n)} hitSlop={8} accessibilityRole="button" accessibilityLabel={n < 0 ? 'Previous month' : 'Next month'}
                 style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.layer, transform: [{ rotate: n < 0 ? '180deg' : '0deg' }] }}>
@@ -118,31 +156,33 @@ export default function Calendar() {
           ))}
         </View>
 
-        {/* a month of suns: each day's sun as big as what got done; a quiet day is an empty ring, like a day to come */}
+        {/* a month of suns: each day's sun as big as what got done; a quiet day is just its number */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
           {cells.map((d, i) => {
             if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, height: 48 }} />;
             const date = new Date(cursor.getFullYear(), cursor.getMonth(), d);
             const n = doneOn.get(iso(date)) ?? 0;
-            const hasEvents = !!byDay.get(iso(date))?.events;
+            const on = byDay.get(iso(date));
+            const hasItems = !!on && (on.events + on.tasks) > 0;
             const isSel = sameDay(date, picked);
-            const lit = n > 0 && date.getTime() <= today.getTime();
-            // one thing done already reads as a sun; 5 or more fills the day
-            const sun = Math.min(40, 22 + n * 4);
+            const isToday = sameDay(date, today);
+            const past = !isToday && date.getTime() < today.getTime();
+            // today's sun is always up, small until something's done; a past day has one if you did something
+            const lit = isToday || (n > 0 && date.getTime() <= today.getTime());
             return (
               <Pressable key={i} onPress={() => { Haptics.selectionAsync(); setPicked(date); }}
                 accessibilityRole="button" accessibilityState={{ selected: isSel }}
                 accessibilityLabel={`${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${n ? `, ${n} done` : ''}`}
                 style={{ width: `${100 / 7}%`, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                {lit && <MiniSun n={n} />}
                 <View style={{
                   width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: lit ? (t.key === 'nu' ? 'rgba(255,107,53,0.24)' : 'rgba(255,107,53,0.16)') : 'transparent',
-                  borderWidth: isSel ? 2 : lit ? 0 : 1.5, borderColor: isSel ? t.nu : t.stroke,
+                  // only the picked day and today are ringed; an empty day is just its number
+                  borderWidth: isSel ? 2 : isToday && !lit ? 1.5 : 0, borderColor: isSel ? t.nu : t.ink3,
                 }}>
-                  {lit && <View style={{ position: 'absolute', width: sun, height: sun, borderRadius: sun / 2, backgroundColor: '#FF6B35' }} />}
-                  <Text style={{ color: lit ? '#3B1204' : isSel ? t.ink : t.ink3, fontSize: 13, fontFamily: lit ? T.display : T.brand, letterSpacing: -0.3 }}>{d}</Text>
+                  <Text style={{ color: lit ? '#3B1204' : isSel || isToday ? t.ink : past ? t.ink3 : t.ink2, fontSize: 13, fontFamily: lit || isToday ? T.display : T.brand, letterSpacing: -0.3 }}>{d}</Text>
                 </View>
-                {hasEvents && <View style={{ position: 'absolute', bottom: 0, width: 5, height: 5, borderRadius: 3, backgroundColor: t.nu }} />}
+                {hasItems && <View style={{ position: 'absolute', bottom: 0, width: 5, height: 5, borderRadius: 3, backgroundColor: t.ink2 }} />}
               </Pressable>
             );
           })}
@@ -177,9 +217,13 @@ export default function Calendar() {
         {/* what Nu and Ra noticed about today, with Yes / Not now */}
         {sameDay(picked, today) && <View style={{ marginTop: 18, marginHorizontal: 2 }}><Suggestions /></View>}
 
-        {picked.getTime() <= today.getTime() && (
+        {picked.getTime() <= today.getTime() || sameDay(picked, today) ? (
           <Pressable onPress={() => router.push('/retro')} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
             <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something you did ›</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => useStore.setState({ telling: true })} hitSlop={6} style={{ paddingTop: 16, marginHorizontal: 8, alignSelf: 'flex-start' }}>
+            <Text style={{ color: t.nu, fontSize: 14, fontFamily: T.display }}>Add something for this day ›</Text>
           </Pressable>
         )}
 

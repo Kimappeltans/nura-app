@@ -41,8 +41,8 @@ ground). Everything else is `--card`, `--card-2` or the ground.
 
 Stored as a setting: `sun` (default), `light`, `dark`.
 
-- **By the sun** — rooms use `.light` from the start of the day until the day
-  ends (Settings → Day ends), then `.navy`.
+- **By the sun** — rooms use `.light` from the start of the day (Settings →
+  Day starts) until the day ends (Settings → Day ends), then `.navy`.
 - **Light** — rooms always `.light`. **Dark** — rooms always `.navy`.
 - Ra's screens (Focus, More options, In session) are cream in all three;
   Done is warm white into light orange (`doneGround`) in all three.

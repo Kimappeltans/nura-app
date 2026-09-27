@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated, Easing, Dimensions, AccessibilityInfo, ScrollView } from 'react-native';
+import { View, Text, Pressable, Animated, Easing, AccessibilityInfo, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DotSun } from '../components/Handoff';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { type as T, radius } from '../theme';
 import { Primary, Character } from '../ui';
 import type { Task } from '../db';
 import { StepBar } from '../components/OnbFrame';
+import { screenSize } from '../screen';
 
 /**
  * "Everything sinks. One thing rises." — shown, with your own tasks.
@@ -95,7 +96,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
 }) {
   const [chosen, setChosen] = useState<Task>(pick);
   const others = tasks.filter(x => x.id !== chosen.id).slice(0, 3);
-  const { width: W, height: H } = Dimensions.get('window');
+  const { width: W, height: H } = screenSize();
   const [instant, setInstant] = useState(false);
   const sun = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(0)).current;
@@ -128,6 +129,8 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#080D24' }}>
+      <LinearGradient colors={SKY} locations={SKY_STOPS} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+        style={{ position: 'absolute', inset: 0 }} />
 
       {/* everything you just put down, sinking */}
       {sinking.map((task, i) => (
@@ -153,8 +156,8 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
           opacity: sun,
           transform: [{ translateY: sun.interpolate({ inputRange: [0, 1], outputRange: [110, 0] }) }],
         }}>
-          {/* a sun made of dots, as on Focus and Done (guidelines, rule 1) */}
-          <View style={{ position: 'absolute', left: -4, top: -4 }}><DotSun size={140} /></View>
+          <LinearGradient colors={['#FFF0D6', '#FFB067', '#FF6B35', 'transparent']} locations={[0, 0.35, 0.7, 1]}
+            style={{ width: '100%', height: '100%', borderRadius: 70 }} />
         </Animated.View>
 
         {/* the one, lifted back out of the water */}
@@ -165,6 +168,7 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
           <View style={{
             marginHorizontal: 22, borderRadius: radius.xl, padding: 20, gap: 8,
             backgroundColor: 'rgba(255,243,234,0.96)',
+            shadowColor: '#FF6B35', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
           }}>
             <Text style={{ color: '#C2410C', fontSize: 11, letterSpacing: 2, fontFamily: T.brand }}>
               {chosen.id === pick.id ? 'START HERE?' : 'YOUR PICK'}
@@ -201,12 +205,13 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
           <Character name="ra-wave" size={figure} motion="bob" />
         </View>
         <Waves width={W} />
-        <View style={{ backgroundColor: '#080D24', paddingHorizontal: 22, paddingTop: 16, paddingBottom: insets.bottom + 12, gap: 14 }}>
-          <Primary label="Start · 5 minutes" tone="ra" onPress={() => onStart(chosen)} />
+        <LinearGradient colors={['transparent', 'rgba(8,13,36,0.94)']} locations={[0, 0.45]}
+          style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: insets.bottom + 12, gap: 14 }}>
+          <Primary label="Start" tone="ra" onPress={() => onStart(chosen)} />
           <Pressable onPress={onEverything} hitSlop={10}>
             <Text style={{ color: '#C5CBE9', fontSize: 14, textAlign: 'center' }}>Show me everything instead</Text>
           </Pressable>
-        </View>
+        </LinearGradient>
       </View>
     </View>
   );

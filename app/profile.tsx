@@ -1,74 +1,56 @@
 import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { View, Text, Pressable, ScrollView, TextInput, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useStore } from '../src/store';
-import { getProfile, setProfile, lightByDay, wins as winsQuery, type Task } from '../src/db';
-import { DAY_TARGET } from '../src/reward';
-import { stageFor } from '../src/growth';
-import { LABELS, labelById } from '../src/labels';
-import { radius, elevation, type as T } from '../src/theme';
-import { Mica, Surface, Character, IconChevron, IconCheck, Primary, Ghost } from '../src/ui';
-import { LabelGlyph } from '../src/components/LabelIcon';
-import { RankCard } from '../src/components/Rank';
+import { rankFor } from '../src/reward';
+import { deleteAccount } from '../src/account';
+import { type as T } from '../src/theme';
+import { Mica } from '../src/ui';
+import { AvatarButton, AvatarPicker } from '../src/components/Avatar';
+import { Sheet } from '../src/components/Sheet';
 
 /**
- * You, and how it's actually going.
+ * You and your account, nothing else. Your picture, your name and a line
+ * about you at the top; below, what you'd change about yourself (name,
+ * pronouns, about me), then the account: its email, and deleting it (Log out
+ * is at the foot of Settings, which opens this as its Account row). How the
+ * app behaves lives in Settings; how it's going lives in Wins. Everything
+ * saves as you go: there's no Save button to forget.
  *
- * The bars are LIGHT PER DAY, not "percent of tasks completed". A completion
- * rate needs a denominator, the denominator is however much you happened to
- * write down, and so a productive day where you captured a lot scores worse
- * than a quiet day where you captured nothing. That's the exact inversion this
- * app exists to avoid. Light only ever goes up, so a short bar is a quiet day
- * and never a failure.
+ * The name is the one Home greets you by (its first word); with none, Home
+ * uses the name on the account.
  */
 function Profile() {
   const t = useTheme();
-  const { light, total, momentum, refresh } = useStore();
-  const [name, setName] = useState('');
-  const [tagline, setTagline] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [days, setDays] = useState<{ date: Date; day: string; n: number }[]>([]);
-  const [recent, setRecent] = useState<Task[]>([]);
+  const { light, total, session, profile } = useStore();
+  const [name, setName] = useState(profile.name);
+  const [pronouns, setPronouns] = useState(profile.pronouns);
+  const [about, setAbout] = useState(profile.tagline);
+  const [sheet, setSheet] = useState<'picture' | null>(null);
+  const nameInput = useRef<TextInput>(null);
 
-  const load = useCallback(async () => {
-    const p = await getProfile();
-    setName(p.name); setTagline(p.tagline);
-    setDays(await lightByDay(7));
-    setRecent(await winsQuery(6));
+  // the profile can arrive after this screen (a reload on the web): take it when it does
+  useEffect(() => {
+    setName(profile.name); setPronouns(profile.pronouns); setAbout(profile.tagline);
+  }, [profile.name, profile.pronouns, profile.tagline]);
+
+  // saved when a field is left, and when the screen is: what was typed is kept
+  const draft = useRef({ name, pronouns, tagline: about });
+  draft.current = { name, pronouns, tagline: about };
+  const save = useCallback(() => {
+    const d = draft.current;
+    const { profile: p, saveProfile } = useStore.getState();
+    const next = { name: d.name.trim(), pronouns: d.pronouns.trim(), tagline: d.tagline.trim() };
+    if (next.name !== p.name || next.pronouns !== p.pronouns || next.tagline !== p.tagline) saveProfile(next);
   }, []);
-  useFocusEffect(useCallback(() => { load(); refresh(); }, [load]));
+  useEffect(() => save, [save]);
 
-  const save = async () => {
-    await setProfile({ name: name.trim(), tagline: tagline.trim() });
-    await refresh();
-    setEditing(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const max = Math.max(DAY_TARGET, ...days.map(d => d.n));
-
-  /** Warm for a full day, cool for a quiet one — never red, never a warning. */
-  const barColors = (n: number): readonly [string, string] => {
-    const r = n / DAY_TARGET;
-    if (r >= 1)   return t.raBtn;
-    if (r >= 0.5) return ['#FFA05C', '#FFC48F'] as const;
-    if (r > 0)    return [t.nu, t.nuSoft] as const;
-    return [t.track, t.track] as const;
-  };
-
-  /** What you actually spend your time on, from the last few weeks. */
-  const topLabels = useMemo(() => {
-    const count = new Map<string, number>();
-    recent.forEach(w => { if (w.label) count.set(w.label, (count.get(w.label) ?? 0) + 1); });
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-      .map(([id, n]) => ({ label: labelById(id)!, n })).filter(x => x.label);
-  }, [recent]);
+  const rank = rankFor(light);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
@@ -76,10 +58,7 @@ function Profile() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
         <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
-          <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
-          <Text style={{ color: t.ink3, fontSize: 14 }}>Settings</Text>
+          <Text style={{ color: t.ink3, fontSize: 16 }}>← Back</Text>
         </Pressable>
       </View>
 
@@ -87,163 +66,116 @@ function Profile() {
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* ---- who ---- */}
-        <View style={{ alignItems: 'center', marginTop: 6 }}>
-          <View style={[{
-            width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: t.layer, borderWidth: 1, borderColor: t.strokeStrong, overflow: 'hidden',
-          }]}>
-            <Character name="ra-celebrate" size={92 * stageFor(light).scale} motion="bob" />
-          </View>
-
-          {editing ? (
-            <View style={{ alignSelf: 'stretch', marginTop: 14, gap: 10 }}>
-              <Surface>
-                <TextInput
-                  autoFocus value={name} onChangeText={setName}
-                  placeholder="Your name" placeholderTextColor={t.ink3}
-                  style={{ color: t.ink, fontSize: 18, fontFamily: T.display, padding: 14, textAlign: 'center' }}
-                />
-              </Surface>
-              <Surface>
-                <TextInput
-                  value={tagline} onChangeText={setTagline}
-                  onSubmitEditing={save} returnKeyType="done"
-                  placeholder="What you're working towards" placeholderTextColor={t.ink3}
-                  style={{ color: t.ink2, fontSize: 14.5, padding: 13, textAlign: 'center' }}
-                />
-              </Surface>
-<Primary label="Save" tone="ra" onPress={save} />
-            </View>
-          ) : (
-            <>
-              <Text style={{ color: t.ink, fontSize: 26, fontFamily: T.display, marginTop: 12, letterSpacing: -0.5 }}>
-                {name || 'Add your name'}
-              </Text>
-              {!!tagline && (
-                <Text style={{ color: t.ink3, fontSize: 14, marginTop: 4, textAlign: 'center', maxWidth: 280, lineHeight: 20 }}>
-                  {tagline}
-                </Text>
-              )}
-              <Pressable onPress={() => setEditing(true)}
-                style={{
-                  marginTop: 12, paddingHorizontal: 20, paddingVertical: 10,
-                  borderRadius: radius.pill, borderWidth: 1.5, borderColor: t.strokeStrong,
-                }}>
-                <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>Edit profile</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-
-        {/* companions — the growth surface, reachable from the face you see most */}
-        <Pressable onPress={() => router.push('/companions')} style={{ marginTop: 18 }}>
-          <Surface accent="nu">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, padding: 15 }}>
-              <Character name="nu-idle" size={40} motion="none" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>
-                  Nu &amp; Ra · {stageFor(light).name}
-                </Text>
-                <Text style={{ color: t.ink3, fontSize: 13, marginTop: 1 }}>
-                  They grow as you do. See the collection.
-                </Text>
-              </View>
-              <IconChevron size={16} color={t.ink3} />
-            </View>
-          </Surface>
-        </Pressable>
-
-        {/* ---- rank ---- */}
-        <View style={{ marginTop: 22 }}>
-          <RankCard light={light} blurb={false} />
-        </View>
-
-        {/* ---- the week ---- */}
-        <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginTop: 24, marginBottom: 10, marginLeft: 4 }}>
-          YOUR PROGRESS
-        </Text>
-        <Surface>
-          <View style={{ padding: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, height: 168 }}>
-              {days.map((d, i) => {
-                const isToday = i === days.length - 1;
-                const h = Math.max(8, (d.n / max) * 128);
-                return (
-                  <View key={d.day} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-                    {isToday && (
-                      <Text style={{ color: t.ra, fontSize: 11, fontFamily: T.brand }}>{d.n}</Text>
-                    )}
-                    <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                      <View style={{ width: 26, height: h, borderRadius: 13, overflow: 'hidden' }}>
-                        <View style={{ flex: 1, backgroundColor: barColors(d.n)[barColors(d.n).length - 1] }} />
-                      </View>
-                    </View>
-                    <Text style={{ color: isToday ? t.ink : t.ink3, fontSize: 11.5, fontFamily: isToday ? T.brand : undefined }}>
-                      {isToday ? 'Today' : d.date.toLocaleDateString(undefined, { weekday: 'short' })}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <View style={{ height: 1, backgroundColor: t.stroke, marginVertical: 14 }} />
-
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: t.ink, fontSize: 15, fontFamily: T.brand }}>
-                  {momentum > 0.6 ? 'Strong' : momentum > 0.25 ? 'Building back' : 'Quiet'}
-                </Text>
-                <Text style={{ color: t.ink3, fontSize: 13, marginTop: 2, lineHeight: 18 }}>
-                  A decaying average, not a chain. One quiet day doesn't reset it.
-                </Text>
-              </View>
-              <Text style={{ color: t.ra, fontSize: 22, fontFamily: T.display }}>
-                {Math.round(momentum * 100)}%
-              </Text>
-            </View>
-          </View>
-        </Surface>
-
-<Ghost label="View history" onPress={() => router.push('/wins')} style={{ marginTop: 12 }} />
-
-        {/* ---- what you actually do ---- */}
-        <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginTop: 26, marginBottom: 10, marginLeft: 4 }}>
-          WHERE YOUR TIME GOES
-        </Text>
-        {topLabels.length ? (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {topLabels.map(({ label, n }) => {
-              const c = t.key === 'ra' ? label.onLight : label.color;
-              return (
-                <Surface key={label.id} style={{ flex: 1 }}>
-                  <View style={{ padding: 14, alignItems: 'center', gap: 8 }}>
-                    <View style={{
-                      width: 40, height: 40, borderRadius: radius.md,
-                      alignItems: 'center', justifyContent: 'center', backgroundColor: `${c}22`,
-                    }}>
-                      <LabelGlyph id={label.id} size={21} color={c} />
-                    </View>
-                    <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{label.name}</Text>
-                    <Text style={{ color: t.ink3, fontSize: 12.5 }}>{n} done</Text>
-                  </View>
-                </Surface>
-              );
-            })}
-          </View>
-        ) : (
-          <Surface>
-            <Text style={{ color: t.ink3, fontSize: 14, padding: 18, lineHeight: 20 }}>
-              Finish a few things and this fills in with what you actually spend your days on.
+        <View style={{ alignItems: 'center', marginTop: 4 }}>
+          <AvatarButton size={112} onPress={() => setSheet('picture')} />
+          <Pressable onPress={() => nameInput.current?.focus()} disabled={!!name.trim()}
+            style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', columnGap: 8, marginTop: 14 }}>
+            <Text style={{ color: name.trim() ? t.ink : t.ink3, fontSize: 30, lineHeight: 34, fontFamily: T.display, letterSpacing: -1.2 }}>
+              {name.trim() || 'Your name'}
             </Text>
-          </Surface>
-        )}
+            {!!pronouns.trim() && <Text style={{ color: t.ink3, fontSize: 15 }}>{pronouns.trim()}</Text>}
+          </Pressable>
+          {!!about.trim() && (
+            <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21, marginTop: 6, textAlign: 'center', maxWidth: 300 }}>
+              {about.trim()}
+            </Text>
+          )}
+          <Text style={{ color: t.ink3, fontSize: 13, marginTop: 10, fontVariant: ['tabular-nums'] }}>
+            {rank.name} · {light} light · {total} done
+          </Text>
+        </View>
 
-        <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginTop: 20, paddingHorizontal: 4 }}>
-          These bars are light earned, not a completion rate. A rate would punish
-          you for writing more down.
-        </Text>
+        <Group title="About you">
+          <Field inputRef={nameInput} label="Name" value={name} onChangeText={setName} onBlur={save}
+            maxLength={40} autoCapitalize="words" autoComplete="given-name" returnKeyType="done" />
+          <Line />
+          <Field label="Pronouns" value={pronouns} onChangeText={setPronouns} onBlur={save}
+            maxLength={24} autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
+          <Line />
+          {/* one line that wraps: Return finishes it (blurOnSubmit for the web) */}
+          <Field stacked label="About me" value={about} onChangeText={v => setAbout(v.replace(/\s*\n+\s*/g, ' '))}
+            onBlur={save} onSubmitEditing={save} maxLength={90} multiline
+            submitBehavior="blurAndSubmit" blurOnSubmit returnKeyType="done" />
+        </Group>
+
+        {/* an account is required, so there's always one here; signing out or
+            deleting it brings the sign-in screen back by itself */}
+        {session && (
+          <Group title="Account">
+            <Row label="Email" value={session.user.email ?? ''} />
+            <Line />
+            <Row label="Delete account" danger onPress={deleteAccount} />
+          </Group>
+        )}
       </ScrollView>
+
+      <Sheet visible={sheet === 'picture'} onClose={() => setSheet(null)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, marginBottom: 16 }}>
+          <Text style={{ color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>Your picture</Text>
+          <Pressable onPress={() => setSheet(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"
+            style={{ marginLeft: 'auto', width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer }}>
+            <Text style={{ color: t.ink2, fontSize: 18, lineHeight: 20 }}>×</Text>
+          </Pressable>
+        </View>
+        <AvatarPicker />
+      </Sheet>
+
     </SafeAreaView>
+  );
+}
+
+/* Out here, not inside Profile: a field redefined on every keystroke would
+   lose its focus after each letter. */
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  const t = useTheme();
+  return (
+    <View style={{ marginTop: 24 }}>
+      <Text style={{ color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand, marginBottom: 8, marginLeft: 4 }}>
+        {title.toUpperCase()}
+      </Text>
+      {/* flat: a fill and a hairline */}
+      <View style={{ borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, overflow: 'hidden' }}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function Line() {
+  const t = useTheme();
+  return <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 16 }} />;
+}
+
+/** A label and its value, editable where it sits. `stacked` puts a longer one under its label. */
+function Field({ label, stacked, inputRef, ...input }: TextInputProps & { label: string; stacked?: boolean; inputRef?: React.Ref<TextInput> }) {
+  const t = useTheme();
+  return (
+    <View style={stacked
+      ? { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }
+      : { minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+      <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand, width: stacked ? undefined : 92 }}>{label}</Text>
+      <TextInput ref={inputRef} placeholder="Add" placeholderTextColor={t.ink3} {...input}
+        style={stacked
+          ? { color: t.ink, fontSize: 15.5, lineHeight: 21, paddingVertical: 6, minHeight: 44, textAlignVertical: 'top' }
+          : { flex: 1, color: t.ink, fontSize: 15.5, textAlign: 'right', paddingVertical: 16 }} />
+    </View>
+  );
+}
+
+/** A label and its value; with `onPress`, an action (`danger` for the one that can't be undone). */
+function Row({ label, value, danger, onPress }: { label: string; value?: string; danger?: boolean; onPress?: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined} disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      style={({ pressed }) => ({
+        minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: pressed && onPress ? t.subtle : 'transparent',
+      })}>
+      <Text style={{ color: danger ? t.raDeep : t.ink, fontSize: 15.5, fontFamily: T.brand }}>{label}</Text>
+      {!!value && <Text numberOfLines={1} style={{ flex: 1, color: t.ink3, fontSize: 15, textAlign: 'right' }}>{value}</Text>}
+    </Pressable>
   );
 }
 

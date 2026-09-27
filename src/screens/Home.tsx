@@ -11,6 +11,7 @@ import { DotMatrix } from '../components/DotMatrix';
 import { labelById } from '../labels';
 import { LabelGlyph } from '../components/LabelIcon';
 import { TodayStack } from '../components/TodayStack';
+import { factLine } from '../priority';
 import { DayPath } from '../components/DayPath';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
@@ -31,7 +32,7 @@ const STILL_MAX = 6;
 /**
  * HOME — what should I do now? (design/nura-journey-blend-v5.html, 7:12)
  *
- *   - the greeting, and the day in a line: N things, M meetings;
+ *   - the greeting, by name;
  *   - the day's path: Ra where the day is, dots where things got done;
  *   - Nu is holding: Today as a stack — the one Nu found in front (Begin),
  *     the rest behind; tap one to bring it to the front.
@@ -61,6 +62,11 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked = pickedId ? [...today, ...inbox].find(x => x.id === pickedId) ?? null : null;
   const held_ = picked ?? one;
+  // what the one in front has to fit before: today's events and anything else with a time
+  const fact = held_ ? factLine(held_, [
+    ...agenda.map(e => e.startsAt),
+    ...[...today, ...inbox].filter(x => x.id !== held_.id && x.has_time && x.due_at).map(x => x.due_at as number),
+  ], dayEndMin) : null;
   const oneProject = held_ ? projectOf.get(held_.id) : undefined;
 
   // still here: the rest of Today, then everything else
@@ -73,13 +79,14 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneAt = wins.map(w => w.completed_at ?? 0).filter(at => at >= new Date().setHours(0, 0, 0, 0));
+  // the sunrise behind Home: the coral glow climbs and warms as things get done (full by five)
+  const sunUp = Math.min(1, doneAt.length / 5);
   const hour = new Date().getHours();
   const greeting = hour < 5 ? 'Still up' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const firstName = (profile.name || '').split(' ')[0];
-  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  const things = today.length;
-  const summary = !things && !agenda.length ? 'Nothing on today yet.'
-    : agenda.length ? `${plural(things, 'thing')}, ${plural(agenda.length, 'meeting')}.` : `${plural(things, 'thing')} today.`;
+  // always by name: the profile's, or else the name on the signed-in account
+  const session = useStore(s => s.session);
+  const accountName = (session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name) as string | undefined;
+  const firstName = (profile.name || accountName || '').trim().split(' ')[0];
 
   const open = (task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } });
 
@@ -96,11 +103,11 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
     const hhmm = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s?[AP]M$/i, '');
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
-        <Mica />
+        <Mica sunProgress={sunUp} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 24, paddingTop: 22 }}>
             <DotMatrix text={hhmm.padStart(5, '0')} dot={9} color={t.ink} muted={t.stroke} muteLeadingZeros />
-            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22 }}>Your day is done.</Text>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 22 }}>Your day is done{firstName ? `, ${firstName}` : ''}.</Text>
             <Text style={{ color: t.mute ?? t.ink3, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5 }}>Anything now is extra.</Text>
           </View>
           <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={120} style={{ marginHorizontal: 24, marginTop: 28 }} />
@@ -110,7 +117,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
               {tomorrow.map(x => {
                 const l = labelById(x.label);
                 return (
-                  <View key={x.id} style={{ height: 56, marginHorizontal: 12, marginBottom: 6, borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 }}>
+                  <View key={x.id} style={{ height: 56, marginHorizontal: 24, marginBottom: 6, borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: t.key === 'nu' ? 'rgba(170,185,255,0.09)' : 'rgba(23,19,19,0.06)' }}>
                       {l && <LabelGlyph id={l.id} size={17} color={t.key === 'nu' ? l.color : l.onLight} />}
                     </View>
@@ -132,19 +139,16 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
-      <Mica />
+      <Mica sunProgress={sunUp} />
       <RoomBar who="nu" />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}>
 
-        {/* two-tone: the greeting, then the day in a line */}
+        {/* the greeting, by name, centred over the day's path */}
         <View style={{ paddingHorizontal: 24, paddingTop: compact ? 6 : 16 }}>
-          <Text style={{ color: t.ink, fontSize: head, lineHeight: head + 2, fontFamily: T.display, letterSpacing: -1.5 }}>
+          <Text style={{ color: t.ink, fontSize: head, lineHeight: head + 2, fontFamily: T.display, letterSpacing: -1.5, textAlign: 'center' }}>
             {greeting}{firstName ? `, ${firstName}` : ''}.
-          </Text>
-          <Text style={{ color: t.mute ?? t.ink3, fontSize: head, lineHeight: head + 2, fontFamily: T.display, letterSpacing: -1.5 }}>
-            {summary}
           </Text>
         </View>
 
@@ -155,8 +159,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         <Text style={{ color: t.ink3, fontSize: 11, letterSpacing: 1.7, fontFamily: T.display, marginHorizontal: 24, marginTop: compact ? 10 : 14, marginBottom: 10 }}>
           NU IS HOLDING · {still.length + (held_ ? 1 : 0)}
         </Text>
-        <View style={{ marginHorizontal: 12 }}>
-          <TodayStack front={held_} back={still.slice(0, compact ? 1 : 2)} from={oneProject?.project.title}
+        <View style={{ marginHorizontal: 24 }}>
+          <TodayStack front={held_} back={still.slice(0, compact ? 1 : 2)} from={oneProject?.project.title} fact={fact}
             onBegin={() => { if (held_) { setPickedId(null); focusOn(held_.id); } }}
             onOpen={setPeek}
             onPick={x => setPickedId(x.id)}
@@ -164,7 +168,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
             onPlan={() => router.push('/project/new')} />
         </View>
 
-        <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 22, marginHorizontal: 18 }} />
+        <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 22, marginHorizontal: 24 }} />
       </ScrollView>
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />

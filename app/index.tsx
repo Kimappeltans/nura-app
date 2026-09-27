@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useStore, useTheme } from '../src/store';
+import { useStore, useTheme, PinnedPalette } from '../src/store';
+import { nuTheme } from '../src/theme';
 // Three rooms and one mode. The earlier homes — the river scene
 // (NuHome) and the list-first home (Nu) — are kept in src/legacy.
 import Home from '../src/screens/Home';
@@ -9,6 +10,7 @@ import Tasks from '../src/screens/Tasks';
 import Calendar from '../src/screens/Calendar';
 import Ra from '../src/screens/Ra';
 import Onboarding from '../src/screens/Onboarding';
+import Auth from '../src/screens/Auth';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
 
@@ -21,13 +23,16 @@ import { TabBar, type Tab } from '../src/components/TabBar';
  */
 export default function Index() {
   const t = useTheme();
-  const { mode, onboarded, refresh } = useStore();
+  const { mode, onboarded, refresh, session, authLoading, devSkipAuth } = useStore();
   const tab = useStore(s => s.tab);
   const setTab = (k: Tab) => useStore.setState({ tab: k });
   useFocusEffect(useCallback(() => { refresh(); }, []));
 
-  if (onboarded === null) return <Loading />;
+  if (onboarded === null || authLoading) return <Loading />;
   if (!onboarded) return <Onboarding />;
+  // an account is required: signed out, the sign-in screen is all there is
+  // (signing in brings the session, and this screen, back by itself)
+  if (!session && !devSkipAuth) return <Auth onClose={() => {}} />;
   if (mode === 'ra') return <Ra />;
 
   return (
@@ -37,7 +42,8 @@ export default function Index() {
         {tab === 'tasks' && <Tasks />}
         {tab === 'day' && <Calendar />}
       </View>
-      <TabBar />
+      {/* over Your Tasks' deep water the bar is Nu's navy */}
+      <PinnedPalette.Provider value={tab === 'tasks' ? nuTheme : null}><TabBar /></PinnedPalette.Provider>
     </View>
   );
 }

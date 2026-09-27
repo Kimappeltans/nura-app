@@ -40,7 +40,7 @@ The core, unchanged in intent: Nu and Ra as the only navigation · the pick
 engine · first physical action · micro-steps (one level) · the focus timer ·
 reminders that soften and stop · breadcrumbs · the evening log · no overdue
 state, anywhere · light that only rises · the characters and 36 activity
-scenes · local-first, no account needed · read-only calendar · the on-device
+scenes · local-first, with an account required (26 September) · read-only calendar · the on-device
 sentence parser.
 
 ## Fix — build now (no Xcode needed)
@@ -123,19 +123,21 @@ a way to export the event log for the 14-day review. No dashboard in the app.
 - **Habits** — outside the core loop and half-built (no edit, no un-pause).
 - **Tide, Wins, and the two progress ladders** (nine ranks and seven growth
   stages on the same light total). They overlap; revisit after testing.
-- **Accounts and sync** — optional and working for email and Google.
-  Magic-link sign-in and account deletion get fixed before any public release.
+- **Accounts and sync**: required since 26 September (Kim): nobody uses
+  Nura signed out. Working for email and Google; Sign in with Apple is built
+  but not yet set up in Supabase or tried on a phone (Guideline 4.8). If review questions it under 5.1.1(v), the
+  case is that sync, the planner and the coach are account based.
 
 ## Onboarding — the first minute decides whether Nura is kept
 
 **Goal:** from opening the app to starting one real task in about a minute,
-with nothing to set up and no account. The metaphor ("everything sinks, one
+with nothing to set up but the account. The metaphor ("everything sinks, one
 thing rises") is experienced with your own tasks, not explained in advance.
 
 **Rules:** every question changes something you'll see, and says what; every
 step can be skipped, with Skip at the top right; the main button sits at the
 bottom of the screen; the account is asked for only after the list exists,
-and never required (App Store Guideline 5.1.1(v)); warm, plain copy, no
+and can't be skipped (required since 26 September); warm, plain copy, no
 diagnosis named.
 
 | # | Screen | What it does |

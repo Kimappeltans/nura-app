@@ -161,7 +161,13 @@ async function over(key: string, limit: number): Promise<boolean> {
   return typeof data === 'number' && data > limit;
 }
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+// A key made outside a workspace has to name one on every request: set
+// ANTHROPIC_WORKSPACE_ID (or use a key made inside a workspace instead).
+const WORKSPACE = Deno.env.get('ANTHROPIC_WORKSPACE_ID');
+const anthropic = new Anthropic({
+  apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
+  ...(WORKSPACE ? { defaultHeaders: { 'anthropic-workspace-id': WORKSPACE } } : {}),
+});
 
 class Failure extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }

@@ -1030,7 +1030,15 @@ export async function completeOnboarding() {
 
 /* ---------------- who you are ---------------- */
 
-export interface Profile { name: string; tagline: string }
+export interface Profile {
+  name: string;
+  /** the short line about you under your name (Profile → About me) */
+  tagline: string;
+  /** optional, free text */
+  pronouns: string;
+  /** your picture: '', a pose, initials or a photo (see src/avatar.ts) */
+  avatar: string;
+}
 
 /**
  * Stored locally, like everything else. A name is the cheapest personalisation
@@ -1038,14 +1046,15 @@ export interface Profile { name: string; tagline: string }
  * sentence from "Keep going". No account needed for it, and none is asked for.
  */
 export async function getProfile(): Promise<Profile> {
-  return {
-    name: (await getFlag('profile.name')) ?? '',
-    tagline: (await getFlag('profile.tagline')) ?? '',
-  };
+  const [name, tagline, pronouns, avatar] = await Promise.all(
+    ['profile.name', 'profile.tagline', 'profile.pronouns', 'profile.avatar'].map(getFlag));
+  return { name: name ?? '', tagline: tagline ?? '', pronouns: pronouns ?? '', avatar: avatar ?? '' };
 }
 export async function setProfile(p: Partial<Profile>) {
   if (p.name !== undefined) await setFlag('profile.name', p.name);
   if (p.tagline !== undefined) await setFlag('profile.tagline', p.tagline);
+  if (p.pronouns !== undefined) await setFlag('profile.pronouns', p.pronouns);
+  if (p.avatar !== undefined) await setFlag('profile.avatar', p.avatar);
 }
 
 /** Free-text search across everything still live. */
@@ -1209,9 +1218,13 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
   let n = 0, banked = 0;
   for (const raw of lines.map(l => l.trim()).filter(Boolean)) {
     const id = uid();
+    // the same guesses a capture makes, so what you did is counted by kind
+    // too (which labels get done), not only by when (src/learn/signals.ts)
+    const activity = guessActivity(raw);
+    const label = activityById(activity)?.label ?? guessLabel(raw);
     await db.runAsync(
-      `INSERT INTO task (id,title,state,created_at,completed_at,retro,updated_at)
-       VALUES (?,?,'done',?,?,1,?)`, id, raw, whenMs, whenMs, whenMs);
+      `INSERT INTO task (id,title,state,created_at,completed_at,retro,label,activity,updated_at)
+       VALUES (?,?,'done',?,?,1,?,?,?)`, id, raw, whenMs, whenMs, label, activity, whenMs);
     await db.runAsync(
       `INSERT INTO event (task_id,kind,at,meta) VALUES (?,'completed',?,?)`,
       id, whenMs, JSON.stringify({ retro: true }));
@@ -1244,24 +1257,61 @@ export async function retroCapture(lines: string[], whenMs = Date.now() - 3 * 36
  * app hasn't been opened in a week.
  */
 
-/** Where the three daily anchors sit. The ladder maths and the scheduler both
- *  read this, so they cannot drift apart. */
+/** Where the three daily anchors sit until Settings moves them. The ladder
+ *  maths and the scheduler both read anchorSlots() below, so they cannot
+ *  drift apart. */
 export const ANCHOR_SLOTS = [
   { id: 'anchor.morning',  hour: 9,  minute: 0 },
   { id: 'anchor.midday',   hour: 13, minute: 30 },
   { id: 'anchor.shutdown', hour: 20, minute: 0 },
 ] as const;
 
+type AnchorSlot = { id: string; hour: number; minute: number };
+
+/** Settings → Notifications. Morning and evening are a time (minutes after
+ *  midnight) or null when turned off; midday and the two minutes before an
+ *  event are on or off. */
+export interface Nudges { morning: number | null; midday: boolean; evening: number | null; events: boolean }
+export const MORNING_TIMES = [7 * 60, 8 * 60, 9 * 60, 10 * 60];
+export const EVENING_TIMES = [18 * 60, 19 * 60, 20 * 60, 21 * 60, 22 * 60];
+
+export async function getNudges(): Promise<Nudges> {
+  const [m, mid, e, ev] = await Promise.all(
+    ['nudge.morning', 'nudge.midday', 'nudge.evening', 'nudge.events'].map(k => getFlag(k)));
+  const time = (v: string | null, fallback: number) => v === 'off' ? null : Number(v) > 0 ? Number(v) : fallback;
+  return { morning: time(m, 9 * 60), midday: mid !== 'off', evening: time(e, 20 * 60), events: ev !== 'off' };
+}
+export async function setNudges(n: Partial<Nudges>) {
+  const time = (v: number | null) => (v == null ? 'off' : String(v));
+  if ('morning' in n) await setFlag('nudge.morning', time(n.morning ?? null));
+  if ('midday' in n) await setFlag('nudge.midday', n.midday ? '' : 'off');
+  if ('evening' in n) await setFlag('nudge.evening', time(n.evening ?? null));
+  if ('events' in n) await setFlag('nudge.events', n.events ? '' : 'off');
+}
+
+/** The anchors that are on, at the times chosen in Settings, earliest first.
+ *  The scheduler writes these and the ladder counts only these: an anchor you
+ *  turned off can't be one you ignored. */
+export async function anchorSlots(): Promise<AnchorSlot[]> {
+  const n = await getNudges();
+  const at = (id: string, min: number) => ({ id, hour: Math.floor(min / 60), minute: min % 60 });
+  return [
+    n.morning != null ? at('anchor.morning', n.morning) : null,
+    n.midday ? ANCHOR_SLOTS[1] : null,
+    n.evening != null ? at('anchor.shutdown', n.evening) : null,
+  ].filter((s): s is AnchorSlot => !!s).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+}
+
 /** Count anchor firings strictly inside (from, to]. */
-export function anchorsBetween(from: number, to: number): number {
-  if (!(to > from)) return 0;
+export function anchorsBetween(from: number, to: number, slots: readonly AnchorSlot[] = ANCHOR_SLOTS): number {
+  if (!(to > from) || !slots.length) return 0;
   let n = 0;
   const day = new Date(from);
   day.setHours(0, 0, 0, 0);
   // 400 days of slack is far more than the ladder can ever need; it also stops
   // a bad clock or a restored backup from spinning here forever.
   for (let i = 0; i < 400; i++) {
-    for (const s of ANCHOR_SLOTS) {
+    for (const s of slots) {
       const d = new Date(day);
       d.setDate(d.getDate() + i);
       d.setHours(s.hour, s.minute, 0, 0);
@@ -1299,8 +1349,8 @@ export function softness(streak: number): Softness {
 /** How soft the app should be at some future moment, assuming you do nothing
  *  between now and then. The scheduler uses this to write the whole week's
  *  nudges at their correct, progressively gentler volume in one pass. */
-export async function softnessAt(atMs: number): Promise<Softness> {
-  return softness(anchorsBetween(await lastActed(), atMs));
+export async function softnessAt(atMs: number, slots?: readonly AnchorSlot[]): Promise<Softness> {
+  return softness(anchorsBetween(await lastActed(), atMs, slots ?? await anchorSlots()));
 }
 
 /** Smallest thing available — what the ladder reaches for as it softens. */

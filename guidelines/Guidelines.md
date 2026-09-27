@@ -27,11 +27,19 @@ Focus, More options, In session, Done.
 
 ## Ten rules that override anything else in this kit
 
-1. **Clean and flat.** No glows, gradients, frosted glass, drop shadows on
-   characters or glowing dots. Surfaces are a flat fill and a hairline. If it
-   shines, take it out — it fights the layout. One exception: Done (and the
-   reward moment just before it) sits on a soft warm-white-to-light-orange
-   gradient (`doneGround` in `src/theme.ts`), so Ra and Nu stand out.
+1. **Clean layouts, warm light.** The layout stays clean: cards are a fill
+   and a hairline, no frosted glass. But light is what Nura is about, so the
+   sun and its light keep their gradients and glows (Kim, 26 September):
+   - the opening's dawn sky, glowing sun, rays and reflection (`Benben.tsx`),
+     and the rising sun on "One thing rises" (`OneRises.tsx`);
+   - the sun itself: a gradient disc with a halo and rays (`Sun` in
+     `src/components/Handoff.tsx`), on Focus and in a session. Never a flat
+     or dotted sun;
+   - Home's sunrise: the background's coral glow climbs as things get done
+     (`Mica` `sunProgress`), and the day's path has dawn under it and a glow
+     around Ra;
+   - Nu's pale glow (`NuGlow`), the rooms' ambient glows (`Mica`), and Done's
+     warm-white-to-light-orange ground (`doneGround`).
 2. **Inter Tight, only.** No Poppins anywhere (it was the old app font).
 3. **Appearance is By the sun, Light or Dark** (Settings). By the sun is the
    default: Nu's rooms are light while your day runs and navy after it ends.
@@ -50,7 +58,11 @@ Focus, More options, In session, Done.
 7. **Plain words; the story lives in the pictures.** "3 done, 2 to go", not
    "3 rose". Nu and Ra's roles are shown by what they do on screen, not by
    labels that need decoding. No filler: no subtitles that restate the
-   heading, no "why this one" lines, no corner notes.
+   heading, no "why this one" sentences, no corner notes. The one exception is
+   the card in front, which carries one quiet line of facts (Fits before
+   7:30 PM · High priority, from `factLine` in `src/priority.ts`): facts, at
+   most two, never a sentence of reasons. No dashes in copy
+   (— or –), in the app or on the site: use a comma, a full stop or a colon.
 8. **No number ever goes down.** No streaks, no red, no "you missed". A quiet
    day is a small, empty circle — never a gap, never a warning.
 9. **Our characters, our icons, our palette.** Nu and Ra only, in their poses
@@ -64,7 +76,7 @@ Focus, More options, In session, Done.
 ## Voice
 
 Warm, plain, specific. Never clinical or framed around a diagnosis. Copy says
-what happens: "Stop here — it still counts", "Your day is done. Anything now
+what happens: "Stop here, it still counts", "Your day is done. Anything now
 is extra.", "You did it together."
 
 ## Where to look next

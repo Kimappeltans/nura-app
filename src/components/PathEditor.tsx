@@ -136,7 +136,7 @@ export function PathEditor({ steps, current, onChange, done = [] }: {
                   <Text style={{ color: t.ink3, fontSize: 13, flex: 1 }}>About how long?</Text>
                   {small('−', () => stepMins(s, -1))}
                   <Text style={{ color: t.ink, fontSize: 14, minWidth: 52, textAlign: 'center' }}>
-                    {s.est_minutes ? `${s.est_minutes} min` : '—'}
+                    {s.est_minutes ? `${s.est_minutes} min` : 'Not set'}
                   </Text>
                   {small('+', () => stepMins(s, 1))}
                 </View>

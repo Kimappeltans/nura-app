@@ -188,7 +188,7 @@ export default function Tide({ room }: { room?: boolean }) {
               <Text style={{ color: t.ink2, fontSize: 13.5, marginTop: 4, lineHeight: 19 }}>
                 {cap.fits
                   ? 'Nothing here needs cutting. One pass through it anyway if you’d rather sort it than sit with it.'
-                  : 'Nothing here is late — there’s just more than fits before the day winds down. One pass through the backlog and it will.'}
+                  : 'Nothing here is late. There’s just more than fits before the day winds down. One pass through the backlog and it will.'}
               </Text>
               <Pressable onPress={() => router.push('/triage')} style={{ marginTop: 12, alignSelf: 'flex-start' }}>
                 <Text style={{ color: cap.fits ? t.nu : t.raDeep, fontSize: 14, fontFamily: T.brand }}>

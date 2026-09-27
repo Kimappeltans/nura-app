@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, Modal, Image, useWindowDimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, Modal, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +15,7 @@ import { useDictation } from '../voice';
 import { DotWave } from './DotWave';
 import { readInput } from '../coach';
 import type { StateRead } from '../learn/types';
+import { useScreen, COLUMN } from '../screen';
 
 /**
  * TELL NU ANYTHING — the one way in. "Add a task" and "Say it" used to be
@@ -154,7 +155,8 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   // Tell Nu listens as soon as it opens (v5, 7:14); Aa is for typing instead
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width } = useScreen();
+  const [typing, setTyping] = useState(false);
   const base = useRef('');
   const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
   const listening = dict.state === 'listening';
@@ -183,12 +185,15 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <View style={{ flex: 1, backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: t.base }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: COLUMN, alignSelf: 'center', backgroundColor: t.base, paddingTop: insets.top + 22, paddingBottom: Math.max(insets.bottom, 16) + 14, paddingHorizontal: 24 }}>
         {/* what you're saying or typing, as big as a headline */}
+        {/* an underline so it reads as a field before you've typed: coral while you're in it */}
         <TextInput ref={input} value={text} onChangeText={setText} multiline
-          placeholder="Type it, or say it." placeholderTextColor={t.mute ?? t.ink3}
-          style={{ color: t.ink, fontSize: 36, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.6, maxHeight: 190, padding: 0 }} />
+          onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
+          placeholder="Type it, or say it." placeholderTextColor={t.ink3}
+          style={{ color: t.ink, fontSize: 36, lineHeight: 37, fontFamily: T.display, letterSpacing: -1.6, maxHeight: 190, padding: 0, paddingBottom: 10 }} />
+        <View style={{ height: 2, borderRadius: 1, backgroundColor: typing ? CORAL_ON : t.strokeStrong }} />
 
         {/* what Nu understood */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 18 }}>
@@ -225,7 +230,7 @@ function CaptureBody({ visible, onClose }: { visible: boolean; onClose: () => vo
         {/* Nu, listening — as big as the room above the buttons allows (the keyboard takes most of it) */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }} pointerEvents="none"
           onLayout={e => setRoom(e.nativeEvent.layout.height)}>
-          {nuSize >= 72 && <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: nuSize, height: nuSize, marginBottom: -18 }} />}
+          {nuSize >= 72 && <Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: nuSize, height: nuSize, marginBottom: 10 }} />}
         </View>
 
         {/* Aa · ✓ · × */}

@@ -49,7 +49,7 @@ export function HomeAsks({ taskCount, style }: { taskCount: number; style?: View
   if (eveningAsk) {
     return (
       <AskCard accent="ra" style={style} text="What did you actually do today?"
-        sub="Small things count — they’re usually the ones that never get written down."
+        sub="Small things count. They’re usually the ones that never get written down."
         no="Not tonight" yes="Log it" onNo={() => closeEvening(false)} onYes={() => closeEvening(true)}
         yesColor={t.ra} yesInk={t.onRa} />
     );

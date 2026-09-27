@@ -101,7 +101,7 @@ function comeback(c: SuggestContext, open: Task[]): Suggestion | null {
   if (!pick) return null;
   return {
     id: suggestionId('comeback', pick.id, c.nowMs), kind: 'comeback', who: 'ra', source: 'local',
-    text: `Welcome back. No catching up needed — just one small thing, like ${quote(pick)}?`,
+    text: `Welcome back. No catching up needed, just one small thing, like ${quote(pick)}?`,
     why: `Last here ${gap} days ago`,
     taskId: pick.id, action: { type: 'focus', minutes: roundTo5(Math.min(pick.est_minutes ?? 10, 15)) },
     confidence: 0.8,
@@ -162,8 +162,8 @@ function shrink(c: SuggestContext, open: Task[]): Suggestion[] {
     if (n >= 3) {
       out.push({
         id: suggestionId('shrink', t.id, c.nowMs), kind: 'shrink', who: 'nu', source: 'local',
-        text: `${quote(t)} keeps getting moved. Make it smaller — just the first few minutes of it?`,
-        why: `Moved to later ${n} times — often a sign the first step isn't clear yet`,
+        text: `${quote(t)} keeps getting moved. Make it smaller, just the first few minutes of it?`,
+        why: `Moved to later ${n} times, often a sign the first step isn't clear yet`,
         taskId: t.id, action: { type: 'shrink' }, confidence: Math.min(0.9, 0.4 + 0.1 * n),
       });
       continue;
@@ -219,7 +219,7 @@ function planIt(c: SuggestContext, open: Task[]): Suggestion | null {
       text: `${quote(t)} sounds like more than one step. Want me to lay out the first few?`,
       why: m
         ? `“${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()}…” doesn't say where to begin yet`
-        : `Estimated at ${Math.round((t.est_minutes as number) / 6) / 10} hours — that's usually a few steps`,
+        : `Estimated at ${Math.round((t.est_minutes as number) / 6) / 10} hours, which is usually a few steps`,
       taskId: t.id, action: { type: 'plan' }, confidence: (m ? 0.55 : 0.5) + bump,
     };
   }
@@ -241,7 +241,7 @@ function batch(c: SuggestContext, open: Task[]): Suggestion | null {
   const what = key === 'admin' ? 'admin' : key === 'money' ? 'money' : 'errand';
   return {
     id: suggestionId('batch', key, c.nowMs), kind: 'batch', who: 'nu', source: 'local',
-    text: `${list.length} small ${what} things — do them in one go? About ${roundTo5(minutes)} minutes.`,
+    text: `${list.length} small ${what} things. Do them in one go? About ${roundTo5(minutes)} minutes.`,
     why: `${list.length} tasks, each 10 minutes or less`,
     taskIds: list.map(t => t.id), action: { type: 'focus', minutes: roundTo5(minutes) },
     confidence: Math.min(0.8, 0.5 + 0.1 * (list.length - 3)),

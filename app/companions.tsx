@@ -127,7 +127,7 @@ function Companions() {
 
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginBottom: 12, marginLeft: 4 }}>
           A scene appears the first time you finish something of that kind.
-          Planning one doesn't count — only doing it.
+          Planning one doesn't count, only doing it.
         </Text>
 
         <SceneGallery unlocked={col.unlocked} />

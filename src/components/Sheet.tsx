@@ -2,6 +2,7 @@ import type React from 'react';
 import { Modal, View, Pressable, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store';
+import { COLUMN } from '../screen';
 
 /**
  * The bottom sheet the redesign is built from: a dimmed room behind, a grab
@@ -26,6 +27,7 @@ export function Sheet({ visible, onClose, tall, onShow, children }: {
         <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: t.key === 'nu' ? 'rgba(5,8,23,0.62)' : 'rgba(23,19,19,0.30)' }} />
         <View style={{
           height: tall ? height - Math.max(insets.top, 20) - 18 : undefined, maxHeight: height * 0.94,
+          width: '100%', maxWidth: COLUMN, alignSelf: 'center',   // a phone's width on a wide screen (src/screen.ts)
           borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden',
           borderWidth: 1, borderBottomWidth: 0, borderColor: t.strokeStrong,
         }}>

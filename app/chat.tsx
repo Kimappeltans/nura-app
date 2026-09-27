@@ -58,7 +58,7 @@ function Chat() {
   const [msgs, setMsgs] = useState<Msg[]>([{
     id: 'hello',
     from: 'nura',
-    text: 'Tell me what needs doing, the way you’d say it out loud. I’ll work out the date, the repeat and how long — and show you before anything is saved.',
+    text: 'Tell me what needs doing, the way you’d say it out loud. I’ll work out the date, the repeat and how long, and show you before anything is saved.',
   }]);
 
   // Proof it's held, not lost — the last few things caught without a date
@@ -90,7 +90,7 @@ function Chat() {
       return push({
         from: 'nura',
         text: now
-          ? `${now.title}. That’s the one I’d hand you — tap Focus on the home screen and it’s already loaded.`
+          ? `${now.title}. That’s the one I’d hand you. Tap Focus on the home screen and it’s already loaded.`
           : 'Nothing waiting. That’s allowed.',
       });
     }
@@ -107,7 +107,7 @@ function Chat() {
       const rank = rankFor(light);
       return push({
         from: 'nura',
-        text: `${light} light, ${rank.name}. ${today} of that today. It only goes up — there’s no streak to break.`,
+        text: `${light} light, ${rank.name}. ${today} of that today. It only goes up. There’s no streak to break.`,
       });
     }
     if (intent.kind === 'count') {
@@ -256,7 +256,7 @@ function Chat() {
             TOO BIG TO START
           </Text>
           <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>
-            That could mean anything, so it'll sit. Nu can help find the first move — or take the first ten minutes of it.
+            That could mean anything, so it'll sit. Nu can help find the first move, or take the first ten minutes of it.
           </Text>
           {m.added ? (
             <Text style={{ color: t.ra, fontSize: 14, fontFamily: T.brand }}>✓ Opened</Text>

@@ -22,9 +22,8 @@ import { AppleGlyph, GoogleGlyph } from './Auth';
  * No back arrow on the first view: the list is already saved, and going
  * back to an empty brain dump would only invite writing it twice.
  *
- * Always skippable, top right. Nura works fully without an account, and App
- * Store Guideline 5.1.1(v) rejects apps that demand one for features that
- * don't need it. The same three doors as the sign-in screen (Auth.tsx), via
+ * Not skippable: an account is required (Kim, 26 September; see Auth.tsx
+ * for the App Store side of that). The same three doors as the sign-in screen (Auth.tsx), via
  * the same code (useAuthActions): Apple first on iPhone (Guideline 4.8),
  * Google, and email with a name and password.
  */
@@ -32,9 +31,13 @@ type Mode = 'choose' | 'email';
 
 const PERKS = ['Backed up, so nothing gets lost', 'The same list on every device'];
 
-export default function ProfileStep({ onDone }: { onDone: () => void }) {
+export default function ProfileStep({ onDone, beforeRedirect }: {
+  onDone: () => void;
+  /** remember where onboarding was, before the web page leaves for Google */
+  beforeRedirect?: () => Promise<void>;
+}) {
   const t = useTheme();
-  const { busy, formError, setFormError, withApple, withGoogle, withPassword } = useAuthActions(onDone);
+  const { busy, formError, setFormError, withApple, withGoogle, withPassword } = useAuthActions(onDone, { beforeRedirect });
   const [mode, setMode] = useState<Mode>('choose');
   const [creating, setCreating] = useState(true);
   const [name, setName] = useState('');
@@ -47,7 +50,7 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onDone();
     if (r === 'check-email') {
-      const body = `We sent a link to ${email}. Confirm it any time — you can carry on now.`;
+      const body = `We sent a link to ${email}. Confirm it any time. You can carry on now.`;
       // react-native-web's Alert does nothing, so the browser's own stands in
       if (Platform.OS === 'web') { window.alert(`Check your email\n\n${body}`); onDone(); return; }
       Alert.alert('Check your email', body, [{ text: 'OK', onPress: onDone }]);
@@ -84,10 +87,10 @@ export default function ProfileStep({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <OnbFrame step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined} onSkip={onDone}
+      <OnbFrame step={3} onBack={mode === 'email' ? () => setMode('choose') : undefined}
         title={creating ? 'Create your profile' : 'Sign in'}
         sub={creating
-          ? 'Keep your list safe and use Nura on any device. It stays on this phone either way.'
+          ? 'Keep your list safe and use Nura on any device.'
           : 'Your list comes with you.'}
         footer={mode === 'choose' ? (
           <>

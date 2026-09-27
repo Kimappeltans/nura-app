@@ -10,7 +10,9 @@ import { capture } from '../../src/db';
 import { createProject, type Note } from '../../src/projects';
 import { start, draftPlan, PlannerError, type PlanResult, type Question } from '../../src/planner';
 import { radius, type as T } from '../../src/theme';
-import { Mica, Primary, Ghost, Character, Eyebrow, Surface } from '../../src/ui';
+import { Mica, Primary, Ghost, Character, Surface } from '../../src/ui';
+import { NuGlow } from '../../src/components/NuGlow';
+import { Moving } from '../../src/components/Moving';
 import { PathEditor, editKey, type EditStep } from '../../src/components/PathEditor';
 import { MicButton, HearIt } from '../../src/components/Voice';
 
@@ -129,22 +131,17 @@ function Screen() {
   const body = (() => {
     switch (phase.at) {
       case 'goal': return (
-        <View style={{ gap: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
-            <View style={{ flex: 1, gap: 8 }}>
-              <Eyebrow label="Say it" tone="nu" />
-              <Text style={{ color: t.ink, fontSize: 28, lineHeight: 34, fontFamily: T.display, letterSpacing: -0.6 }}>
-                What are you trying to move forward?
-              </Text>
-            </View>
-            <Character name="nu-listen" size={84} motion="greet" />
+        <View style={{ gap: 18 }}>
+          {/* Nu, listening, in her glow (room above so the glow isn't cut square) */}
+          <View style={{ alignItems: 'center', marginTop: 34 }}>
+            <NuGlow size={124}><Moving name="nu-breathe" style={{ width: 124, height: 132 }} /></NuGlow>
+            <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 12, textAlign: 'center' }}>
+              Plan a project
+            </Text>
           </View>
-          <Text style={{ color: t.ink2, fontSize: 15, lineHeight: 21 }}>
-            A small task or a whole project. Start wherever your head is.
-          </Text>
           <TextInput value={goal} onChangeText={setGoal} multiline autoFocus={!params.goal}
             placeholder="e.g. I need to finish my website" placeholderTextColor={t.ink3}
-            style={{ ...field, minHeight: 110, textAlignVertical: 'top' }} />
+            style={{ ...field, borderColor: t.stroke, minHeight: 110, textAlignVertical: 'top' }} />
           <MicButton value={goal} onChange={setGoal} />
         </View>
       );
@@ -171,7 +168,6 @@ function Screen() {
             <Character name="nu-ask" size={72} motion="greet" />
             {!!phase.reply && <Text style={{ flex: 1, color: t.ink2, fontSize: 15, lineHeight: 21 }}>{phase.reply}</Text>}
           </View>
-          <Eyebrow label="One question" tone="nu" />
           <Text style={{ color: t.ink, fontSize: 25, lineHeight: 31, fontFamily: T.display, letterSpacing: -0.4 }}>{phase.q.text}</Text>
           <HearIt text={phase.q.text} label="Hear the question" auto />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -190,15 +186,11 @@ function Screen() {
           <TextInput value={phase.q.options.includes(answer) ? '' : answer} onChangeText={setAnswer} multiline
             placeholder="Or say it in your own words" placeholderTextColor={t.ink3} style={{ ...field, minHeight: 70 }} />
           <MicButton value={answer} onChange={setAnswer} label="Answer by voice" />
-          <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 18 }}>
-            You can change the plan later. Nu marks guesses as guesses.
-          </Text>
         </View>
       );
 
       case 'path': return (
         <View style={{ gap: 16 }}>
-          <Eyebrow label={phase.plan.steps.length ? 'Possible path · editable' : 'Your path'} tone="nu" />
           <TextInput value={title} onChangeText={setTitle} placeholder="Name it" placeholderTextColor={t.ink3} multiline
             style={{ color: t.ink, fontSize: 26, lineHeight: 32, fontFamily: T.display, letterSpacing: -0.5, padding: 0 }} />
           {!!phase.plan.reply && (
@@ -237,11 +229,6 @@ function Screen() {
             <PathEditor steps={steps} current={current} onChange={(s, c) => { setSteps(s); setCurrent(c); }} />
           </View>
 
-          {!!phase.plan.steps.length && (
-            <Text style={{ color: t.ink3, fontSize: 12.5, lineHeight: 18 }}>
-              A starting guess, not a claim that Nura looked at your work. Nura adjusts it as you go.
-            </Text>
-          )}
         </View>
       );
 
@@ -250,7 +237,6 @@ function Screen() {
           <Character name="nu-idle" size={86} motion="none" />
           <Text style={{ color: t.ink, fontSize: 22, lineHeight: 28, fontFamily: T.display }}>Nu couldn’t plan this right now.</Text>
           <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22 }}>{phase.message}</Text>
-          <Text style={{ color: t.ink3, fontSize: 14, lineHeight: 20 }}>What you wrote is still here. You can try again, or write the first move yourself.</Text>
         </View>
       );
     }
@@ -261,9 +247,6 @@ function Screen() {
       case 'goal': return (
         <>
           <Primary label="Find my first move" tone="ra" disabled={!goal.trim()} onPress={send} />
-          <Text style={{ color: t.ink3, fontSize: 11.5, textAlign: 'center', lineHeight: 16 }}>
-            Nu sends what you write here to Nura’s planner. Nothing is saved until you keep it.
-          </Text>
         </>
       );
       case 'task': return (
@@ -310,7 +293,7 @@ function Screen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, height: 48 }}>
           <Pressable onPress={() => (phase.at === 'goal' || phase.at === 'thinking' ? leave() : setPhase({ at: 'goal' }))}
             hitSlop={12} style={{ flex: 1, paddingVertical: 8 }}>
-            <Text style={{ color: t.ink3, fontSize: 16 }}>{phase.at === 'goal' || phase.at === 'thinking' ? '← Close' : '← Back'}</Text>
+            <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
           </Pressable>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}

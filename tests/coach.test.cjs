@@ -48,6 +48,28 @@ const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 const section = (name) => tests.push([name, null]);
 
+section('reading a time');
+test('"6pm" is six in the evening, not NaN', () => {
+  const d = assistant.parseTask('call mum 6pm');
+  const at = new Date(d.due_at);
+  assert.ok(Number.isFinite(d.due_at));
+  assert.strictEqual(at.getHours(), 18);
+  assert.strictEqual(at.getMinutes(), 0);
+  assert.ok(d.has_time);
+});
+test('"tmrw 6pm" is tomorrow at six, and leaves the title', () => {
+  const d = assistant.parseTask('call mum tmrw 6pm');
+  const at = new Date(d.due_at), tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  assert.strictEqual(at.toDateString(), tomorrow.toDateString());
+  assert.strictEqual(at.getHours(), 18);
+  assert.strictEqual(d.title, 'Call mum');
+});
+test('"at 7:30pm" keeps its minutes', () => {
+  const at = new Date(assistant.parseTask('dinner with Sam tomorrow at 7:30pm').due_at);
+  assert.strictEqual(at.getHours(), 19);
+  assert.strictEqual(at.getMinutes(), 30);
+});
+
 section('the phone’s own read');
 test('one task is a task, from the phone', () => {
   const r = localRead('call the dentist tomorrow at 9');

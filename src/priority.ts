@@ -38,7 +38,7 @@ export function whyLine(rule: PickRule | null, task: Task, energy: Energy, now =
     case 'due':      return task.due_at != null && task.due_at <= now ? 'past due' : 'due within the next couple of hours';
     case 'started':  return 'you already started this one';
     case 'today':    return (task.priority ?? 0) > 0
-      ? `top of your Today — ${['', 'low', 'medium', 'high'][task.priority ?? 0]} priority`
+      ? `top of your Today, ${['', 'low', 'medium', 'high'][task.priority ?? 0]} priority`
       : 'next on your Today list';
     case 'priority': return `you marked it ${['', 'low', 'medium', 'high'][task.priority ?? 0]} priority`;
     case 'upcoming': return 'due in the next few days';
@@ -46,4 +46,29 @@ export function whyLine(rule: PickRule | null, task: Task, energy: Energy, now =
     case 'smallest': return 'the smallest thing there is';
     default:         return null;
   }
+}
+
+/**
+ * The facts behind the one in front, as one quiet line on its card: when it
+ * fits before (the next thing with a time, else the end of your day), when
+ * it's due, and a high priority. At most two, joined with a dot. Never a
+ * sentence of reasons, and never late or overdue (guidelines, rules 7 and 8).
+ */
+export function factLine(task: Task, anchors: number[], dayEndMin: number, now = Date.now()): string | null {
+  const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const facts: string[] = [];
+  const mins = task.est_minutes ?? 0;
+  if (mins > 0) {
+    const end = new Date(now); end.setHours(0, dayEndMin, 0, 0);
+    // only what's still ahead today counts: tomorrow's 6 PM is not today's limit
+    const next = anchors.filter(a => a > now && a <= end.getTime() && a !== task.due_at).sort((a, b) => a - b)[0];
+    const until = next ?? (end.getTime() > now ? end.getTime() : null);
+    if (until && now + mins * 60000 <= until) facts.push(`Fits before ${clock(until)}`);
+  }
+  if (task.due_at && new Date(task.due_at).toDateString() === new Date(now).toDateString()) {
+    if (!task.has_time) facts.push('Due today');
+    else if (task.due_at > now) facts.push(`Due at ${clock(task.due_at)}`);
+  }
+  if ((task.priority ?? 0) >= 3) facts.push('High priority');
+  return facts.length ? facts.slice(0, 2).join(' · ') : null;
 }

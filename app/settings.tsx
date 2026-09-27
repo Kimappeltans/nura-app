@@ -1,67 +1,354 @@
 import { inWorld } from '../src/world';
 import { goBack } from '../src/nav';
 import { withTabs } from '../src/components/WithTabs';
-import { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, Platform, Share } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Platform, Share, Animated, BackHandler } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { useTheme, useStore } from '../src/store';
-import { getFlag, setFlag, totalLight, totalWins, exportLog } from '../src/db';
-import { hasCalendarPermission } from '../src/calendar';
-import { supabase } from '../src/supabase';
-import { rankFor } from '../src/reward';
-import { radius, type as T } from '../src/theme';
-import { Mica, Surface, IconChevron, IconCalendar, IconBell, IconCheck, Character } from '../src/ui';
-import { ActionSheet } from '../src/components/ActionSheet';
+import { useTheme, useStore, appearanceName, type Appearance } from '../src/store';
+import { getFlag, setFlag, exportLog, getNudges, setNudges, MORNING_TIMES, EVENING_TIMES, type Nudges } from '../src/db';
+import { hasCalendarPermission, phoneCalendars, showCalendar, focusCalendar, setFocusCalendar, type PhoneCalendar } from '../src/calendar';
+import { initNotifications, scheduleTransitionWarning } from '../src/notifications';
+import { signOut } from '../src/account';
+import { type as T } from '../src/theme';
+import {
+  Mica, IconChevron, IconCheck, IconBell, IconCalendar, IconClock, IconSun,
+  IconSunrise, IconSunset, IconMoon, IconTimer, IconCup, IconPhone, IconTasks, IconTray, IconRepeat,
+  IconLayers, IconCalendarPlus, IconContrast, IconGlobe, IconSpeaker, IconBubble, IconShield, IconExport,
+  IconHelp, IconPlay, IconRestart,
+} from '../src/ui';
+import { Avatar } from '../src/components/Avatar';
+import { Sheet } from '../src/components/Sheet';
 import { askToReplayIntro } from '../src/intro';
 import { LANGUAGES, getLanguage, setLanguage, languageName, type LangCode } from '../src/planner';
 import { canSpeak, readsAloud, setReadsAloud, voicesForLanguage, chosenVoice, setChosenVoice, say, type VoiceOption } from '../src/voice';
-
-/** The times a day can end: 9 PM to 1 AM (minutes after midnight, past 24h for after it). */
-const DAY_ENDS = [21 * 60, 22 * 60, 23 * 60, 24 * 60, 25 * 60];
-const dayEndLabel = (m: number) => m === 24 * 60 ? 'Midnight'
-  : new Date(new Date().setHours(0, m, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+import { DAY_ENDS, DAY_STARTS, dayEndLabel } from '../src/capacity';
 
 /**
- * Settings.
+ * Settings: how the app behaves. Your account lives on Profile (the first
+ * row here opens it).
  *
- * This screen exists because of a genuine hole: onboarding is a one-time gate,
- * so once someone tapped through it there was NO route back — not to the
- * intro, not to the integrations list, not to sign-in. Every service on the
- * Connect screen is something people hook up weeks in rather than on day one,
- * and "Skip for now" was quietly permanent.
+ * A list of sections, each opening its own page (← Back returns to the
+ * list). Every row changes something real, and each section is its own small
+ * component (PAGES below), so a wide screen can later show the list on the
+ * left and the open section on the right.
  */
-function Settings() {
+
+type Icon = (p: { size?: number; color: string }) => React.JSX.Element;
+type PageKey = 'day' | 'focus' | 'tasks' | 'notifications' | 'calendar' | 'appearance' | 'language' | 'data' | 'help';
+
+const clock = dayEndLabel;             // any minute after midnight, as the phone writes a time
+const native = Platform.OS !== 'web';  // reminders and the calendar are the phone's
+
+/* ─────────────── the parts every page is built from ─────────────── */
+
+/** A group of rows: a flat card, a fill and a hairline. */
+function Card({ children }: { children: React.ReactNode }) {
   const t = useTheme();
-  const { light, total, session, appearance, setAppearance, dayEndMin, setDayEnd } = useStore();
-  const [cal, setCal] = useState(false);
-  const [notif, setNotif] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
+  return (
+    <View style={{ borderRadius: 22, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card, overflow: 'hidden', marginTop: 16 }}>
+      {children}
+    </View>
+  );
+}
+
+function Divider({ inset = 59 }: { inset?: number }) {
+  const t = useTheme();
+  return <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: inset }} />;
+}
+
+/** One setting: its icon, its name, and its value, a switch or a tick on the right. */
+function Row({ icon: I, title, value, right, onPress }: {
+  icon?: Icon; title: string; value?: string; right?: React.ReactNode; onPress?: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined} disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      style={({ pressed }) => ({
+        flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 56, paddingHorizontal: 14, paddingVertical: 10,
+        backgroundColor: pressed ? t.subtle : 'transparent',
+      })}>
+      {!!I && (
+        <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash, borderWidth: 1, borderColor: t.stroke }}>
+          <I size={18} color={t.nu} />
+        </View>
+      )}
+      <Text style={{ flex: 1, color: t.ink, fontSize: 16, fontFamily: T.brand, letterSpacing: -0.2 }}>{title}</Text>
+      {value != null && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand, maxWidth: '48%' }}>{value}</Text>}
+      {right ?? (onPress ? <IconChevron size={16} color={t.ink3} /> : null)}
+    </Pressable>
+  );
+}
+
+/** A switch, from the theme: coral when on. */
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }) {
+  const t = useTheme();
+  const x = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(x, { toValue: on ? 1 : 0, useNativeDriver: native, speed: 22, bounciness: 5 }).start();
+  }, [on]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Pressable onPress={() => { Haptics.selectionAsync(); onChange(!on); }} hitSlop={8}
+      accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={label}
+      style={{
+        width: 50, height: 30, borderRadius: 15, padding: 3, justifyContent: 'center',
+        backgroundColor: on ? t.ra : t.track, borderWidth: 1, borderColor: on ? t.ra : t.strokeStrong,
+      }}>
+      <Animated.View style={{
+        width: 22, height: 22, borderRadius: 11, backgroundColor: t.key === 'nu' ? t.ink : t.card,
+        transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }) }],
+      }} />
+    </Pressable>
+  );
+}
+
+/** A row that is a switch: the whole row flips it. */
+function SwitchRow({ icon, title, on, onChange }: { icon?: Icon; title: string; on: boolean; onChange: (on: boolean) => void }) {
+  return <Row icon={icon} title={title} right={<Toggle on={on} onChange={onChange} label={title} />} onPress={() => onChange(!on)} />;
+}
+
+function Tick({ on }: { on: boolean }) {
+  const t = useTheme();
+  return on ? <IconCheck size={18} color={t.ra} /> : <View style={{ width: 18 }} />;
+}
+
+/** Choose one (or, with `multi`, several) from a short list, in a sheet. */
+function Picker<K extends string | number>({ visible, title, options, value, onPick, onClose, multi }: {
+  visible: boolean; title: string;
+  options: { key: K; label: string; note?: string; on?: boolean }[];
+  value?: K; onPick: (k: K) => void; onClose: () => void; multi?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <Sheet visible={visible} onClose={onClose}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 }}>
+        <Text style={{ flex: 1, color: t.ink, fontSize: 22, fontFamily: T.display, letterSpacing: -0.4 }}>{title}</Text>
+        <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"
+          style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: t.layer }}>
+          <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={t.ink2} strokeWidth={2} strokeLinecap="round" /></Svg>
+        </Pressable>
+      </View>
+      <Card>
+        {options.map((o, i) => (
+          <View key={String(o.key)}>
+            {i > 0 && <Divider inset={14} />}
+            <Row title={o.label} value={o.note} right={<Tick on={multi ? !!o.on : o.key === value} />}
+              onPress={() => { onPick(o.key); if (!multi) onClose(); }} />
+          </View>
+        ))}
+      </Card>
+    </Sheet>
+  );
+}
+
+/* ─────────────── the pages ─────────────── */
+
+function YourDay() {
+  const { dayStartMin, setDayStart, dayEndMin, setDayEnd } = useStore();
+  const [pick, setPick] = useState<'start' | 'end' | null>(null);
+  return (
+    <>
+      <Card>
+        <Row icon={IconSunrise} title="Day starts" value={clock(dayStartMin)} onPress={() => setPick('start')} />
+        <Divider />
+        <Row icon={IconSunset} title="Day ends" value={clock(dayEndMin)} onPress={() => setPick('end')} />
+      </Card>
+      <Picker visible={pick === 'start'} title="Day starts" onClose={() => setPick(null)}
+        options={DAY_STARTS.map(m => ({ key: m, label: clock(m) }))} value={dayStartMin} onPick={setDayStart} />
+      <Picker visible={pick === 'end'} title="Day ends" onClose={() => setPick(null)}
+        options={DAY_ENDS.map(m => ({ key: m, label: clock(m) }))} value={dayEndMin} onPick={setDayEnd} />
+    </>
+  );
+}
+
+/** Focus: what Begin starts with (the same length as Ra's Length knob), the
+ *  break Done offers, and whether the screen stays on (app/timer.tsx). */
+const LENGTHS = [0, 5, 10, 15, 25, 45, 60];
+const BREAKS = ['', '5', '10', '15', 'off'];
+const breakName = (b: string) => (b === 'off' ? 'Off' : Number(b) > 0 ? `${b} min` : 'Auto');
+
+function Focus() {
+  const [length, setLength] = useState(0);
+  const [brk, setBrk] = useState('');
+  const [awake, setAwake] = useState(false);
+  const [pick, setPick] = useState<'length' | 'break' | null>(null);
+  useEffect(() => {
+    (async () => {
+      setLength(Number(await getFlag('focus.timer')) || 0);
+      setBrk((await getFlag('focus.break')) ?? '');
+      setAwake((await getFlag('focus.awake')) === '1');
+    })();
+  }, []);
+  return (
+    <>
+      <Card>
+        <Row icon={IconTimer} title="Session length" value={length ? `${length} min` : 'Open'} onPress={() => setPick('length')} />
+        <Divider />
+        <Row icon={IconCup} title="Break" value={breakName(brk)} onPress={() => setPick('break')} />
+        <Divider />
+        <SwitchRow icon={IconPhone} title="Keep screen on" on={awake}
+          onChange={on => { setAwake(on); setFlag('focus.awake', on ? '1' : ''); }} />
+      </Card>
+      <Picker visible={pick === 'length'} title="Session length" onClose={() => setPick(null)}
+        options={LENGTHS.map(m => ({ key: m, label: m ? `${m} min` : 'Open' }))} value={length}
+        onPick={m => { setLength(m); setFlag('focus.timer', m ? String(m) : ''); }} />
+      <Picker visible={pick === 'break'} title="Break" onClose={() => setPick(null)}
+        options={BREAKS.map(b => ({ key: b, label: breakName(b) }))} value={brk}
+        onPick={b => { setBrk(b); setFlag('focus.break', b); }} />
+    </>
+  );
+}
+
+function Tasks() {
+  return (
+    <Card>
+      <Row icon={IconTray} title="One pass through your backlog" onPress={() => router.push('/triage')} />
+      <Divider />
+      <Row icon={IconRepeat} title="Add a habit" onPress={() => router.push('/habit')} />
+    </Card>
+  );
+}
+
+/** Notifications: the three daily nudges and the heads up before an event
+ *  (src/notifications.ts reads them). Only the phone can send them. */
+function NotificationsPage() {
+  const [allowed, setAllowed] = useState(false);
+  const [n, setN] = useState<Nudges | null>(null);
+  const [pick, setPick] = useState<'morning' | 'evening' | null>(null);
+  // on focus: permission is granted on the Connect screen, on top of this one
+  useFocusEffect(useCallback(() => {
+    if (!native) return;
+    Notifications.getPermissionsAsync().then(p => setAllowed(p.status === 'granted')).catch(() => {});
+    getNudges().then(setN);
+  }, []));
+
+  if (!native) return <Card><Row icon={IconBell} title="Reminders" value="iPhone only" /></Card>;
+
+  const change = async (p: Partial<Nudges>) => {
+    setN(cur => (cur ? { ...cur, ...p } : cur));
+    await setNudges(p);
+    await initNotifications();          // rewrites the queue, if reminders are on
+  };
+  const time = (m: number | null) => (m == null ? 'Off' : clock(m));
+  const times = (list: number[]) => [...list.map(m => ({ key: m, label: clock(m) })), { key: -1, label: 'Off' }];
+
+  return (
+    <>
+      <Card>
+        <Row icon={IconBell} title="Reminders" value={allowed ? 'On' : 'Off'} onPress={() => router.push('/integrations')} />
+      </Card>
+      {n && (
+        <>
+          {/* kept while reminders are off, and quieter: they start once they're on */}
+          <View style={{ opacity: allowed ? 1 : 0.55 }}>
+            <Card>
+              <Row icon={IconSunrise} title="Morning plan" value={time(n.morning)} onPress={() => setPick('morning')} />
+              <Divider />
+              <SwitchRow icon={IconSun} title="Midday check in" on={n.midday} onChange={midday => change({ midday })} />
+              <Divider />
+              <Row icon={IconMoon} title="Evening look back" value={time(n.evening)} onPress={() => setPick('evening')} />
+              <Divider />
+              <SwitchRow icon={IconClock} title="2 minutes before events" on={n.events} onChange={events => change({ events })} />
+            </Card>
+          </View>
+          <Picker visible={pick === 'morning'} title="Morning plan" onClose={() => setPick(null)}
+            options={times(MORNING_TIMES)} value={n.morning ?? -1} onPick={m => change({ morning: m < 0 ? null : m })} />
+          <Picker visible={pick === 'evening'} title="Evening look back" onClose={() => setPick(null)}
+            options={times(EVENING_TIMES)} value={n.evening ?? -1} onPick={m => change({ evening: m < 0 ? null : m })} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** Calendar: which of the phone's calendars Nura reads, and where a finished
+ *  focus session is written (src/calendar.ts). */
+function CalendarPage() {
+  const [connected, setConnected] = useState(false);
+  const [cals, setCals] = useState<PhoneCalendar[]>([]);
+  const [target, setTarget] = useState<string | null>(null);
+  const [pick, setPick] = useState<'shown' | 'focus' | null>(null);
+  useFocusEffect(useCallback(() => {
+    if (!native) return;
+    (async () => {
+      const ok = await hasCalendarPermission();
+      setConnected(ok);
+      if (!ok) return;
+      setCals(await phoneCalendars());
+      setTarget(await focusCalendar());
+    })();
+  }, []));
+
+  if (!native) return <Card><Row icon={IconCalendar} title="Calendar" value="iPhone only" /></Card>;
+
+  const shown = cals.filter(c => c.shown).length;
+  const writable = cals.filter(c => c.writable);
+  const toggle = async (id: string) => {
+    const c = cals.find(x => x.id === id);
+    if (!c) return;
+    await showCalendar(id, !c.shown);
+    setCals(cs => cs.map(x => (x.id === id ? { ...x, shown: !x.shown } : x)));
+    useStore.getState().refresh();      // today's events on Home follow at once
+    scheduleTransitionWarning().catch(() => {});
+  };
+
+  return (
+    <>
+      <Card>
+        <Row icon={IconCalendar} title="Calendar" value={connected ? 'Connected' : 'Off'} onPress={() => router.push('/integrations')} />
+        {connected && (
+          <>
+            <Divider />
+            <Row icon={IconLayers} title="Calendars shown" value={!cals.length ? 'None' : shown === cals.length ? 'All' : `${shown} of ${cals.length}`}
+              onPress={cals.length ? () => setPick('shown') : undefined} />
+            <Divider />
+            <Row icon={IconCalendarPlus} title="Save focus sessions to" value={cals.find(c => c.id === target)?.title ?? 'Off'}
+              onPress={() => setPick('focus')} />
+          </>
+        )}
+      </Card>
+      <Picker multi visible={pick === 'shown'} title="Calendars shown" onClose={() => setPick(null)}
+        options={cals.map(c => ({ key: c.id, label: c.title, on: c.shown }))} onPick={toggle} />
+      <Picker visible={pick === 'focus'} title="Save focus sessions to" onClose={() => setPick(null)}
+        options={[{ key: '', label: 'Off' }, ...writable.map(c => ({ key: c.id, label: c.title }))]} value={target ?? ''}
+        onPick={async id => { setTarget(id || null); await setFocusCalendar(id || null); }} />
+    </>
+  );
+}
+
+function AppearancePage() {
+  const { appearance, setAppearance } = useStore();
+  const looks: [Appearance, Icon][] = [['sun', IconSunrise], ['light', IconSun], ['dark', IconMoon]];
+  return (
+    <Card>
+      {looks.map(([key, icon], i) => (
+        <View key={key}>
+          {i > 0 && <Divider />}
+          <Row icon={icon} title={appearanceName[key]} right={<Tick on={appearance === key} />} onPress={() => setAppearance(key)} />
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+function LanguageVoice() {
   const [lang, setLang] = useState<LangCode>('en');
   const [aloud, setAloud] = useState(false);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [voice, setVoice] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'lang' | 'voice' | 'dayEnd' | null>(null);
-
-  // useFocusEffect, not a mount-only effect — this screen stays mounted
-  // underneath Integrations/Connect while the user grants permissions there,
-  // so a once-only effect left "Connected apps" and "Reminders" showing
-  // stale, permanently-not-connected status after coming back.
-  useFocusEffect(useCallback(() => {
+  const [pick, setPick] = useState<'lang' | 'voice' | null>(null);
+  useEffect(() => {
     (async () => {
-      setCal(await hasCalendarPermission());
-      // the real permission, not "was asked" — the flag is also set when
-      // the answer was no, which made this row say On for someone who'd
-      // turned reminders down
-      setNotif(Platform.OS !== 'web' && (await Notifications.getPermissionsAsync()).status === 'granted');
       setLang(await getLanguage());
       setAloud(await readsAloud());
       setVoices(await voicesForLanguage());
       setVoice(await chosenVoice());
     })();
-  }, []));
+  }, []);
 
   const pickLanguage = async (code: LangCode) => {
     await setLanguage(code);
@@ -69,260 +356,145 @@ function Settings() {
     setLang(code); setVoice(null);
     setVoices(await voicesForLanguage());
   };
-
-  // The store's `session` clears itself — supabase.auth.onAuthStateChange
-  // in app/_layout.tsx is the one listener for that, same as sign-in. This
-  // never touches local data: everything captured stays on the phone,
-  // signed in or not.
-  const signOut = () => {
-    Alert.alert('Sign out?', 'Your tasks stay on this phone either way — signing out only stops syncing them.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: async () => {
-        setSigningOut(true);
-        await supabase.auth.signOut();
-        setSigningOut(false);
-      } },
-    ]);
+  const pickVoice = async (id: string) => {
+    await setChosenVoice(id || null); setVoice(id || null);
+    say('I’m here. Let’s find one place to begin.');
   };
 
-  const rank = rankFor(light);
-
-  const Row = ({ icon, title, sub, right, onPress }: {
-    icon?: React.ReactNode; title: string; sub?: string;
-    right?: React.ReactNode; onPress?: () => void;
-  }) => (
-    <Pressable
-      onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 13,
-        paddingHorizontal: 15, paddingVertical: 15,
-        backgroundColor: pressed && onPress ? t.subtle : 'transparent',
-      })}>
-      {!!icon && (
-        <View style={{
-          width: 32, height: 32, borderRadius: radius.sm + 2,
-          alignItems: 'center', justifyContent: 'center', backgroundColor: t.nuWash,
-        }}>{icon}</View>
-      )}
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{title}</Text>
-        {!!sub && <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginTop: 2 }}>{sub}</Text>}
-      </View>
-      {right ?? (onPress ? <IconChevron size={16} color={t.ink3} /> : null)}
-    </Pressable>
+  return (
+    <>
+      <Card>
+        <Row icon={IconGlobe} title="Language for Nu and Ra" value={languageName(lang)} onPress={() => setPick('lang')} />
+        {canSpeak() && (
+          <>
+            <Divider />
+            <Row icon={IconSpeaker} title="Voice" value={voices.length ? voices.find(v => v.id === voice)?.name ?? 'Default' : 'None'}
+              onPress={voices.length ? () => setPick('voice') : undefined} />
+            <Divider />
+            <SwitchRow icon={IconBubble} title="Read replies aloud" on={aloud}
+              onChange={async on => { setAloud(on); await setReadsAloud(on); }} />
+          </>
+        )}
+      </Card>
+      <Picker visible={pick === 'lang'} title="Language for Nu and Ra" onClose={() => setPick(null)}
+        options={LANGUAGES.map(l => ({ key: l.code as LangCode, label: l.name }))} value={lang} onPick={pickLanguage} />
+      <Picker visible={pick === 'voice'} title="Voice" onClose={() => setPick(null)}
+        options={[{ key: '', label: 'Default' }, ...voices.slice(0, 7).map(v => ({ key: v.id, label: v.name, note: v.enhanced ? 'Enhanced' : undefined }))]}
+        value={voice ?? ''} onPick={pickVoice} />
+    </>
   );
+}
 
-  const Divider = () => <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 60 }} />;
+function YourData() {
+  // what Nura has recorded (tasks shown, started, finished), as a file you keep
+  const exportActivity = async () => {
+    const json = await exportLog();
+    const name = `nura-activity-${new Date().toISOString().slice(0, 10)}.json`;
+    if (Platform.OS === 'web') {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } else {
+      await Share.share({ title: name, message: json });
+    }
+  };
+  return <Card><Row icon={IconExport} title="Export activity log" onPress={exportActivity} /></Card>;
+}
 
-  const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{
-        color: t.ink3, fontSize: 12, letterSpacing: 1.6, fontFamily: T.brand,
-        marginBottom: 8, marginLeft: 4,
-      }}>{title.toUpperCase()}</Text>
-      <Surface>{children}</Surface>
-    </View>
+function Help() {
+  return (
+    <Card>
+      <Row icon={IconPlay} title="Watch the opening again" onPress={() => router.push('/opening')} />
+      <Divider />
+      <Row icon={IconRestart} title="Start from the beginning" onPress={askToReplayIntro} />
+    </Card>
   );
+}
 
-  const On = () => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-      <IconCheck size={16} color={t.ra} />
-      <Text style={{ color: t.ra, fontSize: 13.5, fontFamily: T.brand }}>On</Text>
-    </View>
-  );
+/** The sections, in the order the list shows them; a gap between groups. */
+const PAGES: { key: PageKey; title: string; icon: Icon; Page: () => React.JSX.Element; gap?: boolean }[] = [
+  { key: 'day', title: 'Your day', icon: IconSunrise, Page: YourDay },
+  { key: 'focus', title: 'Focus', icon: IconTimer, Page: Focus },
+  { key: 'tasks', title: 'Tasks', icon: IconTasks, Page: Tasks },
+  { key: 'notifications', title: 'Notifications', icon: IconBell, Page: NotificationsPage, gap: true },
+  { key: 'calendar', title: 'Calendar', icon: IconCalendar, Page: CalendarPage },
+  { key: 'appearance', title: 'Appearance', icon: IconContrast, Page: AppearancePage, gap: true },
+  { key: 'language', title: 'Language and voice', icon: IconGlobe, Page: LanguageVoice },
+  { key: 'data', title: 'Your data', icon: IconShield, Page: YourData, gap: true },
+  { key: 'help', title: 'Help', icon: IconHelp, Page: Help },
+];
+
+/* ─────────────── the screen ─────────────── */
+
+function Settings() {
+  const t = useTheme();
+  const { session, profile } = useStore();
+  const [open, setOpen] = useState<PageKey | null>(null);
+  const page = PAGES.find(p => p.key === open);
+
+  // Android's back closes the open section first, like ← Back
+  useEffect(() => {
+    if (!open) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setOpen(null); return true; });
+    return () => sub.remove();
+  }, [open]);
+
+  // the list, as cards split where PAGES asks for a gap
+  const groups = PAGES.reduce<(typeof PAGES)[]>((g, p) => {
+    if (!g.length || p.gap) g.push([]);
+    g[g.length - 1].push(p);
+    return g;
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>
       <Mica />
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 2 }}>
-        <Pressable onPress={() => goBack()} hitSlop={12} style={{ flex: 1, paddingVertical: 10 }}>
-          <Text style={{ color: t.ink3, fontSize: 16 }}>← Today</Text>
+        <Pressable onPress={() => (open ? setOpen(null) : goBack())} hitSlop={12} accessibilityRole="button" style={{ paddingVertical: 10 }}>
+          <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>← Back</Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-
-        <Surface accent="ra">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }}>
-            <Character name="ra-celebrate" size={62} motion="bob" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: t.ink, fontSize: 18, fontFamily: T.display }}>{rank.name}</Text>
-              <Text style={{ color: t.ink3, fontSize: 13, marginTop: 2 }}>
-                {light} light · {total} things done
-              </Text>
-            </View>
-          </View>
-        </Surface>
-
-        <Group title="Account">
-          {session ? (
-            <Row
-              title={session.user.email ?? 'Signed in'}
-              sub={signingOut ? 'Signing out…' : 'Syncing your tasks across devices.'}
-              right={signingOut ? undefined : <On />}
-              onPress={signingOut ? undefined : signOut}
-            />
-          ) : (
-            <Row
-              title="Sign in or create an account"
-              sub="Sync across devices and unlock the integrations that need a server."
-              onPress={() => router.push('/auth')}
-            />
-          )}
-        </Group>
-
-        <Group title="Connections">
-          <Row
-            icon={<IconCalendar size={17} color={cal ? t.ra : t.nu} />}
-            title="Connected apps"
-            sub="Calendar, reminders, and the work apps."
-            right={cal ? <On /> : undefined}
-            onPress={() => router.push('/integrations')}
-          />
-          <Divider />
-          <Row
-            icon={<IconBell size={17} color={notif ? t.ra : t.nu} />}
-            title="Reminders"
-            sub={notif ? 'A few a day, and they get quieter if ignored.'
-              : Platform.OS === 'web' ? 'Only in the iPhone app.' : 'Off.'}
-            right={notif ? <On /> : undefined}
-            onPress={() => router.push('/integrations')}
-          />
-        </Group>
-
-        <Group title="Nu &amp; Ra">
-          <Row
-            title="Companions"
-            sub="How far they've grown, and every scene you've found."
-            onPress={() => router.push('/companions')}
-          />
-          <Divider />
-          <Row
-            title="Watch the opening again"
-            sub="Where Nu and Ra come from. Nothing else changes."
-            onPress={() => router.push('/opening')}
-          />
-        </Group>
-
-
-        <Group title="Your day">
-          <Row title="Day ends"
-            right={<Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{dayEndLabel(dayEndMin)}</Text>}
-            onPress={() => setSheet('dayEnd')} />
-        </Group>
-
-        <Group title="Appearance">
-          {([
-            ['sun', 'By the sun', 'Light while your day runs, dark once it ends'],
-            ['light', 'Light', undefined],
-            ['dark', 'Dark', undefined],
-          ] as const).map(([key, title, sub], i) => (
-            <View key={key}>
-              {i > 0 && <Divider />}
-              <Row title={title} sub={sub}
-                right={appearance === key ? <IconCheck size={18} color={t.ra} /> : <View style={{ width: 18 }} />}
-                onPress={() => setAppearance(key)} />
-            </View>
-          ))}
-        </Group>
-
-        <Group title="Language &amp; voice">
-          <Row
-            title="Language for Nu and Ra"
-            sub={`Nu plans, listens and answers in ${languageName(lang)}. The rest of the app stays in English for now.`}
-            right={<Text style={{ color: t.ink2, fontSize: 14 }}>{languageName(lang)}</Text>}
-            onPress={() => setSheet('lang')}
-          />
-          {canSpeak() && (
-            <>
-              <Divider />
-              <Row
-                title="Voice"
-                sub={voices.length ? 'Which of this phone’s voices reads Nu and Ra aloud.'
-                  : `This phone has no ${languageName(lang)} voice, so replies stay as text.`}
-                right={<Text style={{ color: t.ink2, fontSize: 14 }} numberOfLines={1}>
-                  {voices.find(v => v.id === voice)?.name ?? 'Default'}
-                </Text>}
-                onPress={voices.length ? () => setSheet('voice') : undefined}
-              />
-              <Divider />
-              <Row
-                title="Read replies aloud"
-                sub={aloud ? 'Nu and Ra speak each new reply. Tap Stop to quiet one.' : 'Only when you tap “Hear it”.'}
-                right={aloud ? <On /> : <Text style={{ color: t.ink3, fontSize: 13.5 }}>Off</Text>}
-                onPress={async () => { await setReadsAloud(!aloud); setAloud(!aloud); }}
-              />
-            </>
-          )}
-        </Group>
-
-        <Group title="Backlog">
-          <Row
-            title="One pass through your backlog"
-            sub="Go through what's waiting, one decision each. Not graded."
-            onPress={() => router.push('/triage')}
-          />
-        </Group>
-
-        <Group title="Habits">
-          <Row
-            title="Add a habit"
-            sub="A cue and a tiny action — not a recurring task, no streak."
-            onPress={() => router.push('/habit')}
-          />
-        </Group>
-
-        <Group title="Your data">
-          <Row
-            title="Export activity log"
-            sub="What Nura has recorded — tasks shown, started, finished — as a file you keep. Nothing is sent anywhere."
-            onPress={async () => {
-              const json = await exportLog();
-              const name = `nura-activity-${new Date().toISOString().slice(0, 10)}.json`;
-              if (Platform.OS === 'web') {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-                a.download = name; a.click();
-                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-              } else {
-                await Share.share({ title: name, message: json });
-              }
-            }}
-          />
-        </Group>
-
-        <Group title="Help">
-          <Row
-            title="Start from the beginning"
-            sub="The story and the first questions again. Your tasks are untouched."
-            onPress={askToReplayIntro}
-          />
-        </Group>
-
-        <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 19, marginTop: 20, paddingHorizontal: 4 }}>
-          {session
-            ? 'Everything you write down is stored on this phone, and your tasks and habits are copied to your account so they reach your other devices. Your activity history stays here.'
-            : 'Everything you write down is stored on this phone, and there is no account until you make one.'}
-          {' '}When you ask Nu to plan something bigger, that goal, your answers and the project’s steps are sent to Nura’s planner to work out the next move. They aren’t kept there.
+      <ScrollView key={open ?? 'list'} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ color: t.ink, fontSize: 34, lineHeight: 36, fontFamily: T.display, letterSpacing: -1.5, marginTop: 6, marginHorizontal: 4 }}>
+          {page ? page.title : 'Settings'}
         </Text>
 
-        <ActionSheet visible={sheet === 'dayEnd'} title="When should your day end?" dismissLabel="Close" onDismiss={() => setSheet(null)}
-          actions={DAY_ENDS.map(m => ({
-            key: String(m), glyph: m === dayEndMin ? '✓' : '·', label: dayEndLabel(m), onPress: () => setDayEnd(m),
-          }))} />
-        <ActionSheet visible={sheet === 'lang'} title="Language for Nu and Ra" dismissLabel="Close" onDismiss={() => setSheet(null)}
-          actions={LANGUAGES.map(l => ({
-            key: l.code, glyph: l.code === lang ? '✓' : '·', label: l.name, onPress: () => pickLanguage(l.code),
-          }))} />
-        <ActionSheet visible={sheet === 'voice'} title="Voice" subtitle={languageName(lang)} dismissLabel="Close" onDismiss={() => setSheet(null)}
-          actions={[
-            { key: 'default', glyph: voice ? '·' : '✓', label: 'The phone’s default',
-              onPress: async () => { await setChosenVoice(null); setVoice(null); say('I’m here. Let’s find one place to begin.'); } },
-            ...voices.slice(0, 7).map(v => ({
-              key: v.id, glyph: v.id === voice ? '✓' : '·', label: v.name, sub: v.enhanced ? 'enhanced' : undefined,
-              onPress: async () => { await setChosenVoice(v.id); setVoice(v.id); say('I’m here. Let’s find one place to begin.'); },
-            })),
-          ]} />
+        {page ? <page.Page /> : (
+          <>
+            {/* you: Profile holds the account (email, sign out, delete) */}
+            <Card>
+              <Pressable onPress={() => { Haptics.selectionAsync(); router.push('/profile'); }} accessibilityRole="button" accessibilityLabel="Profile"
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14, backgroundColor: pressed ? t.subtle : 'transparent' })}>
+                <Avatar size={48} edge />
+                <Text numberOfLines={1} style={{ flex: 1, color: t.ink, fontSize: 18, fontFamily: T.display, letterSpacing: -0.4 }}>{profile.name.trim() || 'You'}</Text>
+                <IconChevron size={16} color={t.ink3} />
+              </Pressable>
+            </Card>
+
+            {groups.map((g, i) => (
+              <Card key={i}>
+                {g.map((p, j) => (
+                  <View key={p.key}>
+                    {j > 0 && <Divider />}
+                    <Row icon={p.icon} title={p.title} onPress={() => setOpen(p.key)} />
+                  </View>
+                ))}
+              </Card>
+            ))}
+
+            {!!session && (
+              <Pressable onPress={() => { Haptics.selectionAsync(); signOut(); }} accessibilityRole="button"
+                style={({ pressed }) => ({
+                  marginTop: 28, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: pressed ? t.subtle : t.layer, borderWidth: 1, borderColor: t.stroke,
+                })}>
+                <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.display }}>Log out</Text>
+              </Pressable>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
