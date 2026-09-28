@@ -103,26 +103,34 @@ function Timer() {
     return () => { deactivateKeepAwake('nura.focus').catch(() => {}); };
   }, [awake, phase]);
 
-  // begin — or pick up the session that's already running for this task
+  // begin — or pick up the session that's already running for this task. The
+  // task is read first: a done one is never begun again, it goes home (the web
+  // reloading on Done lands back here with the same id and nothing running).
   useEffect(() => {
     if (!id) return;
     const r = useStore.getState().running;
-    if (!r || r.id !== id) {
-      const now = Date.now();
-      setRunning({ id, title: '', startedAt: now, endAt: open ? null : now + initial * 1000, span: initial, pausedAt: null });
-      logEvent('started', id);
-      // the estimate as it stood when you began — est_minutes gets edited in
-      // place later, so this is the only record of the guess being tested
-      getTask(id).then(tk => logEvent('session_start', id, { planned: Math.round(initial / 60), est: tk?.est_minutes ?? null }));
-      // tier 2 in the NOW engine ("already started"), so coming back resumes this one
-      updateTask(id, { state: 'doing' });
-    }
+    const fresh = !r || r.id !== id;
+    const now = Date.now();     // the clock starts here, not when the read comes back
+    let live = true;
     getTask(id).then(tk => {
+      if (!live) return;
+      if (fresh && tk?.state === 'done') { goBack(); return; }
       setTask(tk);
-      const cur = useStore.getState().running;
-      if (tk && cur && cur.id === id && !cur.title) setRunning({ ...cur, title: tk.title });
+      if (fresh) {
+        setRunning({ id, title: tk?.title ?? '', startedAt: now, endAt: open ? null : now + initial * 1000, span: initial, pausedAt: null });
+        logEvent('started', id);
+        // the estimate as it stood when you began — est_minutes gets edited in
+        // place later, so this is the only record of the guess being tested
+        logEvent('session_start', id, { planned: Math.round(initial / 60), est: tk?.est_minutes ?? null });
+        // tier 2 in the NOW engine ("already started"), so coming back resumes this one
+        updateTask(id, { state: 'doing' });
+      } else {
+        const cur = useStore.getState().running;
+        if (tk && cur && cur.id === id && !cur.title) setRunning({ ...cur, title: tk.title });
+      }
+      (globalThis as any).__nuraRunning?.(id);
     });
-    (globalThis as any).__nuraRunning?.(id);
+    return () => { live = false; };
   }, [id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // The clock is wall time (store.running), so this only has to redraw — it
@@ -134,7 +142,8 @@ function Timer() {
 
   const r = running && running.id === id ? running : null;
   const at = r?.pausedAt ?? Date.now();
-  const left = r?.endAt ? Math.max(0, Math.round((r.endAt - at) / 1000)) : 0;
+  // until that read is back there's no session yet: the clock shows its full length, not 00:00
+  const left = r?.endAt ? Math.max(0, Math.round((r.endAt - at) / 1000)) : (r || task ? 0 : initial);
   const elapsed = r ? Math.max(0, Math.round((at - r.startedAt) / 1000)) : 0;
   const span = r?.span ?? initial;
   const paused = !!r?.pausedAt;
