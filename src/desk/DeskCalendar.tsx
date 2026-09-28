@@ -108,7 +108,7 @@ export default function DeskCalendar() {
       <Mica />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
-          <DeskHeader title="Calendar">
+          <DeskHeader title="Calendar" day={sel.getTime()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 10 }}>
               <RoundButton label="‹" said={mode === 'week' ? 'Previous week' : 'Previous month'} onPress={() => step(-1)} />
               <RoundButton label="›" said={mode === 'week' ? 'Next week' : 'Next month'} onPress={() => step(1)} />
