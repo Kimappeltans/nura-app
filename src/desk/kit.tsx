@@ -451,6 +451,12 @@ export function Reading({ read, ask, said }: { read: NonNullable<ReturnType<type
   );
 }
 
+/** "45 min", "1 hr", "1 hr 30 min": never a fraction of an hour. */
+const howLong = (min: number) => {
+  const h = Math.floor(min / 60), m = Math.round(min % 60);
+  return !h ? `${m} min` : m ? `${h} hr ${m} min` : `${h} hr`;
+};
+
 /** What Nu read from the words, each part named: When, Repeats, How long, Priority, Kind. */
 export function partsOf(d: Draft): [string, string][] {
   const label = labelById(d.label);
@@ -458,7 +464,7 @@ export function partsOf(d: Draft): [string, string][] {
   const parts: [string, string][] = [];
   if (at && !d.repeat_rule) parts.push(['When', [at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }), d.has_time ? at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null].filter(Boolean).join(', ')]);
   if (d.repeat_rule) parts.push(['Repeats', [describe({ ...d, due_at: null, est_minutes: null, priority: 0 }), at && d.has_time ? at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null].filter(Boolean).join(', ')]);
-  if (d.est_minutes) parts.push(['How long', d.est_minutes < 60 ? `${d.est_minutes} min` : `${d.est_minutes / 60} hr`]);
+  if (d.est_minutes) parts.push(['How long', howLong(d.est_minutes)]);
   if (d.priority >= 3) parts.push(['Priority', 'High']);
   if (label) parts.push(['Kind', label.name]);
   return parts;

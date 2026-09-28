@@ -119,6 +119,11 @@ test('a greeting and "I want to" come off the title', () => {
   is('hello i want to finish my website', { title: 'Finish my website' });
 });
 test('"hi, I need to", with its date', () => is('Hi, I need to call the dentist tomorrow at 3', { title: 'Call the dentist', due_at: on(2026, 8, 27, 15), has_time: true }));
+test('a bare 1 to 6 is the afternoon, with its minutes too; a leading zero is the clock', () => {
+  is('call the dentist tomorrow at 3:30', { title: 'Call the dentist', due_at: on(2026, 8, 27, 15, 30), has_time: true });
+  is('call the dentist tomorrow at 03:30', { title: 'Call the dentist', due_at: on(2026, 8, 27, 3, 30), has_time: true });
+  is('call mum tonight at 9:30', { due_at: on(2026, 8, 26, 21, 30), has_time: true });
+});
 test('"hey can you remind me to"', () => is('hey can you remind me to pay rent on friday', { title: 'Pay rent', due_at: on(2026, 9, 2) }));
 test('"so basically I have to"', () => is('so basically I have to send the invoice today', { title: 'Send the invoice', due_at: on(2026, 8, 26) }));
 test('"ugh ok so I need to"', () => is('ugh ok so I need to finish the website before friday', { title: 'Finish the website' }));
