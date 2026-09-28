@@ -114,7 +114,7 @@ function Timer() {
     let live = true;
     getTask(id).then(tk => {
       if (!live) return;
-      if (fresh && tk?.state === 'done') { goBack(); return; }
+      if (fresh && (!tk || tk.state === 'done' || tk.state === 'dropped')) { goBack(); return; }
       setTask(tk);
       if (fresh) {
         setRunning({ id, title: tk?.title ?? '', startedAt: now, endAt: open ? null : now + initial * 1000, span: initial, pausedAt: null });

@@ -7,9 +7,9 @@ import Svg, { Path } from 'react-native-svg';
 import { create } from 'zustand';
 import { useStore, useTheme } from '../store';
 import { pickForToday, updateTask, capture, dropTask, steps, type Task } from '../db';
-import { parseTask, describe } from '../assistant';
+import { parseTask, describe, type Draft } from '../assistant';
 import { router } from 'expo-router';
-import { understandLocal } from '../understand';
+import { understandLocal, SURE, UNSURE } from '../understand';
 import { getLanguage } from '../planner';
 import { readOf } from '../components/CaptureSheet';
 import { type as T, type Theme } from '../theme';
@@ -213,14 +213,19 @@ export function usePageKeys(fn: (e: KeyboardEvent) => void, on = true) {
  * (a goal goes to the planner); ⌘K comes here. In a narrow room the name and
  * Tell Nu keep the first row and the rest goes under them, so nothing squeezes.
  */
-export function DeskHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+export function DeskHeader({ title, day, children }: {
+  title: string;
+  /** the Calendar's picked day: what's put down from Tell Nu goes on it, unless the words name another */
+  day?: number | null;
+  children?: React.ReactNode;
+}) {
   const t = useTheme();
   const { inner } = useRoom();
   const name = <Text accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 0, color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display }}>{title}</Text>;
   if (children && inner < 900) {
     return (
       <View style={{ zIndex: 10, paddingTop: 22, paddingBottom: 18, gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, zIndex: 2 }}>{name}<TellNuField /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, zIndex: 2 }}>{name}<TellNuField day={day} /></View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: -10 }}>{children}</View>
       </View>
     );
@@ -229,7 +234,7 @@ export function DeskHeader({ title, children }: { title: string; children?: Reac
     <View style={{ zIndex: 10, height: 96, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
       {name}
       {children}
-      <TellNuField />
+      <TellNuField day={day} />
     </View>
   );
 }
@@ -243,7 +248,7 @@ export function DeskHeader({ title, children }: { title: string; children?: Reac
  * `stacked`: the full-width bar across the top of Home, not the end of a
  * header row.
  */
-export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
+export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number | null } = {}) {
   const t = useTheme();
   const k = deskTokens(t);
   const [text, setText] = useState('');
@@ -278,16 +283,28 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
   // what Nu makes of it, read again on every letter (on this device, instant)
   const v = text.trim();
   const u = useMemo(() => (v ? understandLocal(v, lang) : null), [v, lang]);
-  const read = useMemo(() => (v ? readOf([v], u) : null), [v, u]);
+  const read = useMemo(() => {
+    const r = v ? readOf([v], u) : null;
+    if (!r || day == null || r.kind === 'project') return r;
+    // on the Calendar: the picked day, at 9 with no time shown, as the sheet does
+    const onDay = (d: Draft): Draft => (d.due_at ? d : { ...d, due_at: new Date(day).setHours(9, 0, 0, 0), has_time: false });
+    return r.kind === 'many' ? { ...r, drafts: r.drafts.map(onDay) } : { ...r, draft: onDay(r.draft) };
+  }, [v, u, day]);
 
+  // not sure what it is, or only half sure: the sheet, which asks one question
+  // (or reads it with Claude, with your yes), never a guess put down from here
+  const unsure = read?.kind === 'task' && !!u && (u.type === 'unclear' || (u.confidence >= UNSURE && u.confidence < SURE));
+  const busy = useRef(false);
   const sheet = () => {
     setText('');
-    useStore.setState({ telling: true, tellDraft: v || null });
+    useStore.setState({ telling: true, tellDraft: v || null, tellDay: day ?? null });
   };
   const send = async () => {
     if (!v) return sheet();
     if (listening) dict.stop();
-    if (!read) return;
+    if (!read || busy.current) return;
+    if (unsure) { input.current?.blur(); return sheet(); }
+    busy.current = true;
     setText('');
     if (read.kind === 'project') {
       input.current?.blur();
@@ -295,12 +312,14 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
       return;
     }
     const drafts = read.kind === 'many' ? read.drafts : [read.draft];
-    for (const d of drafts) {
-      await capture(d.title, {
-        activity: d.activity, label: d.label, est_minutes: d.est_minutes, due_at: d.due_at, has_time: d.has_time,
-        repeat_rule: d.repeat_rule, repeat_days: d.repeat_days, priority: d.priority,
-      });
-    }
+    try {
+      for (const d of drafts) {
+        await capture(d.title, {
+          activity: d.activity, label: d.label, est_minutes: d.est_minutes, due_at: d.due_at, has_time: d.has_time,
+          repeat_rule: d.repeat_rule, repeat_days: d.repeat_days, priority: d.priority,
+        });
+      }
+    } finally { busy.current = false; }
     await useStore.getState().refresh();
     useStore.getState().showToast(drafts.length > 1 ? `${drafts.length} things put down` : `Put down: ${drafts[0].title}`);
     // ready for the next one
@@ -318,6 +337,7 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
           backgroundColor: k.field, borderWidth: 1, borderColor: listening ? t.ra : focus ? t.ink3 : t.strokeStrong,
           ...(k.shadow ?? {}), cursor: 'text',
         } as unknown as ViewStyle}>
+        <FocusRing on={focus && !listening} radius={stacked ? 18 : 16} />
         <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
           <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
         </Pressable>
@@ -347,13 +367,14 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
           </View>
         )}
       </Pressable>
-      {open && <ReadOut read={read} listening={listening} note={dict.note} />}
+      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} />}
     </View>
   );
 }
 
 /** Under Tell Nu while you type: what Nu read, and what Enter will do with it. */
-function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; listening: boolean; note: string }) {
+/** `ask`: Nu isn't sure; Enter opens the sheet, which asks this (or reads it with Claude). */
+function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null }) {
   const t = useTheme();
   const k = deskTokens(t);
   const chips = (d: ReturnType<typeof parseTask>) => {
@@ -361,7 +382,7 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
     const label = labelById(d.label);
     return label ? [...bits, label.name] : bits;
   };
-  const enter = read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
+  const enter = ask != null ? 'Ask Nu' : read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
   useEffect(() => { if (read?.kind === 'project') announce('A project. Enter plans it.'); }, [read?.kind]);
   return (
     <View accessibilityLiveRegion="polite" style={{
@@ -375,13 +396,12 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
         <View style={{ gap: 4 }}>
           <Text style={{ color: k.raText, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>A project</Text>
           <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-          <Text style={{ color: t.ink2, fontSize: 14.5, fontFamily: T.brand }}>Nu breaks it into steps and opens it on the first one.</Text>
         </View>
       )}
       {read?.kind === 'task' && (
         <View style={{ gap: 8 }}>
           <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-          <Chips items={chips(read.draft)} />
+          {ask ? <Text style={{ color: k.raText, fontSize: 14.5, fontFamily: T.brand }}>{ask}</Text> : <Chips items={chips(read.draft)} />}
         </View>
       )}
       {read?.kind === 'many' && (
@@ -398,7 +418,6 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
         <View {...decorative} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.stroke }}>
           <Key k="↵" />
           <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{enter}</Text>
-          <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand, marginLeft: 'auto' }}>Esc clears</Text>
         </View>
       )}
     </View>
@@ -634,6 +653,18 @@ function BinButton({ onPress, title }: { onPress: () => void; title: string }) {
   );
 }
 
+/**
+ * The keyboard's focus on a field that draws its own frame (Tell Nu, search,
+ * a line to add): two pixels of ink just outside it, so it's plain to see on
+ * cream and on navy (WCAG 2.4.7) without a second ring inside the field.
+ * Put it first inside the frame, which must not clip its children.
+ */
+export function FocusRing({ on, radius }: { on: boolean; radius: number }) {
+  const t = useTheme();
+  if (!on) return null;
+  return <View {...decorative} pointerEvents="none" style={{ position: 'absolute', top: -4, left: -4, right: -4, bottom: -4, borderRadius: radius + 4, borderWidth: 2, borderColor: t.ink }} />;
+}
+
 /** A line to put something down, with a dashed + before it. Enter adds it and keeps the line open for the next. */
 export function AddRow({ placeholder, onAdd, ink }: { placeholder: string; onAdd: (text: string) => Promise<void> | void; ink?: string }) {
   const t = useTheme();
@@ -650,6 +681,7 @@ export function AddRow({ placeholder, onAdd, ink }: { placeholder: string; onAdd
   return (
     <Pressable onPress={() => input.current?.focus()} accessible={false}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 14, height: 48, cursor: 'text' } as unknown as ViewStyle}>
+      <FocusRing on={focus} radius={10} />
       {/* focused, the + firms up from dashed to a line: this line's own focus, not the coral ring */}
       <View {...decorative} style={{ width: 23, height: 23, borderRadius: 12, borderWidth: 1.5, borderStyle: focus ? 'solid' : 'dashed', borderColor: focus ? t.ink2 : t.strokeStrong, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: focus ? t.ink : t.ink3, fontSize: 15, lineHeight: 17 }}>+</Text>
