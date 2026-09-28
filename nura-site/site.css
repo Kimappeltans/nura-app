@@ -96,7 +96,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 
 /* ─── the sky hero ─── */
 .hero { padding-block: clamp(48px, 7vw, 96px) clamp(56px, 8vw, 104px); }
-.hero.sky { overflow: hidden; isolation: isolate; padding: calc(65px + clamp(40px, 5.5vw, 76px)) 0 0; background:
+.hero.sky { overflow: hidden; overflow: clip; isolation: isolate; padding: calc(65px + clamp(40px, 5.5vw, 76px)) 0 0; background:
     radial-gradient(55% 60% at 88% 18%, rgba(255,150,100,.16), transparent 70%),
     radial-gradient(45% 50% at 0% 100%, rgba(255,190,150,.16), transparent 70%), #FFFFFF; }
 .hx-copy { position: relative; z-index: 2; text-align: center; max-width: 1040px; }
@@ -140,6 +140,13 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
    beside the phone and lands in its stack, and stays. Hidden only once the
    script is running, so without it the phone simply shows its day. */
 .hx-line { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* the home page's stage: bigger on a big screen, and pinned while the sun
+   crosses it when the window is tall enough to hold all of it (site.js sets
+   .pin and the run's height) */
+.hx-run { position: relative; margin-top: clamp(40px, 5vw, 64px); }
+.hx-run .hx-stage { margin-top: 0; height: clamp(440px, 52vw, 760px); }
+.hx-run .hx-stage .phone { width: clamp(260px, 22vw, 520px); }
+.hx-run.pin .hx-stage { position: sticky; top: 84px; }
 .hx-stage .hx-chip { z-index: 4; transition: opacity .6s ease, translate .6s ease; }
 .hx-stage.rising .hx-chip:not(.on) { opacity: 0; translate: 0 14px; }
 .hx-stage .hx-chip.fly { animation-play-state: paused; opacity: 0;
@@ -237,7 +244,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .num { display: block; margin-bottom: 18px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--coral-deep); font-variant-numeric: tabular-nums; }
 
 /* ─── cards: one recipe, a fill and a hairline ─── */
-.card, .tile, .roadmap, .suggest, .who, .path, .demo-in, .demo-out, .learn-task {
+.card, .tile, .roadmap, .suggest, .who, .path, .demo-in, .demo-out, .bd-say, .bd-sort, .learn-task {
   border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text); }
 .tile { border-radius: var(--r-lg); padding: 28px; transition: transform .5s var(--ease-pop); }
 .tile p { margin-top: 8px; color: var(--sub); font-size: 15.5px; }
@@ -361,6 +368,48 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .demo-list .chips-row span.held { color: var(--sub); border-style: dashed; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (max-width: 860px) { .demo { grid-template-columns: 1fr; } }
+
+/* the breakdown (Try it, site.js): what you said, each piece marked and named
+   as Nu reads it, then the pieces sorted, the big one in steps, and the
+   planner's pick in front */
+.bd { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: clamp(36px, 5vw, 56px); align-items: start; }
+.bd-say, .bd-sort { border-radius: var(--r-lg); padding: 24px 26px; }
+.bd-mess { margin: 6px 0 0; min-height: 170px; font-size: clamp(19px, 1.9vw, 24px); line-height: 2.05; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
+.bd-mess .f { transition: color .5s ease; }
+.bd-mess.read .f { color: #B9B1A2; }
+.bd-mess.typing::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.12em; background: var(--coral); animation: bd-caret 1s steps(1) infinite; }
+@keyframes bd-caret { 50% { opacity: 0; } }
+.bd-mess mark { position: relative; color: inherit; background: none; border-radius: 6px; padding: 2px 3px; margin: 0 -3px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: box-shadow .45s ease; }
+.bd-mess mark.on { box-shadow: inset 0 -0.5em 0 var(--hl); }
+.bd-mess mark::before { content: attr(data-tag); position: absolute; left: 3px; bottom: calc(100% - 4px); white-space: nowrap; line-height: 1;
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--tag);
+  opacity: 0; transform: translateY(4px); transition: opacity .35s ease, transform .35s ease; }
+.bd-mess mark.on::before { opacity: 1; transform: none; }
+.bd-mess .k-task { --hl: rgba(47,75,201,.16); --tag: var(--blue); }
+.bd-mess .k-project { --hl: rgba(255,107,53,.24); --tag: var(--coral-deep); }
+.bd-mess .k-feel { --hl: rgba(149,139,119,.2); --tag: var(--ink-3); }
+.bd .demo-form input { font-size: 15.5px; }
+.bd-wait { display: flex; align-items: center; gap: 12px; margin: 8px 0 0; font-size: 15px; color: var(--ink-3); }
+.bd-wait[hidden] { display: none; }
+.bd-wait img { width: 64px; height: 64px; animation: hx-float 3s ease-in-out infinite; }
+.bd-reply { margin: 0 0 14px; font-size: 16px; color: var(--ink-2); animation: rise .5s var(--ease-pop) both; }
+.bd-reply b { color: var(--ink); font-weight: 600; }
+.bd-front { margin-bottom: 14px; animation: rise .6s var(--ease-pop) both; }
+.bd-front em { min-height: 14px; }
+.bd-list { list-style: none; margin: 0; padding: 0; }
+.bd-list > li { display: grid; gap: 7px; padding: 12px 0; border-bottom: 1px solid rgba(23,19,19,.08); animation: rise .45s var(--ease-pop) both; }
+.bd-list > li:last-child { border-bottom: 0; }
+.bd-list > li.picked { opacity: .45; }
+.bd-list b { font-size: 15.5px; font-weight: 500; letter-spacing: -0.02em; }
+.bd-list .chips-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.bd-list .chips-row span { padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(23,19,19,.1); font-size: 12px; color: var(--ink-2); background: #fff; }
+.bd-list .chips-row span.proj { border-color: transparent; background: rgba(255,107,53,.14); color: var(--coral-deep); font-weight: 600; }
+.bd-steps { list-style: none; margin: 4px 0 0 4px; padding: 0 0 0 14px; border-left: 2px solid rgba(255,107,53,.4); display: grid; gap: 7px; }
+.bd-steps li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ink-2); animation: rise .4s var(--ease-pop) both; }
+.bd-steps li span { flex: none; font-size: 12.5px; color: var(--sub); }
+.bd-steps li.first { color: var(--ink); font-weight: 600; }
+@media (max-width: 860px) { .bd { grid-template-columns: 1fr; } .bd-mess { min-height: 0; } }
 
 /* ─── recovery: a quiet panel ─── */
 .panel { border-radius: 36px; padding: clamp(28px, 5vw, 64px); background: #FBF6F1; border: 1px solid var(--line); }
@@ -523,5 +572,5 @@ footer .c { margin-left: auto; opacity: .7; }
 .rv.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .rv { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; }
-  .hx-chip, .pile span, .demo-front, .demo-list li { animation: none !important; }
+  .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-steps li, .bd-mess.typing::after { animation: none !important; }
 }
