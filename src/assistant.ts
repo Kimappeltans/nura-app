@@ -105,16 +105,18 @@ function findTime(s: string): TimeFound | null {
     let h = parseInt(m[1], 10);
     // only real minutes: in "6pm" the second group is the "pm", not two digits
     const min = m[2] && /^\d{2}$/.test(m[2]) ? parseInt(m[2], 10) : 0;
-    const ap = (m[3] || m[2] || '').toLowerCase();
+    // am or pm, wherever the match put it (never the minutes: "3:30" has neither)
+    const ap = ([m[3], m[2]].find(x => !!x && /^(am|pm)$/i.test(x)) ?? '').toLowerCase();
     if (ap === 'pm' && h < 12) h += 12;
     if (ap === 'am' && h === 12) h = 0;
     // a bare "at 7" almost always means the evening for personal plans, but
     // guessing wrong on a time is worse than being literal — 7 stays 7.
     // Unless the sentence says so: "tonight at 9" is 21:00.
     if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s)) h += 12;
-    // and a bare 1 to 6 is the afternoon: nobody plans the dentist for 3 in the
-    // morning. 7 to 11 stay as said ("gym at 7" is 07:00); "3am" is still 3am.
-    else if (!ap && !m[2] && h >= 1 && h <= 6 && !/\bmorning\b/i.test(s)) h += 12;
+    // and a bare 1 to 6 is the afternoon, with its minutes or without ("at 3",
+    // "3:30"): nobody plans the dentist for 3 in the morning. 7 to 11 stay as
+    // said ("gym at 7" is 07:00); "3am" is still 3am, and "03:30" is the clock.
+    else if (!ap && h >= 1 && h <= 6 && !m[1].startsWith('0') && !/\bmorning\b/i.test(s)) h += 12;
     if (h >= 0 && h <= 23) return { h, m: min };
   }
   if (/\b(tonight|this evening)\b/i.test(s)) return { h: 19, m: 0 };
