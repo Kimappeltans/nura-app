@@ -130,7 +130,8 @@ function move(v: any): MoveDraft | null {
 
 /** The moves in order; a step can only wait on steps before it (anything else is dropped, so there's never a loop). */
 function moves(v: unknown): MoveDraft[] {
-  const list = Array.isArray(v) ? v.map(move).filter((m): m is MoveDraft => !!m).slice(0, 12) : [];
+  // a whole path: every step the goal needs (the planner is asked for 6 to 14)
+  const list = Array.isArray(v) ? v.map(move).filter((m): m is MoveDraft => !!m).slice(0, 20) : [];
   return list.map((m, i) => ({ ...m, after: [...new Set(m.after.filter(n => n < i))] }));
 }
 

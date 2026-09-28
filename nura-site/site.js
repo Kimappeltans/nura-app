@@ -5,6 +5,28 @@ const header = document.querySelector('header');
 const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
 onScroll(); addEventListener('scroll', onScroll, { passive: true });
 
+// small screens: the pages are behind a menu button, and open as a panel under the bar
+const bar = header.querySelector('.bar'), pages = bar && bar.querySelector('nav');
+if (pages) {
+  pages.id = 'pages';
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'menu-btn';
+  b.setAttribute('aria-controls', 'pages');
+  b.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="a" d="M5 8h14"/><path class="b" d="M5 16h14"/></svg>';
+  bar.append(b);
+  const set = open => {
+    header.classList.toggle('open', open);
+    b.setAttribute('aria-expanded', String(open));
+    b.setAttribute('aria-label', open ? 'Close menu' : 'Menu');
+  };
+  set(false);
+  b.addEventListener('click', () => set(!header.classList.contains('open')));
+  pages.addEventListener('click', e => { if (e.target.closest('a')) set(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && header.classList.contains('open')) { set(false); b.focus(); } });
+  document.addEventListener('click', e => { if (header.classList.contains('open') && !header.contains(e.target)) set(false); });
+  matchMedia('(min-width: 801px)').addEventListener('change', e => { if (e.matches) set(false); });
+}
+
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // sections ease in once, as they arrive
@@ -292,14 +314,162 @@ if (bd && window.NuraParser) {
   // a length when none was said: what things like it usually take
   const guess = t => /\b(call|ring|phone)\b/i.test(t) ? 10 : /\b(send|email|text|reply|message|pay)\b/i.test(t) ? 5
     : /\b(book|buy|order|groceries|shop)\b/i.test(t) ? 20 : /\b(fix|clean|tidy|gym)\b/i.test(t) ? 30 : 15;
-  // a big thing's first steps (in the app, Nu plans these with you)
+  // A big thing, thought through: its phases, every step it really takes, and
+  // the things to have at hand, by name. (In the app Nu plans yours with you;
+  // these are worked examples.) A step: [title, minutes, what to gather, a note].
   const PLANS = [
-    [/web ?site|\bsite\b|landing page|portfolio/i, [['List what’s left on the site', 15], ['Write the homepage copy', 45], ['Pick the photos', 20], ['Publish it', 15]]],
-    [/offsite|trip|holiday|wedding|party|birthday/i, [['Pick two possible dates', 10], ['Ask who can come', 10], ['Book the place', 30], ['Send the plan round', 15]]],
-    [/\btax/i, [['Find last year’s return', 15], ['Gather this year’s papers', 30], ['Fill in the numbers', 45], ['File it', 15]]],
-    [/\bmov(e|ing)\b|house|flat|apartment/i, [['List what has to move', 20], ['Get two quotes', 30], ['Book the day', 10]]],
+    [/web ?site|\bsite\b|landing page|portfolio/i, [
+      ['Decide what it is', [
+        ['List what’s left on the site', 15],
+        ['Write who it’s for and the one thing they should do', 15],
+        ['Sketch the pages and the menu', 20, ['Home', 'About', 'Work or services', 'Contact']],
+      ]],
+      ['Write and gather', [
+        ['Write the homepage copy', 45],
+        ['Write the about and contact pages', 40],
+        ['Gather the pictures', 25, ['Your logo', 'A photo of you', '3 to 5 pictures of your work', 'Two lines from happy customers']],
+      ]],
+      ['Build', [
+        ['Build the pages', 90, null, 'Waits on the copy'],
+        ['Add the contact form and test it', 20],
+        ['Check every page on a phone', 20],
+        ['Fix what’s slow or broken', 30, ['Big images', 'Dead links', 'Typos']],
+      ]],
+      ['Get it ready to go live', [
+        ['Connect the domain', 20, ['Domain login', 'Hosting login']],
+        ['Write the page titles and descriptions for search', 20],
+        ['Add the privacy page and the cookie notice', 20],
+        ['Ask a friend to read it through', 10],
+      ]],
+      ['Launch', [
+        ['Fix what they found', 30],
+        ['Publish it', 15],
+        ['Tell people it’s live', 15, ['Email', 'Your profiles', 'Your email signature']],
+      ]],
+    ]],
+    [/\btax/i, [
+      ['Gather your paperwork', [
+        ['Find last year’s return', 10],
+        ['Collect your income forms', 20, ['W-2 from each employer', '1099-NEC or 1099-K for freelance work', '1099-INT and 1099-DIV from your banks', '1099-G if you had unemployment', '1099-R or SSA-1099 for retirement income']],
+        ['Collect what you can deduct', 25, ['1098 for mortgage interest', '1098-T for tuition', '1098-E for student loan interest', 'Charity receipts', 'Medical bills', 'Childcare costs and the provider’s tax ID']],
+        ['Collect your health cover forms', 10, ['1095-A if you bought cover on the marketplace', 'HSA statements (1099-SA, 5498-SA)']],
+        ['Get your details together', 10, ['Social Security numbers, yours and your dependents’', 'Bank routing and account number', 'Last year’s AGI', 'Your IP PIN, if you have one']],
+      ]],
+      ['Prepare the return', [
+        ['Choose how you’ll file', 10, ['IRS Free File', 'Tax software', 'A preparer']],
+        ['Enter your income', 30, null, 'Waits on the income forms'],
+        ['Enter deductions and credits', 30],
+        ['Add your state return', 20],
+        ['Check it against last year’s', 15],
+      ]],
+      ['File and keep', [
+        ['File the return', 15],
+        ['Pay what you owe, or set up the refund', 10],
+        ['Save a copy with all the forms', 5],
+      ]],
+    ]],
+    [/offsite|retreat|workshop|conference/i, [
+      ['Decide', [
+        ['Agree what the offsite is for', 15],
+        ['Set the budget', 15, ['Place', 'Travel', 'Food', 'Activities']],
+        ['Pick two possible dates', 10],
+        ['Ask who can come', 10],
+      ]],
+      ['Book', [
+        ['Shortlist three places', 30],
+        ['Book the place', 20, null, 'Waits on the dates'],
+        ['Book travel and rooms', 40],
+        ['Order the food', 20, ['Headcount', 'Dietary needs']],
+      ]],
+      ['Plan the days', [
+        ['Draft the agenda', 30],
+        ['Line up who runs each session', 20],
+        ['Pack what the room needs', 15, ['Screen or projector', 'Whiteboard and pens', 'Adapters', 'Name tags']],
+      ]],
+      ['Send it round', [
+        ['Send everyone the plan', 15, ['Dates and times', 'The address', 'What to bring']],
+        ['Confirm numbers a week before', 10],
+      ]],
+    ]],
+    [/\bmov(e|ing)\b|new (house|flat|apartment)/i, [
+      ['Decide and book', [
+        ['Pick the moving day', 10],
+        ['Get three quotes from movers', 30],
+        ['Book the movers or a van', 15],
+      ]],
+      ['Sort and pack', [
+        ['Sort what to keep, give away and bin', 60],
+        ['Get the packing things', 20, ['Boxes', 'Tape', 'Bubble wrap', 'Marker pens']],
+        ['Pack room by room', 120],
+        ['Pack a first night box', 15, ['Bedding', 'Chargers', 'Kettle and mugs', 'Toiletries']],
+      ]],
+      ['Paperwork', [
+        ['Change your address', 25, ['Post office', 'Bank', 'Employer', 'Insurance', 'Driving licence']],
+        ['Move the utilities', 25, ['Electricity and gas', 'Water', 'Internet']],
+      ]],
+      ['The day', [
+        ['Walk through the old place', 20],
+        ['Hand back the keys', 10],
+      ]],
+    ]],
+    [/presentation|slides|\bdeck\b|\btalk\b|pitch/i, [
+      ['Shape it', [
+        ['Write who’s in the room and what they need', 10],
+        ['Write the one thing they should remember', 10],
+        ['Outline it in five headings', 15],
+      ]],
+      ['Build it', [
+        ['Gather what goes in it', 25, ['The numbers', 'Pictures or screenshots', 'One story or example']],
+        ['Draft the slides', 60],
+        ['Cut it to the time you have', 20],
+      ]],
+      ['Rehearse', [
+        ['Run through it out loud', 20],
+        ['Check the room and the screen', 10, ['Adapter', 'Clicker', 'A copy on a stick']],
+        ['Send the deck round', 5],
+      ]],
+    ]],
+    [/party|wedding|birthday|dinner|shower/i, [
+      ['Decide', [
+        ['Pick the date and the place', 15],
+        ['Write the guest list', 20],
+        ['Set the budget', 10],
+      ]],
+      ['Book and invite', [
+        ['Book the place', 20],
+        ['Send the invitations', 20, ['Date and time', 'Address', 'Reply by']],
+        ['Order the food and the cake', 20, ['Headcount', 'Dietary needs']],
+      ]],
+      ['Get ready', [
+        ['Plan the music', 15],
+        ['Buy what’s needed', 30, ['Drinks', 'Decorations', 'Candles', 'Plates and cups']],
+        ['Confirm numbers', 10],
+      ]],
+      ['The day', [
+        ['Set up the room', 40],
+        ['Clear up after', 30],
+      ]],
+    ]],
   ];
-  const planOf = t => (PLANS.find(([re]) => re.test(t)) ?? [0, [['Write down what done looks like', 10], ['List the pieces', 15], ['Do the first piece', 25]]])[1];
+  // anything else: the same thinking, in general words
+  const ANY = [
+    ['Get clear', [
+      ['Write down what done looks like', 10],
+      ['List everything it needs', 15, ['People to ask', 'Things to find or buy', 'Logins and files']],
+      ['Put the list in order', 10],
+    ]],
+    ['Do it', [
+      ['Do the first piece', 25],
+      ['Get what’s missing', 20],
+      ['Do the next piece', 45],
+    ]],
+    ['Finish', [
+      ['Check it against what done looks like', 10],
+      ['Hand it over or send it', 10],
+    ]],
+  ];
+  const planOf = t => (PLANS.find(([re]) => re.test(t)) ?? [0, ANY])[1];
+  const span = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
   const dayWord = ms => {
     const d = new Date(ms), t = new Date(), t1 = new Date(); t1.setDate(t.getDate() + 1);
     return d.toDateString() === t.toDateString() ? 'Today' : d.toDateString() === t1.toDateString() ? 'Tomorrow' : d.toLocaleDateString([], { weekday: 'long' });
@@ -319,8 +489,9 @@ if (bd && window.NuraParser) {
       const project = v.type === 'project' || (/\btax(es)?\b|\boffsite\b|\bweb ?site\b/i.test(words) && d.title.split(/\s+/).length <= 5);
       const est = d.est_minutes || (project ? null : guess(d.title));
       const when = d.due_at ? (project ? `By ${dayWord(d.due_at)}` : dayWord(d.due_at) + (d.has_time ? ` ${clock(d.due_at)}` : '')) : null;
+      const phases = project ? planOf(words) : null;
       return { raw, words, d, est, guessed: !d.est_minutes, kind: project ? 'project' : 'task', when,
-        tag: [project ? 'Project' : 'Task', when].filter(Boolean).join(' · '), steps: project ? planOf(words) : null };
+        tag: [project ? 'Project' : 'Task', when].filter(Boolean).join(' · '), phases, steps: phases ? phases.flatMap(([, xs]) => xs) : null };
     });
     return { load: u.read && u.read.load, pieces };
   };
@@ -357,24 +528,44 @@ if (bd && window.NuraParser) {
     const anchors = tasks.filter(t => t.has_time && t.due_at && new Date(t.due_at).toDateString() === today).map(t => t.due_at);
     return P.rankActions(tasks, { now, dayEndMin: 23 * 60, energy: 'steady', anchors, moves })[0] ?? null;
   };
+  // the phases across the days you have: today to the day it's due
+  const daysFor = (phases, due) => {
+    if (!due) return [];
+    const t0 = new Date().setHours(12, 0, 0, 0), n = Math.max(0, Math.round((new Date(due).setHours(12, 0, 0, 0) - t0) / 86400000));
+    return phases.map((_, i) => dayWord(t0 + Math.round(i * n / Math.max(1, phases.length - 1)) * 86400000));
+  };
   const row = p => {
     const li = el('li');
     li.append(el('b', '', p.d.title));
     const chips = el('div', 'chips-row');
     if (p.steps) chips.append(el('span', 'proj', 'Project'));
     if (p.when) chips.append(el('span', '', p.when));
+    if (p.steps) chips.append(el('span', '', `${p.steps.length} steps`), el('span', '', `about ${span(Math.round(p.steps.reduce((a, x) => a + x[1], 0) / 15) * 15)}`));
     if (p.est) chips.append(el('span', '', `${p.guessed ? 'about ' : ''}${p.est} min`));
     const label = p.d.label && P.labelById(p.d.label);
     if (label) chips.append(el('span', '', label.name));
     li.append(chips);
-    if (p.steps) {
-      const ol = el('ol', 'bd-steps');
-      p.steps.forEach(([t, m], i) => {
-        const s = el('li', i ? '' : 'first', t); s.append(el('span', '', `${m} min`));
-        s.style.animationDelay = still ? '0s' : `${0.25 + i * 0.22}s`;
-        ol.append(s);
+    if (p.phases) {
+      const plan = el('div', 'bd-plan'), days = daysFor(p.phases, p.d.due_at);
+      let n = 0;
+      p.phases.forEach(([name, steps], i) => {
+        const head = el('div', 'bd-phase');
+        head.append(el('b', '', name));
+        if (days[i]) head.append(el('span', '', days[i]));
+        head.style.animationDelay = still ? '0s' : `${0.2 + n * 0.09}s`;
+        const ol = el('ol', 'bd-steps');
+        steps.forEach(([t, m, items, note]) => {
+          const s = el('li', n ? '' : 'first'), top = el('div', 'st');
+          top.append(el('span', 'n', String(n + 1)), el('span', 't', t), el('span', 'm', span(m)));
+          s.append(top);
+          if (note) s.append(el('small', '', note));
+          if (items) { const ul = el('ul', 'bd-need'); items.forEach(x => ul.append(el('li', '', x))); s.append(ul); }
+          s.style.animationDelay = still ? '0s' : `${0.25 + n * 0.09}s`;
+          ol.append(s); n++;
+        });
+        plan.append(head, ol);
       });
-      li.append(ol);
+      li.append(plan);
     }
     p.li = li;
     return li;
@@ -414,7 +605,7 @@ if (bd && window.NuraParser) {
       if (p.kind === 'feel') continue;
       if (me !== run) return;
       list.append(row(p));
-      await wait(p.steps ? 1100 : 380);
+      await wait(p.steps ? 500 + p.steps.length * 90 : 380);
     }
     // where to start, in front
     await wait(400);

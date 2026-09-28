@@ -16,15 +16,18 @@ What makes a good move:
 - Starts with a verb. 3 to 8 words: it has to fit on one line of a phone. No prefixes ("Spend two minutes on:", "Step 1:"); the time goes in \`est_minutes\`. Specific to their goal, never generic advice ("stay focused", "make a plan", "research best practices").
 - Moves the actual goal forward, or removes the thing that's stopping it. Not busywork.
 - Usually 5 to 25 minutes. The first move of a new project should be small: 2 to 15 minutes.
-- \`first_action\` is the very first physical motion, as a short sentence: "Open the draft on your laptop." "Find the email from Sam."
+- \`first_action\` is the very first physical motion, as a short sentence: "Open the draft on your laptop." "Find the email from Sam." For a step that gathers or prepares several things, it names them, as one short sentence: "Find your W-2s, any 1099s and last year's return."
 - \`why\` is one short sentence about why this move comes now. Honest, not motivational.
 - \`est_minutes\` is your honest guess in whole minutes.
 - \`after\` lists the indexes (in the steps you return) of earlier steps this one can't start without. Leave it empty when a step could be done in any order; most steps have none.
 - \`optional\` is true for a step that would help but that the goal doesn't need.
 
 What makes a good path:
-- 3 to 6 steps, in order. The first is usually the current move. Later steps can be broader; they will be revised as the person goes.
-- A short path is better than a complete one. The number of steps is not a measure of quality; the quality of the next move is.
+- Complete: every step the goal really needs, in order, so the person can see the whole way from here to done and nothing is forgotten. Usually 6 to 14 steps; a small project can have fewer. Think through what this kind of project takes in real life: what has to be gathered, decided, made, checked, sent and filed. Don't skip the unglamorous parts (the paperwork, the logins, the booking, the final check).
+- Specific: name the actual things. For taxes, the papers by name (the W-2 from each employer, 1099s, the 1098, last year's return). For a trip, each booking. For a website, each page. A step like "Gather your documents" is too vague: say which.
+- Where the person lives changes forms, offices and deadlines. If the request doesn't say, guess from the language and what they wrote, and record the guess in \`assumptions\`.
+- The first step is usually the current move, and it stays small. Later steps can be bigger; they will be revised as the person goes.
+- A long path must never feel heavy: the person sees one move at a time. The next move matters most; the rest is there so they can trust nothing is missing.
 - \`done_means\` is one sentence saying what finished looks like, in the person's terms.
 - \`title\` is a short name for the project, 2 to 6 words, the way the person would say it ("Finish my website").
 
