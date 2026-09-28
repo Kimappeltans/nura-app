@@ -180,10 +180,16 @@ Reference: the redesign preview of 27 September.
   before" last), and Start, Not now (passed on for today, the next one comes
   up) and Something changed (bigger than I thought, stuck or waiting, not
   today, already done, not needed). Under it **After that**: the next three,
-  Today's first. Beside it **Your day**: the time you really have left
+  Today's first. Beside it **Your day**: the sun's arc with Ra on it, as on
+  the phone (Start, how many done, Day ends), the time you really have left
   (around your events), what Today holds, and what Nu suggests changing, one
-  at a time with Yes and Undo. With nothing held: "What's going on?" with
-  Nu and a few lines to try. After the day's end: Nu resting, and what
+  at a time with Yes and Undo. **Getting started** (`src/desk/Guide.tsx`):
+  three steps that tick themselves off when you've really done them (tell
+  Nu what's going on, start your next move, tell Nu when the day changes).
+  With nothing held it is the main card and shows what you can say, each
+  line marked Example; tapping one puts it in Tell Nu to show how Nu reads
+  it, and nothing is added until Enter. With a move in front it is a small
+  card beside it. Done, or Hide, and it's gone. After the day's end: Nu resting, and what
   tomorrow starts with. The clock, the counts and the week are the
   Calendar's now; the sun's glow still rises behind the room (Mica).
 - **Tasks:** Nu on the surface of the water, Today / This week / Someday as

@@ -12,7 +12,6 @@ import { TaskSheet } from '../components/TaskSheet';
 import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { Suggestions } from '../components/Suggestions';
 import { HomeAsks } from '../components/HomeAsks';
-import { NuGlow } from '../components/NuGlow';
 import { byPlan, DEFAULT_MINUTES } from '../next';
 import { byPriority } from '../screens/Home';
 import type { Tab } from '../components/TabBar';
@@ -23,6 +22,8 @@ import {
   day0, addDays, WDL, MO, CORAL, ON_CORAL,
 } from './kit';
 import { useNow } from './useRange';
+import { DayArc } from './DayArc';
+import { Guide, useGuide } from './Guide';
 import { backToSession } from '../nav';
 
 /**
@@ -30,11 +31,12 @@ import { backToSession } from '../nav';
  * September). Tell Nu across the top, for whatever's going on. Under it the
  * one thing at full size: your next move, how long it will really take you,
  * the planner's facts for why this one, and Start, Not now or Something
- * changed. Beside it, your day: the time you actually have left, what Today
- * holds, and what Nu suggests changing (one tap, with Undo). Under the move,
- * what comes after it. The clock, the counts and the week live in the
- * Calendar now; the sun's glow still rises behind the room as things get
- * done (Mica).
+ * changed. Beside it, your day: the sun's arc with Ra on it (as on the
+ * phone), the time you actually have left, what Today holds, and what Nu
+ * suggests changing (one tap, with Undo). Under the move, what comes after
+ * it. Until you've done the three things Nura is for, Getting started shows
+ * them (src/desk/Guide.tsx). The clock, the counts and the week live in the
+ * Calendar; the sun's glow still rises behind the room as things get done.
  */
 export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useTheme();
@@ -51,6 +53,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
   const [changing, setChanging] = useState(false);
+  const guide = useGuide();
 
   const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
   const cols = useMemo(() => columns(inbox, todayPicked, order), [inbox, todayPicked, order]);
@@ -83,7 +86,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   // your day: the time you really have, and what Today holds
   const minsOf = (x: Task) => decisions.find(d => d.taskId === x.id)?.suggestedMinutes ?? x.est_minutes ?? DEFAULT_MINUTES;
   const todayMins = cols.today.reduce((a, x) => a + minsOf(x), 0);
-  const doneToday = wins.filter(w => (w.completed_at ?? 0) >= day0(now).getTime()).length;
+  const doneAt = wins.map(w => w.completed_at ?? 0).filter(at => at >= day0(now).getTime());
+  const doneToday = doneAt.length;
   const sunUp = Math.min(1, doneToday / 5);
 
   // Not now: out of the running for today, and the next one comes up
@@ -140,6 +144,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               {/* the one thing, at full size */}
               {phase === 'night' ? (
                 <Resting first={decisions[0]?.task ?? null} />
+              ) : !front && guide.show ? (
+                <Guide full done={guide.done} at={guide.at} onHide={guide.hide} />
               ) : !front ? (
                 <Start />
               ) : (
@@ -207,8 +213,14 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
 
             {/* your day: the time you have, what Today holds, and what Nu would change */}
             <View style={{ flex: side ? 2 : undefined, minWidth: 0, gap: 16 }}>
+              {/* getting started, small, once there's a move in front */}
+              {!!front && guide.show && phase !== 'night' && <Guide done={guide.done} at={guide.at} onHide={guide.hide} />}
               <DeskCard style={{ paddingVertical: 20, paddingHorizontal: 24 }}>
                 <Label>Your day</Label>
+                {/* the day's arc, as on the phone: Ra where the day is, a dot for each thing done */}
+                <View style={{ marginTop: 34, marginBottom: 16 }}>
+                  <DayArc now={now} height={118} done={doneAt} count />
+                </View>
                 <Text style={{ color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display, marginTop: 10 }}>
                   {phase === 'day' ? fmtMins(left) : phase === 'early' ? clockOf(dayStartMin) : 'Done'}
                 </Text>
@@ -227,7 +239,6 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
                       ? `Today holds ${cols.today.length === 1 ? '1 thing' : `${cols.today.length} things`}, about ${fmtMins(todayMins)}.`
                       : 'Nothing on Today yet.'}
                   </Text>
-                  {doneToday > 0 && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{doneToday} done today.</Text>}
                 </View>
               </DeskCard>
               {/* what Nu asks, or what the planner proposes to change: one tap, with Undo */}
@@ -257,31 +268,13 @@ function clockOf(min: number) {
   return `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, '0')}`;
 }
 
-/** Nothing held yet: say what's going on, and Nu sorts it and picks where to start. */
+/** Nothing held, and the guide put away: Nu, and the question. The answer goes in Tell Nu, above. */
 function Start() {
   const t = useTheme();
-  const k = useDeskTokens();
-  const TRY = ['finish the site, call the dentist tue 3pm, send Sarah the deck', 'launch my website', 'pay rent friday 10 min'];
   return (
     <DeskCard style={{ paddingVertical: 28, paddingHorizontal: 30, flexDirection: 'row', gap: 24, alignItems: 'center' }}>
-      <View {...decorative}><NuGlow size={110}><Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: 110, height: 110 }} /></NuGlow></View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, letterSpacing: -1, fontFamily: T.display }}>What’s going on?</Text>
-        <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 24, fontFamily: T.brand, marginTop: 8 }}>
-          Tell Nu everything on your mind, in any order. Nu turns it into tasks, plans the big ones, and picks where you start.
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-          {TRY.map(x => (
-            <Pressable key={x} onPress={() => useStore.setState({ telling: true, tellDraft: x })} accessibilityRole="button" accessibilityLabel={`Try: ${x}`}
-              style={(s) => {
-                const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
-                return { borderRadius: 999, borderWidth: 1, borderColor: t.strokeStrong, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: pressed || hovered ? k.wash : 'transparent' };
-              }}>
-              <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{x}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+      <Image {...decorative} source={poseImage('nu-listen')} resizeMode="contain" style={{ width: 110, height: 110 }} />
+      <Text accessibilityRole="header" style={{ flex: 1, color: t.ink, fontSize: 30, letterSpacing: -1, fontFamily: T.display }}>What’s going on?</Text>
     </DeskCard>
   );
 }

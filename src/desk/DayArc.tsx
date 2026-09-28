@@ -12,9 +12,10 @@ import { clockParts, CORAL } from './kit';
  * starts to when it ends. Solid and lit underneath as far as the day has
  * gone, dotted for what's left. Ra rides it in its glow; coral dots are where
  * things got done. Before the day starts Ra is just under the horizon at the
- * start; once it has ended, Ra sits down at the end.
+ * start; once it has ended, Ra sits down at the end. It lives in Home's Your
+ * day card (Kim, 28 September: the desktop keeps the arc, like the phone).
  */
-export function DayArc({ now, done = [], height }: { now: Date; done?: number[]; height: number }) {
+export function DayArc({ now, done = [], height, count }: { now: Date; done?: number[]; height: number; /** "2 done" between the two ends, as on the phone */ count?: boolean }) {
   const t = useTheme();
   const dark = t.key === 'nu';
   const start = useStore(s => s.dayStartMin);
@@ -98,6 +99,12 @@ export function DayArc({ now, done = [], height }: { now: Date; done?: number[];
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
         <End time={s.time} ampm={s.ampm} label="Start" />
+        {count && (
+          <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+            <View {...decorative} style={{ width: 18, height: 9, borderTopLeftRadius: 9, borderTopRightRadius: 9, backgroundColor: CORAL, marginBottom: 5 }} />
+            <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{done.length} done</Text>
+          </View>
+        )}
         <End time={e.time} ampm={e.ampm} label="Day ends" right />
       </View>
     </View>

@@ -68,8 +68,12 @@ export function clockParts(min: number) {
 }
 
 /** What the desktop rooms remember between them: the Calendar's view and its picked day (Home's week opens it). */
-export const useDeskState = create<{ calMode: 'week' | 'month'; calOff: number; calDay: number | null }>(() => ({
-  calMode: 'week', calOff: 0, calDay: null,
+export const useDeskState = create<{
+  calMode: 'week' | 'month'; calOff: number; calDay: number | null;
+  /** words handed to Tell Nu from outside it (the getting started guide's examples): shown as an example, not added */
+  tellText: string | null;
+}>(() => ({
+  calMode: 'week', calOff: 0, calDay: null, tellText: null,
 }));
 
 /**
@@ -256,6 +260,17 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
   const [lang, setLang] = useState('en');
   const input = useRef<TextInput>(null);
   useEffect(() => { getLanguage().then(setLang).catch(() => {}); }, []);
+  // an example from the getting started guide: the words arrive here, marked as an
+  // example, so you see how Nu reads them. Nothing is added until you press Enter.
+  const [example, setExample] = useState(false);
+  const given = useDeskState(x => x.tellText);
+  useEffect(() => {
+    if (given == null) return;
+    setText(given); setExample(true);
+    useDeskState.setState({ tellText: null });
+    const id = setTimeout(() => input.current?.focus(), 0);
+    return () => clearTimeout(id);
+  }, [given]);
   // ⌘K (Ctrl K) comes here from anywhere in the room, while it's in front
   useFocusEffect(useCallback(() => { tellFields++; return () => { tellFields--; }; }, []));
   const front = useInFront();
@@ -275,6 +290,7 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
   const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
   const listening = dict.state === 'listening';
   const mic = () => {
+    setExample(false);
     if (!listening) base.current = text.trim();
     dict.toggle();
     setTimeout(() => input.current?.focus(), 0);
@@ -326,7 +342,8 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
     input.current?.focus();
   };
   const mac = Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
-  const open = (focus || listening) && (!!read || listening);
+  // an example shows its read-out whether or not the field took the focus
+  const open = (focus || listening || example) && (!!read || listening);
   return (
     <View style={{ ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 520, minWidth: 200 }), zIndex: 20 } as ViewStyle}>
       <Pressable onPress={() => input.current?.focus()} accessible={false}
@@ -341,7 +358,7 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
         <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
           <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
         </Pressable>
-        <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
+        <TextInput ref={input} value={text} onChangeText={x => { setText(x); setExample(false); }} onSubmitEditing={send}
           {...({ dataSet: { ownFocus: '1' } } as object)}
           onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
           placeholder={listening ? 'Listening…' : stacked ? 'Tell Nu what’s going on…' : 'Tell Nu anything…'} placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
@@ -367,14 +384,14 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
           </View>
         )}
       </Pressable>
-      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} />}
+      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} example={example} />}
     </View>
   );
 }
 
 /** Under Tell Nu while you type: what Nu read, and what Enter will do with it. */
 /** `ask`: Nu isn't sure; Enter opens the sheet, which asks this (or reads it with Claude). */
-function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null }) {
+function ReadOut({ read, listening, note, ask, example }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null; example?: boolean }) {
   const t = useTheme();
   const k = deskTokens(t);
   const chips = (d: ReturnType<typeof parseTask>) => {
@@ -391,6 +408,14 @@ function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readO
       paddingVertical: 14, paddingHorizontal: 16, gap: 10,
       shadowColor: '#171313', shadowOpacity: k.dark ? 0.4 : 0.1, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
     } as ViewStyle}>
+      {example && !!read && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ borderRadius: 6, borderWidth: 1, borderColor: t.strokeStrong, paddingHorizontal: 7, paddingVertical: 2 }}>
+            <Text style={{ color: t.ink2, fontSize: 12.5, fontFamily: T.display }}>Example</Text>
+          </View>
+          <Text style={{ flex: 1, color: t.ink2, fontSize: 14, fontFamily: T.brand }}>This is how Nu reads it. Type your own over it.</Text>
+        </View>
+      )}
       {listening && !read && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{note || 'Listening…'}</Text>}
       {read?.kind === 'project' && (
         <View style={{ gap: 4 }}>
