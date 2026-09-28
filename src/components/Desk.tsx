@@ -7,7 +7,7 @@ import { setFlag } from '../db';
 import { type as T } from '../theme';
 import { Mica } from '../ui';
 import { COLUMN, MicaHosted, READ_MAX, ScreenWidth, sidebarWidth, useDesk, useWide } from '../screen';
-import { LivePill } from './LivePill';
+import { LivePill, LiveRing } from './LivePill';
 import { deskTokens, hasTellField } from '../desk/kit';
 import { Avatar } from './Avatar';
 import { TABS, goToTab } from './TabBar';
@@ -165,7 +165,7 @@ export function Sidebar() {
 
       <View style={{ flex: 1 }} />
       {/* a session left running with ⌄: tap to go back to it */}
-      {!slim && <View style={{ marginBottom: 8 }}><LivePill /></View>}
+      {slim ? <LiveRing /> : <View style={{ marginBottom: 8 }}><LivePill /></View>}
       <AccountRow slim={slim} on={tab === 'you'} onPress={() => goToTab('you', path)} />
     </View>
   );

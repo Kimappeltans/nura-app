@@ -13,6 +13,39 @@ const CORAL = '#FF6B35';
 const mmss = (secs: number) => `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 
 /**
+ * The pill, as its ring alone: the slim desktop sidebar (src/components/Desk.tsx),
+ * where there's no room for the task and the time. Tap it to go back to the session.
+ */
+export function LiveRing() {
+  const running = useStore(s => s.running);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!running || running.pausedAt) return;
+    const id = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [running?.id, running?.pausedAt]);
+  if (!running) return null;
+  const at = running.pausedAt ?? Date.now();
+  const left = running.endAt ? Math.max(0, Math.round((running.endAt - at) / 1000)) : null;
+  const elapsed = Math.max(0, Math.round((at - running.startedAt) / 1000));
+  const progress = running.endAt ? Math.min(1, 1 - (left ?? 0) / Math.max(1, running.span)) : Math.min(1, elapsed / (25 * 60));
+  const spoken = running.pausedAt ? 'Paused' : left === 0 ? 'Time’s up' : left != null ? `${spokenDuration(left)} left` : `${spokenDuration(elapsed)} so far`;
+  const C = 2 * Math.PI * 20;
+  return (
+    <Pressable onPress={() => backToSession(running)}
+      accessibilityRole="button" accessibilityLabel={`${running.title}, ${spoken}. Back to the session`}
+      style={({ pressed }) => ({ width: 46, height: 46, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: 10, opacity: pressed ? 0.85 : 1 })}>
+      <Svg width={46} height={46} style={{ position: 'absolute' }}>
+        <Circle cx={23} cy={23} r={20} fill="#1B1830" stroke="rgba(242,244,251,0.16)" strokeWidth={3} />
+        <Circle cx={23} cy={23} r={20} fill="none" stroke={CORAL} strokeWidth={3} strokeLinecap="round"
+          strokeDasharray={`${C * progress} ${C}`} transform="rotate(-90 23 23)" />
+      </Svg>
+      <Image source={poseImage('ra-rest')} style={{ width: 34, height: 34, marginTop: 2 }} resizeMode="contain" />
+    </Pressable>
+  );
+}
+
+/**
  * THE IN-PROGRESS PILL (guidelines/components/overview.md). A session you left
  * with ⌄ keeps running; this sits above the tab bar in every room — Ra resting
  * in a ring of how far along it is, the task, the time, and pause. Tap it to go
