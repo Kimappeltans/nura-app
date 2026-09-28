@@ -45,8 +45,10 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const now = useNow();
   const {
     inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, profile, projects,
-    dayStartMin, dayEndMin, left, refresh, showToast,
+    dayStartMin, dayEndMin, left: leftThen, leftAt, refresh, showToast,
   } = useStore();
+  // the time left as of the last refresh, less the minutes since (the clock moves every half minute)
+  const left = Math.max(0, leftThen - Math.max(0, (now.getTime() - leftAt) / 60_000));
   const session = useStore(s => s.session);
   const running = useStore(s => s.running);
   const { tick } = useTaskActions();
