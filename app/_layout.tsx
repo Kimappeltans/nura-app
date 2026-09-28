@@ -354,6 +354,7 @@ export default function Root() {
         <Stack.Screen name="calendar" />
         <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="learned" />
         <Stack.Screen name="companions" />
         <Stack.Screen name="chat" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { getProfile } from './signals';
+import { profileInUse } from '../patterns';
 import { rank } from './suggest';
 import { interventionsFrom } from '../interventions';
 import { dayProposal, plannerState } from '../nextActions';
@@ -43,7 +43,8 @@ export function useSuggestions(limit = 2, extra?: () => Promise<Suggestion[]>) {
     (async () => {
       const nowMs = Date.now();
       const [profile, w, hidden, day] = await Promise.all([
-        getProfile().catch(() => null), kindWeights(nowMs), hiddenKeys(nowMs),
+        // less what you said isn't you (app/learned.tsx)
+        profileInUse().catch(() => null), kindWeights(nowMs), hiddenKeys(nowMs),
         plannerState({ projects }).then(dayProposal).catch(() => null),
       ]);
       const seen = new Set<string>();

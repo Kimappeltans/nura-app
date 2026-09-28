@@ -17,9 +17,9 @@ import { spokenDuration } from '../a11y';
 /**
  * YOU, the fourth tab. A screen like the other tabs (a tab opens a place,
  * not a popup): you at the top, your picture and name (tap for your
- * Profile), with the gear for Settings; below, how it's going, and what
- * Nura is connected to. (It used to be a sheet: src/legacy has the earlier
- * menus.)
+ * Profile), with the gear for Settings; below, how it's going, what Nura
+ * has learned about how you work, and what Nura is connected to. (It used
+ * to be a sheet: src/legacy has the earlier menus.)
  */
 export default function You() {
   const t = useTheme();
@@ -92,6 +92,11 @@ export default function You() {
           </View>
           <Line />
           <Row label="Everything you’ve finished" onPress={() => go('/wins')} />
+        </Group>
+
+        {/* what Nura has learned about how you work, and the way to change it */}
+        <Group title="How you work">
+          <Row label="What Nura has learned" onPress={() => go('/learned')} />
         </Group>
 
         <Group title="Connected apps">

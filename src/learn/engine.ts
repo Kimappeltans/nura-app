@@ -5,7 +5,8 @@ import { getDb, updateTask } from '../db';
 import { modelSuggestions, maybeReflect, type OutcomeCount, type TodayTask } from '../coach';
 import { aiAllowed } from '../ai';
 import { acceptDay } from '../nextActions';
-import { getProfile, profileSummary } from './signals';
+import { profileSummary } from './signals';
+import { profileInUse } from '../patterns';
 import { useSuggestions } from './useSuggestions';
 import type { Suggestion, SuggestionKind } from './types';
 
@@ -30,7 +31,7 @@ export async function startEngine() {
   if (startedDay === day) return;
   startedDay = day;
   try {
-    const profile = await getProfile();
+    const profile = await profileInUse();          // less what you said isn't you (app/learned.tsx)
     if (profile.activeDays14 < 5) return;          // too little yet to write notes about
     await maybeReflect({
       summary: profileSummary(profile),
@@ -67,7 +68,7 @@ export function useCoach(limit = 2) {
       .slice(0, 30)
       .map(t => ({ id: t.id, title: t.title, minutes: t.est_minutes, priority: t.priority ?? 0 }));
     if (!tasks.length) return [];
-    const profile = await getProfile();
+    const profile = await profileInUse();
     if (profile.days < 3) return [];                 // the phone's rules are enough until there's history
     if (!(await aiAllowed())) return [];             // AI help off: the phone's own only, and nothing cached
     const list = await modelSuggestions(profileSummary(profile), { tasks });

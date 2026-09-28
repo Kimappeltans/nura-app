@@ -1,4 +1,4 @@
-import { getPatterns, savePatterns, type PatternRow } from './db';
+import { getDb, getPatterns, savePatterns, setFlag, type PatternRow } from './db';
 import { getProfile } from './learn/signals';
 import type { BehaviorProfile } from './learn/types';
 
@@ -16,9 +16,17 @@ import type { BehaviorProfile } from './learn/types';
  *   too_big         all             share of project moves that were too big
  *   blocked         all             share that got blocked
  *   capacity        all             minutes you really finish on a day
+ *
+ * "That's not me" (app/learned.tsx) turns one off: the row and its numbers
+ * stay, and currentPatterns() hands it back at confidence 0.
  */
 
 type Row = Omit<PatternRow, 'id' | 'updated_at'>;
+
+/** A pattern this sure is one the planner acts on (TRUSTED in src/next.ts). */
+export const TRUSTED = 0.5;
+/** The samples it takes to get there: trust(5) is 0.5. */
+export const ENOUGH = 5;
 
 /** How far to trust a number resting on n samples: 5 samples is halfway. */
 export const trust = (n: number) => (n <= 0 ? 0 : Math.round((n / (n + 5)) * 100) / 100);
@@ -44,15 +52,75 @@ export function patternsFrom(p: BehaviorProfile): Row[] {
   return rows;
 }
 
+/* ---------------- "That's not me" ---------------- */
+
+/**
+ * What a pattern is known by when it's turned off. A good hour is known by
+ * the hour, not by its place among the three (its scope): the order moves
+ * with the profile, and 10 AM turned off stays off wherever it ranks.
+ */
+export const offId = (r: Pick<PatternRow, 'kind' | 'scope' | 'value'>) =>
+  `${r.kind}.${r.kind === 'best_hour' ? r.value : r.scope}`;
+
+const OFF = 'learned.off.';
+
+/** Everything turned off, by offId (flags: learned.off.<kind>.<scope>). On this device: flags don't sync. */
+export async function turnedOff(): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ k: string }>(`SELECT k FROM app_state WHERE k LIKE ? AND v = '1'`, `${OFF}%`);
+  return new Set(rows.map(r => r.k.slice(OFF.length)));
+}
+
+/** Turn a pattern off, or back on. Its row is left as it is, so the numbers keep adding up underneath. */
+export async function setOff(r: Pick<PatternRow, 'kind' | 'scope' | 'value'>, off: boolean) {
+  await setFlag(OFF + offId(r), off ? '1' : '0');
+}
+
+/** The rows as Nura may use them: one that's turned off has confidence 0. */
+export function withoutOff<R extends Pick<PatternRow, 'kind' | 'scope' | 'value' | 'confidence'>>(rows: R[], off: Set<string>): R[] {
+  return off.size ? rows.map(r => (off.has(offId(r)) ? { ...r, confidence: 0 } : r)) : rows;
+}
+
+/**
+ * The same for the profile, for what reads it directly (the suggestion rules
+ * in learn/suggest.ts, the summary the coach gets): what's turned off isn't there.
+ */
+export function profileWithout(p: BehaviorProfile, off: Set<string>): BehaviorProfile {
+  if (!off.size) return p;
+  const on = (kind: string, scope: string | number = 'all') => !off.has(`${kind}.${scope}`);
+  return {
+    ...p,
+    estimateRatio: on('estimate_ratio') ? p.estimateRatio : null,
+    estimateByLabel: p.estimateByLabel?.filter(l => on('estimate_ratio', l.label)),
+    bestHours: p.bestHours.filter(h => on('best_hour', h)),
+    putOffByLabel: p.putOffByLabel.filter(l => on('putoff_rate', l.label)),
+    typicalSessionMin: on('session_length') ? p.typicalSessionMin : null,
+    earlyStopRate: on('early_stop') ? p.earlyStopRate : null,
+    tooBigRate: on('too_big') ? p.tooBigRate : null,
+    blockedRate: on('blocked') ? p.blockedRate : null,
+    capacityMin: on('capacity') ? p.capacityMin : null,
+  };
+}
+
+const noneOff = () => new Set<string>();
+
+/** The profile, less what's turned off. */
+export async function profileInUse(): Promise<BehaviorProfile> {
+  const [p, off] = await Promise.all([getProfile(), turnedOff().catch(noneOff)]);
+  return profileWithout(p, off);
+}
+
+/* ---------------- the rows ---------------- */
+
 let _last = 0;
 
 /**
- * The patterns, brought up to date with the profile (at most every few
+ * The stored rows, brought up to date with the profile (at most every few
  * minutes; the profile itself is cached for hours). A pattern the profile no
  * longer supports is kept at confidence 0, not deleted, so every device
  * hears that it stopped counting.
  */
-export async function currentPatterns(now = Date.now()): Promise<PatternRow[]> {
+async function upToDate(now: number): Promise<PatternRow[]> {
   try {
     if (now - _last > 5 * 60_000) {
       _last = now;
@@ -66,8 +134,24 @@ export async function currentPatterns(now = Date.now()): Promise<PatternRow[]> {
   return getPatterns().catch(() => []);
 }
 
+/**
+ * The patterns, for everything that acts on them. The one place "That's not
+ * me" is applied: a pattern that's turned off comes back at confidence 0, so
+ * the planner and the day plan, which only act on TRUSTED, pass over it.
+ */
+export async function currentPatterns(now = Date.now()): Promise<PatternRow[]> {
+  const [rows, off] = await Promise.all([upToDate(now), turnedOff().catch(noneOff)]);
+  return withoutOff(rows, off);
+}
+
+/** The rows as they stand, and what's turned off beside them: for the screen that shows both (src/learned.ts). */
+export async function storedPatterns(now = Date.now()): Promise<{ rows: PatternRow[]; off: Set<string> }> {
+  const [rows, off] = await Promise.all([upToDate(now), turnedOff().catch(noneOff)]);
+  return { rows, off };
+}
+
 /** One pattern's value, when it's trusted enough to act on. */
-export function patternValue(rows: Pick<PatternRow, 'kind' | 'scope' | 'value' | 'confidence'>[], kind: string, scope = 'all', min = 0.5): number | null {
+export function patternValue(rows: Pick<PatternRow, 'kind' | 'scope' | 'value' | 'confidence'>[], kind: string, scope = 'all', min = TRUSTED): number | null {
   const r = rows.find(x => x.kind === kind && x.scope === scope);
   return r && r.confidence >= min ? r.value : null;
 }
