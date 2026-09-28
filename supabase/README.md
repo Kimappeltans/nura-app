@@ -68,13 +68,67 @@ name the workspace (its ID is on the workspace's page in the Console):
 supabase secrets set ANTHROPIC_WORKSPACE_ID=<workspace id>
 ```
 
-### Sign-in on the web
+### Sign-in links and emails
 
-In the Supabase dashboard, Authentication, URL Configuration: add every web
-address the app runs on to **Redirect URLs** (for example
-`http://localhost:8081/**` and your site's `https://…/**`), and `nura://**`
-for the phone. Google sign-in, magic links and password resets come back to
+**Redirect URLs.** In the Supabase dashboard, Authentication, URL
+Configuration, **Redirect URLs** must list every address a link comes back to:
+
+- `nura://**` for the phone app (password resets come back to `nura://reset`,
+  sign-in links and confirmations to `nura://`). Without it, a link asked for
+  on the phone is sent to the Site URL, the web app, instead.
+- every web address the app runs on, for example `http://localhost:8081/**`
+  and your site's `https://…/**`.
+
+Google sign-in, magic links, confirmations and password resets come back to
 these; one that isn't listed is sent to the Site URL instead.
+
+**Email templates.** Supabase's own emails link to its `ConfirmationURL`,
+which ends in a code that only the device that asked for the email can use
+(the app signs in with PKCE, `src/supabase.ts`). Opened anywhere else, the
+link uses the email up and signs nobody in: that's what a reset asked for in
+the Simulator and opened on a Mac did. So each email carries a code to type
+in, and a link with its own token that works on any device where it opens.
+
+In Authentication, Emails, Templates, set the body of these three (the
+subject can stay):
+
+**Reset password**
+
+```html
+<h2>A new password for Nura</h2>
+<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
+<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">set a new password here</a>.</p>
+```
+
+**Magic link**
+
+```html
+<h2>Sign in to Nura</h2>
+<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
+<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">sign in here</a>.</p>
+```
+
+**Confirm signup**
+
+```html
+<h2>Confirm your email for Nura</h2>
+<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
+<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">confirm your email here</a>.</p>
+```
+
+`{{ .RedirectTo }}` is where the app asked the link to go (`nura://reset`
+from the phone, `https://…/reset` from the web; the Site URL if that isn't a
+Redirect URL). The app verifies `token_hash` itself (`verifyLink` in
+`src/supabase.ts`, `app/reset.tsx`, `app/_layout.tsx`), so the link needs
+nothing from the device that asked. The code goes in on "Check your email"
+(`withCode` in `src/useAuthActions.ts`), which takes 6 to 10 digits, so the
+Email OTP Length (Authentication, Providers, Email) can stay at its default.
+A code and its link are one: using either one uses up the other.
+
+Until the templates are changed, emails still arrive with Supabase's own
+link, which works on the device that asked. Opened on another one, the web
+app says so ("This link was opened on a different device.") instead of
+showing the usual home.
 
 Then paste `ai-usage.sql` into the SQL Editor and run it (running it again
 is harmless). It adds the daily limits for both functions, and it is
