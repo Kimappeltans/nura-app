@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
@@ -31,9 +31,10 @@ import { backToSession } from '../nav';
  * September). Tell Nu across the top, for whatever's going on. Under it the
  * one thing at full size: your next move, how long it will really take you,
  * the planner's facts for why this one, and Start, Not now or Something
- * changed. Beside it, your day: the sun's arc with Ra on it (as on the
- * phone), the time you actually have left, what Today holds, and what Nu
- * suggests changing (one tap, with Undo). Under the move, what comes after
+ * changed. Above it, as on the phone, the greeting and the sun's arc with Ra
+ * where the day is. Beside the move, your day: the time you actually have
+ * left, what Today holds, and what Nu suggests changing (one tap, with
+ * Undo). Under the move, what comes after
  * it. Until you've done the three things Nura is for, Getting started shows
  * them (src/desk/Guide.tsx). The clock, the counts and the week live in the
  * Calendar; the sun's glow still rises behind the room as things get done.
@@ -42,6 +43,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useTheme();
   const k = useDeskTokens();
   const { pad, inner } = useRoom();
+  const { height: winH } = useWindowDimensions();
   const now = useNow();
   const {
     inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, profile, projects,
@@ -125,6 +127,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
 
   // the move and your day side by side when there's room; one column when not
   const side = inner >= 900;
+  // the arc: a fifth of the window's height, so the move under it stays in view
+  const arcH = Math.round(Math.max(120, Math.min(190, winH * 0.2)));
 
   return (
     <View style={{ flex: 1 }}>
@@ -134,11 +138,15 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
           {/* Tell Nu, across the top: whatever's going on, in any order */}
           <View style={{ zIndex: 10 }}><TellNuField stacked /></View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 14, rowGap: 4 }}>
-            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, letterSpacing: -1, fontFamily: T.display }}>{greeting}</Text>
+          {/* the day, as on the phone: the greeting, and under it the sun's arc with Ra where the day is */}
+          <View style={{ alignItems: 'center', gap: 2 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 34, letterSpacing: -1.2, fontFamily: T.display, textAlign: 'center' }}>{greeting}</Text>
             <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>
               {WDL[now.getDay()]}, {MO[now.getMonth()]} {now.getDate()}
             </Text>
+          </View>
+          <View style={{ marginTop: 30 }}>
+            <DayArc now={now} height={arcH} done={doneAt} count />
           </View>
 
           <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
@@ -219,10 +227,6 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               {!!front && guide.show && phase !== 'night' && <Guide done={guide.done} at={guide.at} onHide={guide.hide} />}
               <DeskCard style={{ paddingVertical: 20, paddingHorizontal: 24 }}>
                 <Label>Your day</Label>
-                {/* the day's arc, as on the phone: Ra where the day is, a dot for each thing done */}
-                <View style={{ marginTop: 34, marginBottom: 16 }}>
-                  <DayArc now={now} height={118} done={doneAt} count />
-                </View>
                 <Text style={{ color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display, marginTop: 10 }}>
                   {phase === 'day' ? fmtMins(left) : phase === 'early' ? clockOf(dayStartMin) : 'Done'}
                 </Text>

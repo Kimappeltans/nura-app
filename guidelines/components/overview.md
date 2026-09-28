@@ -41,6 +41,19 @@ the cream by day, 20% into the navy at night (`labelTint` in
 "Nu found this one", the title at 23–26px, one line of facts under it
 (Fits before 7:30 PM · High priority), Begin (dark circle), minutes at 58px. Nu (nu-hold) sits on the front card's corner. Above the stack: NU IS HOLDING · N.
 
+## Home: Start here
+
+For someone new (Kim, 28 September): under the day's path, START HERE with
+Skip on the right, then three steps you do: *Put it all down* (Nu, Tell Nu),
+*Let Ra pick one* (Ra, Focus on the planner's pick), *Begin · 5 minutes* (Ra,
+that pick in the timer). Each is a card: the character in a 46pt circle, the
+step, one button (filled for the step you're on, outlined after it). A step
+done stays, quiet: struck through, with a coral check. After the last, the
+block is gone for good, and it never shows for someone with a done task or a
+session from before. Stacked on a phone; side by side under the arc on the
+desktop. Not at night. Logic: `src/startHere.ts`; the cards:
+`src/components/StartHere.tsx`.
+
 ## The day's path
 
 The sun's path from the start of the day (Settings → Day starts, 7:00 by
@@ -173,15 +186,15 @@ Reference: the redesign preview of 27 September.
   Enter puts it down. ⌘K goes to the field, N opens Tell Nu anywhere. In a
   narrow room the name and Tell Nu keep the first row, the rest goes under.
 - **Home (Kim, 28 September): what Nura figured out, not a dashboard.** Tell
-  Nu across the top ("Tell Nu what's going on…"). The one thing at full
-  size: **Your next move** (what you put first on Today, else the planner's
+  Nu across the top ("Tell Nu what's going on…"), then, as on the phone,
+  the greeting centred over the sun's arc with Ra on it (Start, how many
+  done, Day ends). Under it the one thing at full size: **Your next move** (what you put first on Today, else the planner's
   first), about how long it will really take you, up to three of the
   planner's facts as quiet chips (a day, a priority, a project first; "Fits
   before" last), and Start, Not now (passed on for today, the next one comes
   up) and Something changed (bigger than I thought, stuck or waiting, not
   today, already done, not needed). Under it **After that**: the next three,
-  Today's first. Beside it **Your day**: the sun's arc with Ra on it, as on
-  the phone (Start, how many done, Day ends), the time you really have left
+  Today's first. Beside it **Your day**: the time you really have left
   (around your events), what Today holds, and what Nu suggests changing, one
   at a time with Yes and Undo. **Getting started** (`src/desk/Guide.tsx`):
   three steps that tick themselves off when you've really done them (tell

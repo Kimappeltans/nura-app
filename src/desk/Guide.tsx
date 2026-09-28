@@ -34,28 +34,34 @@ const SAY = [
 /** Which steps are done, and whether the guide is still shown. Null until it's known. */
 export function useGuide() {
   const { inbox, todayPicked, wins, decisions } = useStore();
-  const [seen, setSeen] = useState<{ started: boolean; changed: boolean; hidden: boolean } | null>(null);
+  const [seen, setSeen] = useState<{ fresh: boolean; told: boolean; started: boolean; changed: boolean; hidden: boolean } | null>(null);
   useEffect(() => {
     let dead = false;
     (async () => {
       try {
         const db = await getDb();
+        // `guide.since`: the guide started over (nothing of yours is touched): only what happened after counts
+        const since = Number(await getFlag('guide.since')) || 0;
         const [row, hidden] = await Promise.all([
-          db.getFirstAsync<{ a: number; b: number }>(
-            `SELECT (SELECT COUNT(*) FROM event WHERE kind IN ('session_start','completed')) AS a,
-                    (SELECT COUNT(*) FROM event WHERE kind IN ('swapped','skipped','snoozed')) AS b`),
+          db.getFirstAsync<{ c: number; a: number; b: number }>(
+            `SELECT (SELECT COUNT(*) FROM event WHERE kind = 'captured' AND at >= ?) AS c,
+                    (SELECT COUNT(*) FROM event WHERE kind IN ('session_start','completed') AND at >= ?) AS a,
+                    (SELECT COUNT(*) FROM event WHERE kind IN ('swapped','skipped','snoozed') AND at >= ?) AS b`,
+            since, since, since),
           getFlag('guide.hidden'),
         ]);
-        if (!dead) setSeen({ started: (row?.a ?? 0) > 0, changed: (row?.b ?? 0) > 0, hidden: hidden === '1' });
+        if (!dead) setSeen({ fresh: since === 0, told: (row?.c ?? 0) > 0, started: (row?.a ?? 0) > 0, changed: (row?.b ?? 0) > 0, hidden: hidden === '1' });
       } catch {
         // it can't be known: no guide, rather than one that's wrong
-        if (!dead) setSeen({ started: false, changed: false, hidden: true });
+        if (!dead) setSeen({ fresh: true, told: false, started: false, changed: false, hidden: true });
       }
     })();
     return () => { dead = true; };
   }, [inbox, todayPicked, wins, decisions]);
 
-  const done = [inbox.length + todayPicked.length + wins.length > 0, !!seen?.started, !!seen?.changed];
+  // told: something put down (or, on a first run, anything held at all: tasks that came with the account count)
+  const held = inbox.length + todayPicked.length + wins.length > 0;
+  const done = [!!seen && (seen.told || (seen.fresh && held)), !!seen?.started, !!seen?.changed];
   const all = done.every(Boolean);
   // all three done: it has said what it had to say
   useEffect(() => { if (seen && !seen.hidden && all) setFlag('guide.hidden', '1').catch(() => {}); }, [seen, all]);
