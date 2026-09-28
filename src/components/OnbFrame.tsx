@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../store';
 import { Mica, IconChevron } from '../ui';
 import { radius, type as T } from '../theme';
+import { useWide } from '../screen';
 
 /**
  * The frame every onboarding step sits in, laid out the way other apps have
@@ -55,6 +56,17 @@ export function OnbFrame({ step, onBack, onSkip, skipLabel = 'Skip', title, sub,
   footer: React.ReactNode;
 }) {
   const t = useTheme(force);
+  const wide = useWide();
+  const body = (
+    <>
+      <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
+        {title}
+      </Text>
+      {!!sub && <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23, marginTop: 8 }}>{sub}</Text>}
+      {children}
+    </>
+  );
+  const footerView = <View style={{ paddingHorizontal: 22, paddingTop: wide ? 30 : 10, paddingBottom: 12, gap: 12 }}>{footer}</View>;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <Mica force={force} />
@@ -81,15 +93,15 @@ export function OnbFrame({ step, onBack, onSkip, skipLabel = 'Skip', title, sub,
         </View>
 
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20 }}>
-          <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, lineHeight: 36, fontFamily: T.display, letterSpacing: -0.8 }}>
-            {title}
-          </Text>
-          {!!sub && <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23, marginTop: 8 }}>{sub}</Text>}
-          {children}
+          contentContainerStyle={wide
+            // a little above the middle, where the eye settles
+            ? { flexGrow: 1, justifyContent: 'center', paddingTop: 24, paddingBottom: 72 }
+            : { flexGrow: 1, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20 }}>
+          {wide ? <View style={{ paddingHorizontal: 22 }}>{body}</View> : body}
+          {wide && footerView}
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 22, paddingTop: 10, paddingBottom: 12, gap: 12 }}>{footer}</View>
+        {!wide && footerView}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

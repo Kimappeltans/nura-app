@@ -180,5 +180,10 @@ Reference: the redesign preview of 27 September.
 - **Calendar:** the week as hours (from Day starts to Day ends) or the month;
   the picked day beside it with a small month, what's on it, and a line to
   add a task (a day to come) or log what you did (today or a day gone by).
+- **The opening, onboarding and the sign-in** have the whole window from 600
+  up: the opening's sea runs edge to edge with the story on a stage in the
+  middle; each step and the sign-in sit in the middle of the window, back
+  and the progress at the top, the main button right under the step (not
+  pinned to the foot, where a phone's thumb is).
 - Every surface uses the room's palette, so all of it works in Light, Dark
   and By the sun. Cards are a fill and a hairline, with a soft lift on cream.

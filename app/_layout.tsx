@@ -42,7 +42,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     '  box-shadow: inset 0 0 0 4px #FFFFFF !important;',
     '}',
     'input:focus, textarea:focus { border-radius: 6px; }',
-    // a field whose own frame lights up on focus (the desk's Tell Nu) shows
+    // a field that shows its own focus (the desk's Tell Nu, search and add lines) shows
     // that one ring, not a second one inside it
     '[data-own-focus]:focus, [data-own-focus]:focus-visible { outline: none !important; box-shadow: none !important; }',
   ].join('\n');
@@ -392,14 +392,26 @@ function TellNu() {
  * (src/screen.ts). Wider, it's the desktop layout: a sidebar and rooms that
  * use the width (src/components/Desk.tsx). Phones, and narrow windows, get
  * the app as it is.
+ *
+ * The opening, onboarding and the sign-in have the whole window at every
+ * width, as on the desktop: the sea runs edge to edge, and each step sits in
+ * the middle (DeskColumn's `wide`). On the web the views are the same at
+ * every width, so crossing one doesn't start the app over.
  */
 function WebColumn({ children }: { children: React.ReactNode }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  if (!isWide(width) || isDesk(width)) return <>{children}</>;
+  const pathname = usePathname();
+  const onboarded = useStore(s => s.onboarded);
+  const signedOut = useStore(s => !s.session && !s.devSkipAuth);
+  if (Platform.OS !== 'web') return <>{children}</>;
+  const wholeWindow = pathname === '/opening' || (pathname === '/' && (onboarded === false || signedOut));
+  const column = isWide(width) && !isDesk(width) && !wholeWindow;
   return (
-    <View style={{ flex: 1, backgroundColor: t.base, alignItems: 'center' }}>
-      <View style={{ flex: 1, width: COLUMN, overflow: 'hidden', borderLeftWidth: 1, borderRightWidth: 1, borderColor: t.stroke }}>
+    <View style={{ flex: 1, backgroundColor: column ? t.base : undefined, alignItems: column ? 'center' : 'stretch' }}>
+      <View style={column
+        ? { flex: 1, width: COLUMN, overflow: 'hidden', borderLeftWidth: 1, borderRightWidth: 1, borderColor: t.stroke }
+        : { flex: 1 }}>
         {children}
       </View>
     </View>

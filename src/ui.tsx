@@ -1037,7 +1037,7 @@ export function Celebrate() {
   );
 }
 
-/** Non-blocking toast for small events (captures, etc). Appears and fades without interrupting. */
+/** Non-blocking toast for small events (captures, etc). Appears and fades without interrupting. With an undo, it carries Undo and stays a little longer. */
 export function Toast() {
   const toast = useStore(s => s.toast);
   const dismiss = useStore(s => s.dismissToast);
@@ -1046,7 +1046,7 @@ export function Toast() {
 
   useEffect(() => {
     if (!toast) return;
-    announce(toast.text);
+    announce(toast.undo ? `${toast.text}. Undo is available.` : toast.text);
     fade.setValue(0); slide.setValue(6);
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }),
@@ -1054,23 +1054,31 @@ export function Toast() {
     ]).start();
     const id = setTimeout(() => {
       Animated.timing(fade, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => dismiss());
-    }, Math.max(2600, toast.text.length * 70));
+    }, Math.max(toast.undo ? 6000 : 2600, toast.text.length * 70));
     return () => clearTimeout(id);
   }, [toast?.at]);
 
   if (!toast) return null;
+  const undo = toast.undo;
   return (
     <Animated.View
-      pointerEvents="none"
+      pointerEvents={undo ? 'box-none' : 'none'}
       style={{
         position: 'absolute', bottom: 96, alignSelf: 'center',
         opacity: fade, transform: [{ translateY: slide }],
-        paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20,
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        paddingLeft: 16, paddingRight: undo ? 6 : 16, paddingVertical: undo ? 5 : 9, borderRadius: 20,
         // the in-progress pill's dark, so it reads on cream and on navy alike (9.7:1)
         backgroundColor: '#1B1830',
         borderWidth: 1, borderColor: 'rgba(255,138,92,0.35)',
       }}>
       <Text style={{ color: '#FFB183', fontSize: 14, fontFamily: T.brand }}>{toast.text}</Text>
+      {!!undo && (
+        <Pressable onPress={() => { dismiss(); undo(); }} accessibilityRole="button" accessibilityLabel="Undo" hitSlop={8}
+          style={({ pressed }) => ({ height: 30, paddingHorizontal: 12, borderRadius: 15, justifyContent: 'center', backgroundColor: pressed ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.1)' })}>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: T.display }}>Undo</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }

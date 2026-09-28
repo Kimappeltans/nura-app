@@ -22,6 +22,12 @@ export const WIDE = 600;
 export const DESK = 900;
 /** the desktop's sidebar */
 export const SIDEBAR = 224;
+/** the sidebar on a smaller laptop window (up to ROOMY): its icons only, so the room keeps the width */
+export const SIDEBAR_SLIM = 76;
+/** narrower than this, and the sidebar is its icons */
+export const ROOMY = 1180;
+/** How wide the sidebar is in a window this wide. */
+export const sidebarWidth = (width: number) => (width < ROOMY ? SIDEBAR_SLIM : SIDEBAR);
 /** a room's content, at most (Home, Your Tasks, Calendar) */
 export const ROOM_MAX = 1280;
 /** a pushed screen's content, at most (You, Settings, a task…) */
@@ -47,6 +53,11 @@ export const MicaHosted = createContext(false);
 /** Is this the desktop layout (a wide web window)? */
 export function useDesk() {
   return isDesk(useWindowDimensions().width);
+}
+
+/** Is this a wide web window (the column or the desktop)? No thumb to reach for: a step's button sits under it, not at the foot. */
+export function useWide() {
+  return isWide(useWindowDimensions().width);
 }
 
 /** useWindowDimensions, with the width of the column, room or stage on a wide web window. */

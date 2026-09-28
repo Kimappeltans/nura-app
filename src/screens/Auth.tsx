@@ -13,6 +13,7 @@ import { Primary, Ghost, Mica, Character } from '../ui';
 import { useAuthActions, useConfirmWait, useSignupsOpen } from '../useAuthActions';
 import { openLink } from '../links';
 import { announce } from '../a11y';
+import { useWide } from '../screen';
 
 /* --- brand glyphs, drawn rather than shipped as logo files ---------------- */
 
@@ -99,6 +100,8 @@ export default function Auth(
   // text-and-background pairing would otherwise collide with Mica reading
   // the global mode independently of this screen's own fixed palette).
   const t = useTheme();
+  // a wide web window: the whole of it in the middle, not the phone's top and foot
+  const wide = useWide();
   const [mode, setMode] = useState<Mode>('choose');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -200,7 +203,7 @@ export default function Auth(
           ) : <View style={{ height: 34 }} />}
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ flexGrow: 1 }}>
+            contentContainerStyle={wide ? { flexGrow: 1, justifyContent: 'center', paddingBottom: 48 } : { flexGrow: 1 }}>
             <Character name="ra-wave" size={104} motion="greet" style={{ alignSelf: 'center', marginTop: 4 }} />
 
             <Text accessibilityRole="header" style={{
@@ -327,7 +330,7 @@ export default function Auth(
               </View>
             )}
 
-            <View style={{ flex: 1, minHeight: 20 }} />
+            <View style={wide ? { height: 16 } : { flex: 1, minHeight: 20 }} />
 
             {!pending && signupsOpen === false && (
               <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>Nura is invite only for now.</Text>

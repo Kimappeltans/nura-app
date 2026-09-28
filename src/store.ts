@@ -92,7 +92,7 @@ interface State {
   /** the reward currently being shown. One at a time, root-level, above modals. */
   celebration: Celebration | null;
   /** non-blocking micro-toast (captures, small events). */
-  toast: { text: string; at: number } | null;
+  toast: { text: string; at: number; undo?: () => void } | null;
   profile: db.Profile;
   /** Save part of the profile, and show it at once everywhere it appears (Home's greeting, the You tab). */
   saveProfile: (p: Partial<db.Profile>) => Promise<void>;
@@ -144,7 +144,8 @@ interface State {
   /** Show the reward. null (a task that was already done) shows nothing. */
   celebrate: (award: Award | null) => void;
   dismissCelebration: () => void;
-  showToast: (text: string) => void;
+  /** `undo`: the toast carries an Undo button (a deleted task comes back). */
+  showToast: (text: string, undo?: () => void) => void;
   dismissToast: () => void;
 }
 
@@ -238,7 +239,7 @@ export const useStore = create<State>((set, get) => ({
     set({ celebration: { award, line: rewardLine(award.reason), at: Date.now(), rankUp } });
   },
   dismissCelebration: () => set({ celebration: null }),
-  showToast: (text) => set({ toast: { text, at: Date.now() } }),
+  showToast: (text, undo) => set({ toast: { text, at: Date.now(), undo } }),
   dismissToast: () => set({ toast: null }),
 
   setDayEnd: async (min) => {

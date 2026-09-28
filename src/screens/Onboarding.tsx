@@ -19,7 +19,7 @@ import { DeskColumn } from '../components/Desk';
 import { STAGE } from '../screen';
 
 /** A step, centred on a wide web window (src/components/Desk.tsx); on a phone, as it is. */
-const col = (step: React.ReactElement) => <DeskColumn max={STAGE}>{step}</DeskColumn>;
+const col = (step: React.ReactElement) => <DeskColumn max={STAGE} wide>{step}</DeskColumn>;
 
 /**
  * From opening the app to starting one real task in about a minute

@@ -7,7 +7,7 @@ import { type as T, radius } from '../theme';
 import { Primary, Character } from '../ui';
 import type { Task } from '../db';
 import { StepBar } from '../components/OnbFrame';
-import { screenSize, useDesk, STAGE } from '../screen';
+import { screenSize, useWide } from '../screen';
 import { useReducedMotion, announce, decorative } from '../a11y';
 
 /**
@@ -103,9 +103,9 @@ export default function OneRises({ tasks, pick, onStart, onEverything }: {
   const { width: W, height: H } = screenSize();
   // a wide web window: the sky and the sea the whole width, the story on a centred stage
   const winW = useWindowDimensions().width;
-  const desk = useDesk();
-  const full = desk ? winW : W;
-  const stage = desk ? { width: '100%', maxWidth: STAGE, alignSelf: 'center' } as const : null;
+  const wide = useWide();
+  const full = wide ? winW : W;
+  const stage = wide ? { width: '100%', maxWidth: W, alignSelf: 'center' } as const : null;
   const reduce = useReducedMotion();
   const [instant, setInstant] = useState(reduce);
   const sun = useRef(new Animated.Value(reduce ? 1 : 0)).current;

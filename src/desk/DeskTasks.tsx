@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, useWindowDimensions, type TextStyle } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, type TextStyle } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -17,25 +17,32 @@ import { Mica, Character } from '../ui';
 import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
-  DeskCard, DeskHeader, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, useDeskTokens, usePageKeys,
+  DeskCard, DeskHeader, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, usePageKeys, useRoom,
   COL_NAME, CORAL, sameDay, type Col,
 } from './kit';
+import { reasonFor } from '../next';
 
 const ORDER: Col[] = ['today', 'week', 'someday'];
 
 /**
- * TASKS, ON THE DESKTOP. Everything Nu is holding, in the water: Today, This
- * week and Someday side by side, Nu floating on the surface above them.
- * Under the pointer a task shows where else it could go; J and K pick one,
- * X ticks it off, T, W and S send it. Habits and projects sit under the water.
+ * TASKS, ON THE DESKTOP. Everything Nu is holding, as one list in the water:
+ * Today, This week and Someday, Nu floating on the surface above it. Under
+ * the pointer a task shows where else it could go and a bin; J and K pick
+ * one, X ticks it off, T, W and S send it, Delete deletes it (with Undo).
+ * With nothing on Today, Nu says which one it would start with, and why.
+ * Habits and projects sit beside the water on a wide window, under it on a
+ * narrower one.
  */
 export default function DeskTasks() {
   const t = useTheme();
   const k = useDeskTokens();
-  const { height: winH } = useWindowDimensions();
   const { inbox, todayPicked, projects, habits, refreshHabits, decisions } = useStore();
+  const { pad, inner } = useRoom();
+  // habits and projects beside the list when there's room for both
+  const side = inner >= 900;
   const { tick } = useTaskActions();
   const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
@@ -68,6 +75,7 @@ export default function DeskTasks() {
     if (e.key === 'Escape') { setSel(null); return; }
     if (!cur) return;
     if (key === 'x') { tick(cur.x.id); return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); setSel(flat[i + 1]?.x.id ?? flat[i - 1]?.x.id ?? null); deleteTask(cur.x); return; }
     if (e.key === 'Enter') { setPeek(cur.x); return; }
     const dest = ({ t: 'today', w: 'week', s: 'someday' } as Record<string, Col>)[key];
     if (dest && dest !== cur.c) move(cur.x, dest);
@@ -76,25 +84,59 @@ export default function DeskTasks() {
   const habitDo = (fn: (id: string) => Promise<unknown>) => async (v: HabitView) => { await fn(v.habit.id); await refreshHabits(); };
   const tickHabit = habitDo(toggleHabitToday);
 
-  const lane = (c: Col) => (
-    <View key={c} style={{ flex: 1, minWidth: 0, minHeight: 240, borderRadius: 16, paddingTop: 14, paddingHorizontal: 16, paddingBottom: 6, backgroundColor: k.lane }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+  // with nothing on Today, the one Nu would start with (the planner's first), and why
+  const idea = !all.today.length ? decisions.find(d => d.task.state !== 'done') ?? null : null;
+  const ideaWhy = idea ? reasonFor(decisions, idea.taskId) : null;
+
+  const section = (c: Col, i: number) => (
+    <View key={c} style={{ paddingTop: i ? 14 : 4, marginTop: i ? 10 : 0, borderTopWidth: i ? 1 : 0, borderTopColor: t.stroke }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 2 }}>
         <Label color={k.seaInk}>{COL_NAME[c]}</Label>
-        <Text style={{ color: k.seaInk, fontSize: 14, fontFamily: T.brand }}>{cols[c].length}</Text>
+        <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand }}>{cols[c].length}</Text>
       </View>
       {cols[c].map(x => (
         <DeskRow key={x.id} task={x} col={c} selected={sel === x.id} hideDue={c === 'today' && !x.has_time && sameDay(x.due_at, Date.now())} meta={projectOf.get(x.id)}
-          onOpen={() => { setSel(x.id); setPeek(x); }} onHold={() => setHeld(x)} onDone={() => tick(x.id)} onMove={to => move(x, to)} />
+          onOpen={() => { setSel(x.id); setPeek(x); }} onHold={() => setHeld(x)} onDone={() => tick(x.id)} onMove={to => move(x, to)}
+          onDelete={() => deleteTask(x)} />
       ))}
-      {!cols[c].length && (
-        c === 'today' ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingVertical: 8 }}>
-            <Text style={{ color: k.seaInk, fontSize: 16, lineHeight: 24, fontFamily: T.brand }}>{q ? 'Nothing here.' : 'Nothing picked yet. Select one and press '}</Text>
-            {!q && <><Key k="T" /><Text style={{ color: k.seaInk, fontSize: 16, fontFamily: T.brand }}>.</Text></>}
+      {!cols[c].length && c === 'today' && !q && idea && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginVertical: 6, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: t.raWash }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: k.raText, fontSize: 13, fontFamily: T.display }}>Nu would start with</Text>
+            <Text numberOfLines={1} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3, marginTop: 1 }}>{idea.task.title}</Text>
+            {!!ideaWhy && <Text numberOfLines={1} style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand, marginTop: 2 }}>{ideaWhy}</Text>}
           </View>
-        ) : <Empty color={k.seaInk}>{q ? 'Nothing here.' : c === 'week' ? 'Nothing planned this week.' : 'Ideas and maybes live here.'}</Empty>
+          <LinkButton label="Add to Today" onPress={() => move(idea.task, 'today')} accessibilityLabel={`Add ${idea.task.title} to Today`} />
+        </View>
       )}
-      {!q && <AddRow placeholder="Add a task…" ink={k.seaInk} onAdd={v => addTo(v, c)} />}
+      {!cols[c].length && !(c === 'today' && !q && idea) && (
+        <Empty color={k.seaInk}>{q ? 'Nothing here.' : c === 'today' ? 'Nothing on today yet.' : c === 'week' ? 'Nothing planned this week.' : 'Ideas and maybes live here.'}</Empty>
+      )}
+      {!q && <AddRow placeholder={`Add to ${COL_NAME[c]}…`} ink={k.seaInk} onAdd={v => addTo(v, c)} />}
+    </View>
+  );
+
+  const aside = (
+    <View style={{ gap: 20, ...(side ? { width: 340, marginTop: 96 } : { flexDirection: 'row', marginTop: 20 }) }}>
+      <DeskCard style={side ? {} : { flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
+          <Label>{habits.length ? `Habits · ${habits.length}` : 'Habits'}</Label>
+          <LinkButton label="+ New habit" accessibilityLabel="New habit" onPress={() => router.push('/habit')} />
+        </View>
+        {habits.map(v => <HabitRow key={v.habit.id} view={v} onPress={() => setHabit(v)} onTick={() => tickHabit(v)} />)}
+        {!habits.length && <Empty>No habits yet.</Empty>}
+      </DeskCard>
+      <DeskCard style={side ? {} : { flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
+          <Label>{projects.length ? `Projects · ${projects.length}` : 'Projects'}</Label>
+          <LinkButton label="+ Plan a project" accessibilityLabel="Plan a project" onPress={() => router.push('/project/new')} />
+        </View>
+        {projects.map(p => (
+          <ProjectRow key={p.project.id} title={p.project.title} total={p.total} done={p.done}
+            onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })} />
+        ))}
+        {!projects.length && <Empty>Type a goal into Tell Nu, like “launch my website”, and Nu plans the steps.</Empty>}
+      </DeskCard>
     </View>
   );
 
@@ -102,11 +144,11 @@ export default function DeskTasks() {
     <View style={{ flex: 1 }}>
       <Mica />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: 40, paddingBottom: 28 }}>
+        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
           <DeskHeader title="Tasks">
             <View style={{
-              marginLeft: 10, width: 280, height: 46, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
-              backgroundColor: k.field, borderWidth: 1, borderColor: t.stroke,
+              marginLeft: 10, width: inner < 900 ? 320 : 280, maxWidth: '100%', height: 46, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
+              backgroundColor: k.field, borderWidth: 1, borderColor: searching ? t.ink3 : t.stroke,
             }}>
               <View {...decorative}>
                 <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={t.ink3} strokeWidth={1.8} strokeLinecap="round">
@@ -114,54 +156,35 @@ export default function DeskTasks() {
                 </Svg>
               </View>
               <TextInput value={q} onChangeText={setQ} placeholder="Search tasks" placeholderTextColor={t.ink3} accessibilityLabel="Search tasks"
+                {...({ dataSet: { ownFocus: '1' } } as object)}
+                onFocus={() => setSearching(true)} onBlur={() => setSearching(false)}
                 onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') setQ(''); }}
                 style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: 16.5, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
             </View>
           </DeskHeader>
 
-          <View style={{ minHeight: winH - 124 }}>
-            {/* the water: Nu on the surface, everything held under it */}
-            <View style={{ flex: 1, marginTop: 96, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingTop: 22, paddingHorizontal: 22, paddingBottom: 18 }}>
+          <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
+            {/* the water: Nu on the surface, everything held under it, as one list */}
+            <View style={{ flex: side ? 1 : undefined, minWidth: 0, marginTop: 96, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20 }}>
               <LinearGradient pointerEvents="none" colors={k.sea} locations={[0, 0.4, 1]}
                 style={{ position: 'absolute', inset: 0, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }} />
               <View {...decorative} style={{ position: 'absolute', left: 0, right: 0, top: -27, height: 28 }}>
                 <Wave fill={k.sea[0]} line={k.seaLine} />
               </View>
-              <View pointerEvents="none" style={{ position: 'absolute', top: -122, left: 40 }}>
-                <Character name="nu-rest" size={150} motion="bob" />
+              <View pointerEvents="none" style={{ position: 'absolute', top: -112, left: 36 }}>
+                <Character name="nu-rest" size={136} motion="bob" />
               </View>
-              <View style={{ flex: 1, flexDirection: 'row', gap: 16 }}>
-                {ORDER.map(lane)}
+              <View style={{ borderRadius: 16, paddingTop: 14, paddingHorizontal: 20, paddingBottom: 8, backgroundColor: k.lane }}>
+                {ORDER.map(section)}
               </View>
             </View>
+            {aside}
+          </View>
 
-            {/* under the water: habits and projects */}
-            <View style={{ flexDirection: 'row', gap: 20, marginTop: 20, alignItems: 'flex-start' }}>
-              <DeskCard style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
-                  <Label>{habits.length ? `Habits · ${habits.length}` : 'Habits'}</Label>
-                  <LinkButton label="+ New habit" accessibilityLabel="New habit" onPress={() => router.push('/habit')} />
-                </View>
-                {habits.map(v => <HabitRow key={v.habit.id} view={v} onPress={() => setHabit(v)} onTick={() => tickHabit(v)} />)}
-                {!habits.length && <Empty>No habits yet.</Empty>}
-              </DeskCard>
-              <DeskCard style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
-                  <Label>{projects.length ? `Projects · ${projects.length}` : 'Projects'}</Label>
-                  <LinkButton label="+ Plan a project" accessibilityLabel="Plan a project" onPress={() => router.push('/project/new')} />
-                </View>
-                {projects.map(p => (
-                  <ProjectRow key={p.project.id} title={p.project.title} total={p.total} done={p.done}
-                    onPress={() => router.push({ pathname: '/project/[id]', params: { id: p.project.id } })} />
-                ))}
-                {!projects.length && <Text style={{ color: t.ink, fontSize: 18, fontFamily: T.display, paddingVertical: 8 }}>Break a big goal into steps.</Text>}
-              </DeskCard>
-            </View>
-
-            <View {...decorative} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
-              <Key k="J" /><Key k="K" /><Hint> select · </Hint><Key k="X" /><Hint> complete · </Hint>
-              <Key k="T" /><Key k="W" /><Key k="S" /><Hint> send to Today, This week or Someday</Hint>
-            </View>
+          <View {...decorative} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 16 }}>
+            <Key k="J" /><Key k="K" /><Hint> select · </Hint><Key k="X" /><Hint> complete · </Hint>
+            <Key k="T" /><Key k="W" /><Key k="S" /><Hint> send to Today, This week or Someday · </Hint>
+            <Key k="⌫" /><Hint> delete</Hint>
           </View>
         </View>
       </ScrollView>

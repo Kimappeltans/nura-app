@@ -7,7 +7,7 @@ import Svg, { Path, Defs, RadialGradient, LinearGradient as SvgGradient, Stop, R
 import { type as T, radius } from '../theme';
 import { Primary, poseImage } from '../ui';
 import { logEvent } from '../db';
-import { useScreen, useDesk } from '../screen';
+import { useScreen, useWide } from '../screen';
 import { useReducedMotion, announce, decorative } from '../a11y';
 
 const stone = require('../../assets/brand/nura-logo-tight.webp');
@@ -177,8 +177,9 @@ export function Benben({ onDone, onSignIn, replay }: { onDone: () => void; onSig
   const { width: W, height: H } = useScreen();
   // a wide web window: the sky and the sea run the whole width, and the story
   // (the stone, Nu, Ra, the sun, the words) sits on a stage of W in the middle
+  // (it has the whole window there: app/_layout.tsx)
   const winW = useWindowDimensions().width;
-  const full = useDesk() ? winW : W;
+  const full = useWide() ? winW : W;
   const ox = (full - W) / 2;
   const insets = useSafeAreaInsets();
   // read before the first frame on the web and early on a phone, so nothing

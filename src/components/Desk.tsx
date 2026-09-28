@@ -3,15 +3,19 @@ import { useEffect } from 'react';
 import { View, Text, Pressable, Image, Platform, useWindowDimensions } from 'react-native';
 import { usePathname } from 'expo-router';
 import { useStore, useTheme } from '../store';
+import { setFlag } from '../db';
 import { type as T } from '../theme';
 import { Mica } from '../ui';
-import { MicaHosted, READ_MAX, SIDEBAR, ScreenWidth, useDesk } from '../screen';
+import { COLUMN, MicaHosted, READ_MAX, ScreenWidth, sidebarWidth, useDesk, useWide } from '../screen';
 import { LivePill } from './LivePill';
 import { deskTokens, hasTellField } from '../desk/kit';
 import { Avatar } from './Avatar';
 import { TABS, goToTab } from './TabBar';
+import { decorative } from '../a11y';
 
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
+/** Nura's mark, for the slim sidebar */
+const mark = require('../../assets/brand/mark-96.webp');
 
 /**
  * THE DESKTOP LAYOUT (src/screen.ts). On a wide web window the tab bar is a
@@ -31,8 +35,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.head.appendChild(style);
 }
 
-/** A row in the sidebar: the room's icon and name; where you are is a soft fill, under the pointer a wash. */
-function NavRow({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode }) {
+/** A row in the sidebar: the room's icon and name; where you are is a soft fill, under the pointer a wash. Slim: the icon only. */
+function NavRow({ label, on, onPress, icon, slim }: { label: string; on: boolean; onPress: () => void; icon: React.ReactNode; slim?: boolean }) {
   const t = useTheme();
   const k = deskTokens(t);
   return (
@@ -42,12 +46,63 @@ function NavRow({ label, on, onPress, icon }: { label: string; on: boolean; onPr
         const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
         return {
           minHeight: 48, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 12,
+          justifyContent: slim ? 'center' : 'flex-start',
           backgroundColor: on ? t.subtle : pressed || hovered ? k.wash : 'transparent',
         };
       }}>
       {icon}
-      <Text style={{ color: on ? t.ink : t.ink2, fontSize: 16.5, fontFamily: on ? T.display : T.brand, letterSpacing: -0.2 }}>{label}</Text>
+      {!slim && <Text style={{ color: on ? t.ink : t.ink2, fontSize: 16.5, fontFamily: on ? T.display : T.brand, letterSpacing: -0.2 }}>{label}</Text>}
     </Pressable>
+  );
+}
+
+/**
+ * Who's signed in, at the foot of the sidebar: your picture, your name and
+ * the account's email; it opens You. Without an account (the development
+ * bypass) it says so, and Sign in goes to the sign-in.
+ */
+function AccountRow({ on, slim, onPress }: { on: boolean; slim: boolean; onPress: () => void }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const session = useStore(s => s.session);
+  const profile = useStore(s => s.profile);
+  const email = session?.user.email ?? '';
+  const meta = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
+  const name = (profile.name || meta?.full_name || meta?.name || email.split('@')[0] || 'You').trim();
+  const signIn = async () => {
+    await setFlag('dev.skipAuth', '0').catch(() => {});
+    useStore.setState({ devSkipAuth: false });
+  };
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable onPress={onPress} accessibilityRole="tab" aria-selected={on}
+        accessibilityLabel={session ? `${name}, signed in as ${email}` : 'You, not signed in'}
+        style={(s) => {
+          const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+          return {
+            minHeight: 56, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12,
+            paddingHorizontal: slim ? 0 : 10, justifyContent: slim ? 'center' : 'flex-start',
+            backgroundColor: on ? t.subtle : pressed || hovered ? k.wash : 'transparent',
+          };
+        }}>
+        <View>
+          <Avatar size={slim ? 34 : 36} ring={on} />
+          {!session && <View {...decorative} style={{ position: 'absolute', right: -1, top: -1, width: 11, height: 11, borderRadius: 6, backgroundColor: t.ra, borderWidth: 2, borderColor: t.base }} />}
+        </View>
+        {!slim && (
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ color: t.ink, fontSize: 15.5, fontFamily: T.display, letterSpacing: -0.2 }}>{session ? name : 'Not signed in'}</Text>
+            <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand }}>{session ? email : 'Development'}</Text>
+          </View>
+        )}
+      </Pressable>
+      {!session && !slim && (
+        <Pressable onPress={signIn} accessibilityRole="button" accessibilityLabel="Sign in"
+          style={({ pressed }) => ({ height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.ra, opacity: pressed ? 0.85 : 1 })}>
+          <Text style={{ color: '#3B1204', fontSize: 15, fontFamily: T.display }}>Sign in</Text>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -89,24 +144,29 @@ export function Sidebar() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [inRoom, path]);
+  const { width } = useWindowDimensions();
+  const side = sidebarWidth(width);
+  const slim = side < 200;
   return (
     <View role="navigation" style={{
-      width: SIDEBAR, paddingHorizontal: 12, paddingTop: 26, paddingBottom: 18,
+      width: side, paddingHorizontal: slim ? 10 : 12, paddingTop: 26, paddingBottom: 18,
       borderRightWidth: 1, borderRightColor: t.stroke, backgroundColor: k.side,
     }}>
-      <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
-        style={{ height: 30, width: 30 * 799 / 222, tintColor: t.ink, marginLeft: 12, marginBottom: 34 }} />
+      {slim
+        ? <Image source={mark} resizeMode="contain" accessibilityLabel="Nura" style={{ height: 36, width: 32, alignSelf: 'center', marginBottom: 32 }} />
+        : <Image source={wordmark} resizeMode="contain" accessibilityLabel="Nura"
+            style={{ height: 30, width: 30 * 799 / 222, tintColor: t.ink, marginLeft: 12, marginBottom: 34 }} />}
 
       <View accessibilityRole="tablist" style={{ gap: 2 }}>
         {TABS.map(x => (
-          <NavRow key={x.key} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab} onPress={() => goToTab(x.key, path)} icon={x.icon(x.key === tab ? t.ink : t.ink2)} />
+          <NavRow key={x.key} slim={slim} label={x.key === 'tasks' ? 'Tasks' : x.label} on={x.key === tab} onPress={() => goToTab(x.key, path)} icon={x.icon(x.key === tab ? t.ink : t.ink2)} />
         ))}
       </View>
 
       <View style={{ flex: 1 }} />
       {/* a session left running with ⌄: tap to go back to it */}
-      <View style={{ marginBottom: 8 }}><LivePill /></View>
-      <NavRow label="You" on={tab === 'you'} onPress={() => goToTab('you', path)} icon={<Avatar size={26} ring={tab === 'you'} />} />
+      {!slim && <View style={{ marginBottom: 8 }}><LivePill /></View>}
+      <AccountRow slim={slim} on={tab === 'you'} onPress={() => goToTab('you', path)} />
     </View>
   );
 }
@@ -119,7 +179,7 @@ export function DeskRoom({ children }: { children: React.ReactNode }) {
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.base }}>
       <Mica />
       <Sidebar />
-      <ScreenWidth.Provider value={width - SIDEBAR}>
+      <ScreenWidth.Provider value={width - sidebarWidth(width)}>
         <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
       </ScreenWidth.Provider>
     </View>
@@ -128,12 +188,16 @@ export function DeskRoom({ children }: { children: React.ReactNode }) {
 
 /**
  * A screen in a centred column on a wide window, the ground and its glow
- * across the whole of it. Anything else: the screen as it is.
+ * across the whole of it. Anything else: the screen as it is. `wide`: on a
+ * middling window too, at the column's width (onboarding and the sign-in,
+ * which have the whole window there: app/_layout.tsx).
  */
-export function DeskColumn({ max = READ_MAX, children }: { max?: number; children: React.ReactNode }) {
+export function DeskColumn({ max = READ_MAX, wide, children }: { max?: number; wide?: boolean; children: React.ReactNode }) {
   const t = useTheme();
   const desk = useDesk();
-  if (!desk) return <>{children}</>;
+  const middling = useWide() && !desk;
+  if (!desk && !(wide && middling)) return <>{children}</>;
+  if (middling) max = Math.min(max, COLUMN);
   return (
     <View style={{ flex: 1, backgroundColor: t.base }}>
       <Mica />

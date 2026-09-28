@@ -1,13 +1,13 @@
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { View, Text, TextInput, Pressable, Platform, type ViewStyle, type TextStyle } from 'react-native';
+import { View, Text, TextInput, Pressable, Platform, useWindowDimensions, type ViewStyle, type TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { create } from 'zustand';
 import { useStore, useTheme } from '../store';
-import { pickForToday, updateTask, capture, type Task } from '../db';
-import { parseTask } from '../assistant';
+import { pickForToday, updateTask, capture, dropTask, steps, type Task } from '../db';
+import { parseTask, describe } from '../assistant';
 import { router } from 'expo-router';
 import { understandLocal } from '../understand';
 import { getLanguage } from '../planner';
@@ -15,7 +15,10 @@ import { readOf } from '../components/CaptureSheet';
 import { type as T, type Theme } from '../theme';
 import { poseImage } from '../ui';
 import { Image } from 'react-native';
-import { decorative } from '../a11y';
+import { decorative, announce } from '../a11y';
+import { useDictation } from '../voice';
+import { labelById } from '../labels';
+import { ScreenWidth } from '../screen';
 
 /**
  * THE DESKTOP KIT (src/components/Desk.tsx is the frame). The pieces the three
@@ -57,6 +60,18 @@ export function clockParts(min: number) {
 export const useDeskState = create<{ calMode: 'week' | 'month'; calOff: number; calDay: number | null }>(() => ({
   calMode: 'week', calOff: 0, calDay: null,
 }));
+
+/**
+ * The room's width (the window less the sidebar), the padding at its sides,
+ * and the width that leaves for its contents (rooms stop growing at 1240).
+ */
+export function useRoom() {
+  const given = useContext(ScreenWidth);
+  const { width } = useWindowDimensions();
+  const room = given ?? width;
+  const pad = room < 1000 ? 28 : 40;
+  return { room, pad, inner: Math.min(room, 1240) - pad * 2 };
+}
 
 /** The colours the desktop adds on top of the room's palette, for each light. */
 export function useDeskTokens() {
@@ -184,13 +199,24 @@ export function usePageKeys(fn: (e: KeyboardEvent) => void, on = true) {
 /**
  * The room's header: its name, what belongs beside it (the date, search, the
  * calendar's arrows), and Tell Nu on the right. Enter puts it down right there
- * (a goal goes to the planner); ⌘K comes here.
+ * (a goal goes to the planner); ⌘K comes here. In a narrow room the name and
+ * Tell Nu keep the first row and the rest goes under them, so nothing squeezes.
  */
 export function DeskHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   const t = useTheme();
+  const { inner } = useRoom();
+  const name = <Text accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 0, color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display }}>{title}</Text>;
+  if (children && inner < 900) {
+    return (
+      <View style={{ zIndex: 10, paddingTop: 22, paddingBottom: 18, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, zIndex: 2 }}>{name}<TellNuField /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: -10 }}>{children}</View>
+      </View>
+    );
+  }
   return (
-    <View style={{ height: 96, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-      <Text accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 0, color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display }}>{title}</Text>
+    <View style={{ zIndex: 10, height: 96, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      {name}
       {children}
       <TellNuField />
     </View>
@@ -198,10 +224,11 @@ export function DeskHeader({ title, children }: { title: string; children?: Reac
 }
 
 /**
- * Tell Nu on the desk. Enter puts it down where you are: Nu reads it the way
- * the Tell Nu sheet does (the phone's own read, instant), a goal goes straight
- * to the planner, and the field stays ready for the next one. Nu, on the
- * left, opens the whole sheet (When, How long, voice) with what's typed.
+ * Tell Nu on the desk. As you type (or speak: the mic), Nu shows what it
+ * read under the field: the task and its day, time and length, several
+ * things, or a goal it will plan. Enter puts it down where you are (a goal
+ * goes straight to the planner), and the field stays ready for the next one.
+ * Nu, on the left, opens the whole sheet (When, How long) with what's typed.
  * `stacked`: the full-width bar across the top of Home, not the end of a
  * header row.
  */
@@ -210,7 +237,9 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
   const k = deskTokens(t);
   const [text, setText] = useState('');
   const [focus, setFocus] = useState(false);
+  const [lang, setLang] = useState('en');
   const input = useRef<TextInput>(null);
+  useEffect(() => { getLanguage().then(setLang).catch(() => {}); }, []);
   // ⌘K (Ctrl K) comes here from anywhere in the room, while it's in front
   useFocusEffect(useCallback(() => { tellFields++; return () => { tellFields--; }; }, []));
   const front = useInFront();
@@ -224,16 +253,29 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // speaking fills the same field, after whatever was typed
+  const base = useRef('');
+  const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
+  const listening = dict.state === 'listening';
+  const mic = () => {
+    if (!listening) base.current = text.trim();
+    dict.toggle();
+    setTimeout(() => input.current?.focus(), 0);
+  };
+
+  // what Nu makes of it, read again on every letter (on this device, instant)
+  const v = text.trim();
+  const u = useMemo(() => (v ? understandLocal(v, lang) : null), [v, lang]);
+  const read = useMemo(() => (v ? readOf([v], u) : null), [v, u]);
+
   const sheet = () => {
-    const v = text.trim();
     setText('');
     useStore.setState({ telling: true, tellDraft: v || null });
   };
   const send = async () => {
-    const v = text.trim();
     if (!v) return sheet();
-    const u = understandLocal(v, await getLanguage().catch(() => 'en'));
-    const read = readOf([v], u);
+    if (listening) dict.stop();
     if (!read) return;
     setText('');
     if (read.kind === 'project') {
@@ -254,27 +296,116 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
     input.current?.focus();
   };
   const mac = Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
+  const open = (focus || listening) && (!!read || listening);
   return (
-    <Pressable onPress={() => input.current?.focus()} accessible={false}
-      style={{
-        ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 520, minWidth: 160 }), height: stacked ? 64 : 56, borderRadius: stacked ? 18 : 16,
-        flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 12, paddingRight: 10,
-        backgroundColor: k.field, borderWidth: 1, borderColor: focus ? t.ra : t.strokeStrong,
-        ...(k.shadow ?? {}), cursor: 'text',
-      } as unknown as ViewStyle}>
-      <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
-        <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
+    <View style={{ ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 520, minWidth: 200 }), zIndex: 20 } as ViewStyle}>
+      <Pressable onPress={() => input.current?.focus()} accessible={false}
+        style={{
+          height: stacked ? 64 : 56, borderRadius: stacked ? 18 : 16,
+          flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 12, paddingRight: 10,
+          // focused, the frame firms up: a calm line, not the coral ring
+          backgroundColor: k.field, borderWidth: 1, borderColor: listening ? t.ra : focus ? t.ink3 : t.strokeStrong,
+          ...(k.shadow ?? {}), cursor: 'text',
+        } as unknown as ViewStyle}>
+        <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
+          <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
+        </Pressable>
+        <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
+          {...({ dataSet: { ownFocus: '1' } } as object)}
+          onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+          placeholder={listening ? 'Listening…' : 'Tell Nu anything…'} placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
+          onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') { setText(''); if (listening) dict.stop(); input.current?.blur(); } }}
+          style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: stacked ? 19 : 17, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
+        {dict.state !== 'unavailable' && (
+          <Pressable onPress={mic} accessibilityRole="button" accessibilityLabel={listening ? 'Stop listening' : 'Say it'} hitSlop={4}
+            style={(s) => {
+              const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+              return {
+                width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: listening ? t.ra : pressed || hovered ? k.pick : k.wash,
+              };
+            }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={listening ? ON_CORAL : t.ink2} strokeWidth={2} strokeLinecap="round">
+              <Path d="M9 6a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3" />
+            </Svg>
+          </Pressable>
+        )}
+        {!v && !listening && (
+          <View {...decorative} style={{ borderWidth: 1, borderColor: t.strokeStrong, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+            <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>{mac ? '⌘K' : 'Ctrl K'}</Text>
+          </View>
+        )}
       </Pressable>
-      <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
-        {...({ dataSet: { ownFocus: '1' } } as object)}
-        onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-        placeholder="Tell Nu anything…" placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
-        onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') { setText(''); input.current?.blur(); } }}
-        style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: stacked ? 19 : 17, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
-      <View {...decorative} style={{ borderWidth: 1, borderColor: t.strokeStrong, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-        <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>{mac ? '⌘K' : 'Ctrl K'}</Text>
-      </View>
-    </Pressable>
+      {open && <ReadOut read={read} listening={listening} note={dict.note} />}
+    </View>
+  );
+}
+
+/** Under Tell Nu while you type: what Nu read, and what Enter will do with it. */
+function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; listening: boolean; note: string }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const chips = (d: ReturnType<typeof parseTask>) => {
+    const bits = describe(d).split(' · ').filter(Boolean);
+    const label = labelById(d.label);
+    return label ? [...bits, label.name] : bits;
+  };
+  const enter = read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
+  useEffect(() => { if (read?.kind === 'project') announce('A project. Enter plans it.'); }, [read?.kind]);
+  return (
+    <View accessibilityLiveRegion="polite" style={{
+      position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 8, zIndex: 30,
+      borderRadius: 16, borderWidth: 1, borderColor: t.stroke, backgroundColor: t.card,
+      paddingVertical: 14, paddingHorizontal: 16, gap: 10,
+      shadowColor: '#171313', shadowOpacity: k.dark ? 0.4 : 0.1, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
+    } as ViewStyle}>
+      {listening && !read && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{note || 'Listening…'}</Text>}
+      {read?.kind === 'project' && (
+        <View style={{ gap: 4 }}>
+          <Text style={{ color: k.raText, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>A project</Text>
+          <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
+          <Text style={{ color: t.ink2, fontSize: 14.5, fontFamily: T.brand }}>Nu breaks it into steps and opens it on the first one.</Text>
+        </View>
+      )}
+      {read?.kind === 'task' && (
+        <View style={{ gap: 8 }}>
+          <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
+          <Chips items={chips(read.draft)} />
+        </View>
+      )}
+      {read?.kind === 'many' && (
+        <View style={{ gap: 8 }}>
+          {read.drafts.map((d, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Text numberOfLines={1} style={{ color: t.ink, fontSize: 16, fontFamily: T.display, letterSpacing: -0.2 }}>{d.title}</Text>
+              <Chips items={chips(d)} />
+            </View>
+          ))}
+        </View>
+      )}
+      {!!read && (
+        <View {...decorative} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.stroke }}>
+          <Key k="↵" />
+          <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{enter}</Text>
+          <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand, marginLeft: 'auto' }}>Esc clears</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Chips({ items }: { items: string[] }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  if (!items.length) return null;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {items.map((x, i) => (
+        <View key={i} style={{ borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: k.wash }}>
+          <Text style={{ color: t.ink2, fontSize: 13.5, fontFamily: T.brand }}>{x}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -342,6 +473,19 @@ export async function addTo(text: string, where: Col | { day: number }) {
   await useStore.getState().refresh();
 }
 
+/** Delete a task (and its open steps), with Undo on the toast for a few seconds. */
+export async function deleteTask(task: Task) {
+  const open = (await steps(task.id).catch(() => [] as Task[])).filter(x => x.state !== 'done');
+  await dropTask(task.id);
+  await useStore.getState().refresh();
+  useStore.getState().showToast(`Deleted: ${task.title}`, async () => {
+    await updateTask(task.id, { state: task.state });
+    for (const x of open) await updateTask(x.id, { state: x.state });
+    await useStore.getState().refresh();
+    announce(`${task.title} is back`);
+  });
+}
+
 /* ------------------------------------------------------------------ *
  *  A task as a row, and a line to add one.
  * ------------------------------------------------------------------ */
@@ -356,7 +500,7 @@ const CHECK = (
  * A task: the tick, its title, a star when it's high priority, its day. Under
  * the pointer (or picked with J and K), the columns it could move to.
  */
-export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHold, onDone, onMove }: {
+export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHold, onDone, onMove, onDelete }: {
   task: Task;
   /** where it is now, so its moves are the other two; none: no moves */
   col?: Col;
@@ -370,13 +514,15 @@ export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHol
   onHold?: () => void;
   onDone: () => void;
   onMove?: (c: Col) => void;
+  /** a bin under the pointer (Delete or Backspace when it's picked) */
+  onDelete?: () => void;
 }) {
   const t = useTheme();
   const k = deskTokens(t);
   const [hover, setHover] = useState(false);
   const [checkHover, setCheckHover] = useState(false);
   const done = task.state === 'done';
-  const showActs = (hover || selected) && !!col && !!onMove;
+  const showActs = (hover || selected) && ((!!col && !!onMove) || !!onDelete) && !done;
   // its time, when it has one today; else its day
   const due = !task.due_at || hideDue ? ''
     : task.has_time && sameDay(task.due_at, Date.now()) ? new Date(task.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase()
@@ -401,7 +547,7 @@ export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHol
         {done && CHECK}
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={2} style={{
+        <Text numberOfLines={1} style={{
           color: done ? t.ink3 : ink ?? t.ink, fontSize: 16.5, lineHeight: 21, letterSpacing: -0.2, fontFamily: T.brand,
           textDecorationLine: done ? 'line-through' : 'none',
         }}>{task.title}</Text>
@@ -415,9 +561,10 @@ export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHol
       )}
       {showActs && (
         <View style={{ flexDirection: 'row', gap: 4 }}>
-          {(['today', 'week', 'someday'] as Col[]).filter(c => c !== col).map(c => (
-            <ActButton key={c} label={COL_NAME[c]} onPress={() => onMove!(c)} accessibilityLabel={`Move to ${COL_NAME[c]}`} />
+          {!!col && !!onMove && (['today', 'week', 'someday'] as Col[]).filter(c => c !== col).map(c => (
+            <ActButton key={c} label={COL_NAME[c]} onPress={() => onMove(c)} accessibilityLabel={`Move to ${COL_NAME[c]}`} />
           ))}
+          {!!onDelete && <BinButton onPress={onDelete} title={task.title} />}
         </View>
       )}
     </Pressable>
@@ -437,10 +584,27 @@ function ActButton({ label, onPress, accessibilityLabel }: { label: string; onPr
   );
 }
 
+/** Delete, as a bin: coral under the pointer. */
+function BinButton({ onPress, title }: { onPress: () => void; title: string }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const [hover, setHover] = useState(false);
+  return (
+    <Pressable onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
+      accessibilityRole="button" accessibilityLabel={`Delete ${title}`}
+      style={{ width: 30, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: hover ? t.raWash : k.wash }}>
+      <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={hover ? k.raText : t.ink2} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+        <Path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" />
+      </Svg>
+    </Pressable>
+  );
+}
+
 /** A line to put something down, with a dashed + before it. Enter adds it and keeps the line open for the next. */
 export function AddRow({ placeholder, onAdd, ink }: { placeholder: string; onAdd: (text: string) => Promise<void> | void; ink?: string }) {
   const t = useTheme();
   const [text, setText] = useState('');
+  const [focus, setFocus] = useState(false);
   const input = useRef<TextInput>(null);
   const submit = async () => {
     const v = text.trim();
@@ -452,10 +616,13 @@ export function AddRow({ placeholder, onAdd, ink }: { placeholder: string; onAdd
   return (
     <Pressable onPress={() => input.current?.focus()} accessible={false}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 14, height: 48, cursor: 'text' } as unknown as ViewStyle}>
-      <View {...decorative} style={{ width: 23, height: 23, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: t.strokeStrong, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: t.ink3, fontSize: 15, lineHeight: 17 }}>+</Text>
+      {/* focused, the + firms up from dashed to a line: this line's own focus, not the coral ring */}
+      <View {...decorative} style={{ width: 23, height: 23, borderRadius: 12, borderWidth: 1.5, borderStyle: focus ? 'solid' : 'dashed', borderColor: focus ? t.ink2 : t.strokeStrong, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: focus ? t.ink : t.ink3, fontSize: 15, lineHeight: 17 }}>+</Text>
       </View>
       <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={submit} blurOnSubmit={false}
+        {...({ dataSet: { ownFocus: '1' } } as object)}
+        onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
         placeholder={placeholder} placeholderTextColor={ink ?? t.ink3} accessibilityLabel={placeholder.replace(/…$/, '')}
         onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') { setText(''); input.current?.blur(); } }}
         style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: 16.5, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />

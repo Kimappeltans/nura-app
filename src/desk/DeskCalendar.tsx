@@ -11,7 +11,7 @@ import { TaskSheet } from '../components/TaskSheet';
 import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
-  DeskCard, DeskHeader, DeskRow, AddRow, LinkButton, Empty, useDeskTokens, useDeskState, addTo,
+  DeskCard, DeskHeader, DeskRow, AddRow, LinkButton, Empty, useDeskTokens, useDeskState, useRoom, addTo, deleteTask,
   day0, addDays, sameDay, rel, WD, WDL, MO, CORAL, ON_CORAL, DAY,
 } from './kit';
 import { Chip } from './DeskHome';
@@ -27,11 +27,17 @@ const hm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric'
  * calendar), your commitments and your dated tasks in the same grid, and
  * beside it the picked day: a small month to move around in, what's on the
  * day, and a line to add to it (or, for a day gone by, to log what you did).
+ * In a narrower room the picked day goes under the grid, so the week keeps
+ * the whole width.
  */
 export default function DeskCalendar() {
   const t = useTheme();
   const k = useDeskTokens();
   const { height: winH } = useWindowDimensions();
+  const { pad, inner } = useRoom();
+  // the picked day under the grid, not beside it; its small month beside its list when there's room
+  const under = inner < 1060;
+  const pair = under && inner >= 640;
   const now = useNow();
   const { calMode: mode, calOff: off, calDay } = useDeskState();
   const set = useDeskState.setState;
@@ -101,7 +107,7 @@ export default function DeskCalendar() {
     <View style={{ flex: 1 }}>
       <Mica />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: 40, paddingBottom: 28 }}>
+        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
           <DeskHeader title="Calendar">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 10 }}>
               <RoundButton label="‹" said={mode === 'week' ? 'Previous week' : 'Previous month'} onPress={() => step(-1)} />
@@ -119,9 +125,9 @@ export default function DeskCalendar() {
             </View>
           </DeskHeader>
 
-          <View style={{ minHeight: winH - 124, flexDirection: 'row', gap: 20, alignItems: 'stretch' }}>
+          <View style={{ minHeight: under ? undefined : winH - 124, flexDirection: under ? 'column' : 'row', gap: 20, alignItems: 'stretch' }}>
             {mode === 'week' ? (
-              <View style={[card, { flex: 1, minWidth: 0, alignSelf: 'flex-start' }]}>
+              <View style={[card, under ? {} : { flex: 1, minWidth: 0, alignSelf: 'flex-start' }]}>
                 <LinearGradient pointerEvents="none" colors={t.surface} style={{ position: 'absolute', inset: 0 }} />
                 {/* the days */}
                 <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: t.stroke }}>
@@ -132,8 +138,8 @@ export default function DeskCalendar() {
                       <Pressable key={d.getTime()} onPress={() => pickDay(d)} accessibilityRole="button" aria-selected={on}
                         accessibilityLabel={`${WDL[d.getDay()]} ${d.getDate()}${today ? ', today' : ''}`}
                         style={{ flex: 1, minWidth: 0, paddingTop: 12, paddingHorizontal: 10, paddingBottom: 10, borderLeftWidth: 1, borderLeftColor: t.stroke, backgroundColor: on ? k.wash : 'transparent' }}>
-                        <Text style={{ color: today ? k.raText : t.ink3, fontSize: 12, letterSpacing: 1.2, fontFamily: T.display, textTransform: 'uppercase' }}>{WD[d.getDay()]}</Text>
-                        <Text style={{ color: today ? k.raText : t.ink, fontSize: 26, letterSpacing: -0.4, fontFamily: T.display }}>{d.getDate()}</Text>
+                        <Text numberOfLines={1} style={{ color: today ? k.raText : t.ink3, fontSize: 12, letterSpacing: 1.2, fontFamily: T.display, textTransform: 'uppercase' }}>{WD[d.getDay()]}</Text>
+                        <Text numberOfLines={1} style={{ color: today ? k.raText : t.ink, fontSize: 26, letterSpacing: -0.4, fontFamily: T.display }}>{d.getDate()}</Text>
                       </Pressable>
                     );
                   })}
@@ -196,7 +202,7 @@ export default function DeskCalendar() {
                 </View>
               </View>
             ) : (
-              <View style={[card, { flex: 1, minWidth: 0, alignSelf: 'flex-start' }]}>
+              <View style={[card, under ? {} : { flex: 1, minWidth: 0, alignSelf: 'flex-start' }]}>
                 <LinearGradient pointerEvents="none" colors={t.surface} style={{ position: 'absolute', inset: 0 }} />
                 <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: t.stroke }}>
                   {MON_FIRST.map(x => <Text key={x} style={{ flex: 1, padding: 10, color: t.ink3, fontSize: 12, letterSpacing: 1.2, fontFamily: T.display, textTransform: 'uppercase' }}>{x}</Text>)}
@@ -220,8 +226,11 @@ export default function DeskCalendar() {
             )}
 
             {/* the picked day */}
-            <DeskCard style={{ width: 320, paddingVertical: 18, paddingHorizontal: 20 }}>
-              <MiniMonth sel={sel} today={t0} busy={busy} onPick={pickDay} />
+            <DeskCard style={{ ...(under ? {} : { width: 320 }), paddingVertical: 18, paddingHorizontal: 20, ...(pair ? { flexDirection: 'row', gap: 32 } : {}) }}>
+              <View style={pair ? { width: 300 } : undefined}>
+                <MiniMonth sel={sel} today={t0} busy={busy} onPick={pickDay} bare={pair} />
+              </View>
+              <View style={pair ? { flex: 1, minWidth: 0 } : undefined}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 26, letterSpacing: -0.5, fontFamily: T.display }}>{WDL[sel.getDay()]} {sel.getDate()}</Text>
                 <Text style={{ color: t.ink3, fontSize: 14.5, fontFamily: T.brand }}>{rel(sel.getTime())}</Text>
@@ -235,7 +244,8 @@ export default function DeskCalendar() {
                 </View>
               ))}
               {[...selTasks, ...selDone].map(x => (
-                <DeskRow key={x.id} task={x} hideDue onOpen={() => setPeek(x)} onHold={() => setHeld(x)} onDone={() => x.state !== 'done' && tick(x.id)} />
+                <DeskRow key={x.id} task={x} hideDue onOpen={() => setPeek(x)} onHold={() => setHeld(x)} onDone={() => x.state !== 'done' && tick(x.id)}
+                  onDelete={x.state !== 'done' ? () => deleteTask(x) : undefined} />
               ))}
               {!selEvents.length && !selTasks.length && !selDone.length && <Empty>Nothing on this day.</Empty>}
               <AddRow placeholder={past ? 'Log something you did…' : 'Add a task for this day…'}
@@ -245,6 +255,7 @@ export default function DeskCalendar() {
                   await retroCapture([v], sameDay(sel, t0) ? Date.now() : new Date(sel).setHours(12, 0, 0, 0));
                   await refresh();
                 }} />
+              </View>
             </DeskCard>
           </View>
         </View>
@@ -291,13 +302,13 @@ function MonthCell({ d, h, today, on, items, onPress }: {
 }
 
 /** The picked day's month, small: today in coral, the picked day filled, a dot where something's planned. */
-function MiniMonth({ sel, today, busy, onPick }: { sel: Date; today: Date; busy: (d: Date) => boolean; onPick: (d: Date) => void }) {
+function MiniMonth({ sel, today, busy, onPick, bare }: { sel: Date; today: Date; busy: (d: Date) => boolean; onPick: (d: Date) => void; bare?: boolean }) {
   const t = useTheme();
   const k = useDeskTokens();
   const base = new Date(sel.getFullYear(), sel.getMonth(), 1);
   const cells: (Date | null)[] = [...Array(lead(base)).fill(null), ...Array.from({ length: daysIn(base) }, (_, i) => new Date(base.getFullYear(), base.getMonth(), i + 1))];
   return (
-    <View style={{ marginBottom: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
+    <View style={bare ? undefined : { marginBottom: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: t.stroke }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
         <Text style={{ flex: 1, color: t.ink, fontSize: 15, fontFamily: T.display }}>{MO[base.getMonth()]} {base.getFullYear()}</Text>
         <Pressable onPress={() => onPick(new Date(base.getFullYear(), base.getMonth() - 1, 1))} hitSlop={6} accessibilityRole="button" accessibilityLabel="Previous month" style={{ paddingHorizontal: 6 }}>

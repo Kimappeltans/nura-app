@@ -16,7 +16,7 @@ import type { Tab } from '../components/TabBar';
 import { useTaskActions } from '../useTaskActions';
 import { decorative } from '../a11y';
 import {
-  DeskCard, TellNuField, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, useDeskTokens, useDeskState,
+  DeskCard, TellNuField, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, useDeskState, useRoom,
   day0, addDays, sameDay, WD, WDL, MO, CORAL, ON_CORAL,
 } from './kit';
 import { DayArc } from './DayArc';
@@ -33,6 +33,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useTheme();
   const k = useDeskTokens();
   const { width: winW, height: winH } = useWindowDimensions();
+  const { pad } = useRoom();
   const now = useNow();
   const { inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, toRa, profile, dayStartMin, dayEndMin } = useStore();
   const session = useStore(s => s.session);
@@ -72,7 +73,10 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   }, [cols, isToday, focusDay]);
   const later = cols.week.filter(x => !focus.includes(x));
 
-  const pick = pick0 ?? cols.today[0] ?? null;
+  // the one in front: today's, else the one the planner would start with from everything else
+  const today0 = pick0 ?? cols.today[0] ?? null;
+  const pick = today0 ?? decisions.find(d => d.task.state !== 'done')?.task ?? null;
+  const suggested = !today0 && !!pick;
   const fact = pick ? reasonFor(decisions, pick.id, nowDecision) : null;
 
   // the next seven days, with what's on each
@@ -97,7 +101,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const sunUp = Math.min(1, doneToday.length / 5);
   const row = (x: Task, col?: 'today' | 'week') => (
     <DeskRow key={x.id} task={x} col={col} hideDue={!col || (col === 'today' && !x.has_time && sameDay(x.due_at, Date.now()))} onOpen={() => setPeek(x)} onHold={() => setHeld(x)}
-      onDone={() => tick(x.id)} onMove={c => moveTo(x, c)} />
+      onDone={() => tick(x.id)} onMove={c => moveTo(x, c)} onDelete={x.state !== 'done' ? () => deleteTask(x) : undefined} />
   );
   // no header: Home is one screen, the next seven days included; a short window scrolls
   const PAD = 28;
@@ -106,9 +110,9 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
     <View style={{ flex: 1 }}>
       <Mica sunProgress={sunUp} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ height: Math.max(640, winH), width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: 40, paddingVertical: PAD, gap: 20 }}>
+        <View style={{ height: Math.max(640, winH), width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingVertical: PAD, gap: 20 }}>
             {/* Tell Nu, across the top: the first place to put something down */}
-            <TellNuField stacked />
+            <View style={{ zIndex: 10 }}><TellNuField stacked /></View>
             <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: 20 }}>
               {/* the day, at full size */}
               <DeskCard style={{ flex: 7, minWidth: 0, paddingTop: 26, paddingHorizontal: 38, paddingBottom: 20, overflow: 'hidden' }}>
@@ -168,13 +172,16 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
                 </ScrollView>
 
                 {phase !== 'night' ? (
-                  <DeskCard style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, paddingHorizontal: 22 }}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, marginBottom: 2 }}>Ready for one thing?</Text>
+                  <DeskCard style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 12, paddingVertical: 16, paddingHorizontal: 22 }}>
+                    <View style={{ flexGrow: 1, flexBasis: 180, minWidth: 0 }}>
+                      <Text style={{ color: suggested ? k.raText : t.ink3, fontSize: 13.5, fontFamily: T.display, marginBottom: 2 }}>
+                        {!pick ? 'Ready for one thing?' : suggested ? 'Nu would start with' : 'Up next'}
+                      </Text>
                       {!!pick && (
-                        <Text numberOfLines={2} style={{ color: t.ink2, fontSize: 15.5, lineHeight: 22, fontFamily: T.brand }}>{`“${pick.title}”`}</Text>
+                        <Text numberOfLines={2} style={{ color: t.ink, fontSize: 19, lineHeight: 24, fontFamily: T.display, letterSpacing: -0.3 }}>{pick.title}</Text>
                       )}
-                      {!!fact && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 13.5, fontFamily: T.brand, marginTop: 3 }}>{fact}</Text>}
+                      {!!fact && <Text numberOfLines={2} style={{ color: t.ink2, fontSize: 14, lineHeight: 19, fontFamily: T.brand, marginTop: 3 }}>{fact}</Text>}
+                      {!pick && <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, fontFamily: T.brand }}>Tell Nu what's on your mind, and Nu picks where to start.</Text>}
                     </View>
                     {running && pick && running.id === pick.id
                       ? <BeginButton text="Back to it" label={`Back to ${pick.title}`} onPress={() => backToSession(running)} />

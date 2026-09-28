@@ -40,7 +40,7 @@ export default function Index() {
   if (!onboarded) return <Onboarding />;
   // an account is required: signed out, the sign-in screen is all there is
   // (signing in brings the session, and this screen, back by itself)
-  if (!session && !devSkipAuth) return <DeskColumn max={STAGE}><Auth onClose={() => {}} /></DeskColumn>;
+  if (!session && !devSkipAuth) return <DeskColumn max={STAGE} wide><Auth onClose={() => {}} /></DeskColumn>;
   if (mode === 'ra') return <Ra />;
 
   // a wide web window: the tab bar is a sidebar, and the room uses the width
