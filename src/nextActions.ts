@@ -91,7 +91,7 @@ export function ruleOf(d: PlannerDecision | null, pinId?: string | null): db.Pic
 /* ---------------- the day (src/dayPlan.ts) ---------------- */
 
 /** Minutes left before your day ends, less what your events still take. */
-function timeLeft(s: PlannerState): number {
+export function timeLeft(s: PlannerState): number {
   const now = s.ctx.now;
   const end = dayEndAt(now, s.ctx.dayEndMin);
   if (end <= now) return 0;

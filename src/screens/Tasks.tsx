@@ -17,6 +17,9 @@ import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { SearchBar } from '../components/SearchField';
 import { HeldRow, taskValue } from '../components/HeldRow';
+import { useSwipeHint } from '../components/SwipeRow';
+import { useTaskActions } from '../useTaskActions';
+import { moveTo, deleteTask } from '../desk/kit';
 import { LabelGlyph } from '../components/LabelIcon';
 import { byPriority } from './Home';
 import type { LabelId } from '../labels';
@@ -51,6 +54,7 @@ export default function Tasks() {
     ? { width: '100%', maxWidth: ROOM_MAX + 80, alignSelf: 'center', paddingHorizontal: 40 }
     : { paddingHorizontal: 24 };
   const { inbox, todayPicked, projects, habits, refreshHabits, now, nowDecision, decisions, focusOn, toRa, running } = useStore();
+  const { tick } = useTaskActions();
   const [habit, setHabit] = useState<HabitView | null>(null);   // the habit's sheet (tap or hold)
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
@@ -106,8 +110,13 @@ export default function Tasks() {
       )}
     </View>
   );
+  // swipe right for Done, left for the other two places and Delete; the very first row shows it once
+  const hint = useSwipeHint(water.today.length + water.week.length + water.someday.length > 0);
+  const first = [...water.today, ...water.week, ...water.someday][0]?.id;
+  const COLS = ['today', 'week', 'someday'] as const;
   const rows = (xs: Task[], faint: 0 | 1 | 2) => xs.map(x => (
-    <HeldRow key={x.id} task={x} faint={faint} meta={projectOf.get(x.id)} onPress={() => setPeek(x)} onHold={() => setHeld(x)} />
+    <HeldRow key={x.id} task={x} faint={faint} meta={projectOf.get(x.id)} onPress={() => setPeek(x)} onHold={() => setHeld(x)}
+      col={COLS[faint]} onDone={() => tick(x.id)} onMove={c => moveTo(x, c)} onDelete={() => deleteTask(x)} peek={hint && x.id === first} />
   ));
 
   // habits: every day, so at today's depth, first

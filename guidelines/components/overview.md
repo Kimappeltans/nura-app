@@ -162,24 +162,45 @@ sparkling clips (rule 1). Now: Done (Ra holding up a pebble).
 Code: `src/components/Desk.tsx` (the frame) and `src/desk/` (the rooms).
 Reference: the redesign preview of 27 September.
 
-- **Sidebar:** the wordmark, Home, Tasks, Calendar; You at the foot with
-  the running-session pill above it. Where you are is a soft fill.
+- **Sidebar:** the wordmark, Home, Tasks, Calendar; your account at the
+  foot (your picture, name and email; "Not signed in" with Sign in when
+  there's no account), the running-session pill above it. Where you are is a
+  soft fill. Under 1180 wide it's the icons only, so the room keeps the width.
 - **Header:** each room's name, what belongs beside it (the date, search,
   the calendar's arrows and Week / Month), and Tell Nu on the right as a
-  field. Enter opens Tell Nu with the words; ⌘K goes to the field, N opens
-  Tell Nu anywhere.
-- **Home:** one screen, no header and no scrolling, so the next seven days
-  are always in view. The day at full size (the date on top, dot-matrix
-  time, the greeting, the sun's arc with Ra in its glow, done / this week /
-  someday); beside it Tell Nu, Today (Tomorrow once the day is over) and
-  Begin, or Nu resting at night; the next seven days underneath, each
-  opening the Calendar on that day. A long Today scrolls on its own.
+  field with a mic. As you type, Nu shows what it read under the field (the
+  task, its day, time and length; several things; or a goal it will plan);
+  Enter puts it down. ⌘K goes to the field, N opens Tell Nu anywhere. In a
+  narrow room the name and Tell Nu keep the first row, the rest goes under.
+- **Home (Kim, 28 September): what Nura figured out, not a dashboard.** Tell
+  Nu across the top ("Tell Nu what's going on…"). The one thing at full
+  size: **Your next move** (what you put first on Today, else the planner's
+  first), about how long it will really take you, up to three of the
+  planner's facts as quiet chips (a day, a priority, a project first; "Fits
+  before" last), and Start, Not now (passed on for today, the next one comes
+  up) and Something changed (bigger than I thought, stuck or waiting, not
+  today, already done, not needed). Under it **After that**: the next three,
+  Today's first. Beside it **Your day**: the time you really have left
+  (around your events), what Today holds, and what Nu suggests changing, one
+  at a time with Yes and Undo. With nothing held: "What's going on?" with
+  Nu and a few lines to try. After the day's end: Nu resting, and what
+  tomorrow starts with. The clock, the counts and the week are the
+  Calendar's now; the sun's glow still rises behind the room (Mica).
 - **Tasks:** Nu on the surface of the water, Today / This week / Someday as
-  three lanes under it; a task's moves show under the pointer; J K pick,
-  X ticks, T W S send. Habits and projects as cards below.
+  one list under it, habits and projects beside it (under it when narrow).
+  With nothing on Today, Nu's pick sits there with Add to Today. A task's
+  moves and a bin show under the pointer; J K pick, X ticks, T W S send,
+  Delete deletes (with Undo).
+- **Swipe (every task list, phone and desktop):** right for Done, left for
+  the other two places and Delete; a long swipe does the outermost. A
+  finger, a mouse drag, or two fingers on a trackpad. The first row peeks
+  open once to show it (`src/components/SwipeRow.tsx`).
 - **Calendar:** the week as hours (from Day starts to Day ends) or the month;
-  the picked day beside it with a small month, what's on it, and a line to
-  add a task (a day to come) or log what you did (today or a day gone by).
+  the picked day beside it (under it in a narrow room) with a small month,
+  what's on it, and a line to add a task (a day to come) or log what you did
+  (today or a day gone by). A task sits on one day in every room
+  (`calendarDay` in `src/desk/kit.tsx`): done, the day it was done, ticked
+  and struck through; on Today, today; else its date.
 - **The opening, onboarding and the sign-in** have the whole window from 600
   up: the opening's sea runs edge to edge with the story on a stage in the
   middle; each step and the sign-in sit in the middle of the window, back

@@ -28,6 +28,8 @@ export interface PlannerDecision {
   factors: Partial<Record<PlannerSignal, number>>;
   /** at most two plain facts: "Fits before 7:30 PM · Due today" */
   reason: string | null;
+  /** every fact, in the card's order; the desktop's next move shows up to three */
+  facts: string[];
   /** your estimate, adjusted by how long things like it really take you */
   suggestedMinutes: number | null;
 }
@@ -120,6 +122,11 @@ export function decide(task: Task, ctx: NextContext): PlannerDecision {
     else if (sameDay(task.due_at, now)) f.deadline = 30;
     else if (until <= 3 * DAY) f.deadline = 15;
     if (fact) facts.push([2, fact]);
+    // later this week: the day it's due, after the facts about today
+    else if (until > 0 && until <= 6 * DAY) {
+      const days = Math.round((new Date(task.due_at).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / DAY);
+      facts.push([7, days === 1 ? 'Due tomorrow' : `Due ${new Date(task.due_at).toLocaleDateString(undefined, { weekday: 'long' })}`]);
+    }
   }
 
   const pr = task.priority ?? 0;
@@ -172,8 +179,9 @@ export function decide(task: Task, ctx: NextContext): PlannerDecision {
   if (days >= 1) f.waiting = Math.min(8, Math.round(days / 3));
 
   const score = Object.values(f).reduce((a, b) => a + (b ?? 0), 0);
-  const reason = facts.sort((a, b) => a[0] - b[0]).slice(0, 2).map(x => x[1]).join(' · ') || null;
-  return { taskId: task.id, task, score, factors: f, reason, suggestedMinutes: predicted };
+  const all = facts.sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  const reason = all.slice(0, 2).join(' · ') || null;
+  return { taskId: task.id, task, score, factors: f, reason, facts: all, suggestedMinutes: predicted };
 }
 
 /**

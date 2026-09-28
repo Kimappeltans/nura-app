@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Defs, RadialGradient, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme, useStore } from '../store';
 import { tasksBetween, type Task } from '../db';
+import { calendarDay } from '../desk/kit';
 import { eventsBetween, type UpcomingEvent } from '../calendar';
 import { type as T } from '../theme';
 import { Mica, IconChevron } from '../ui';
@@ -108,12 +109,16 @@ export default function Calendar() {
       const cur = m.get(key) ?? { tasks: 0, events: 0 };
       cur[k]++; m.set(key, cur);
     };
-    tasks.forEach(x => x.due_at && bump(x.due_at, 'tasks'));
+    tasks.forEach(x => { const at = calendarDay(x); if (at) bump(at, 'tasks'); });
     events.forEach(e => bump(e.startsAt, 'events'));
     return m;
   }, [tasks, events]);
 
-  const dayTasks = tasks.filter(x => x.due_at && sameDay(new Date(x.due_at), picked));
+  // where each task sits (calendarDay): put on Today means today, done means the day it was done
+  const dayTasks = [
+    ...tasks.filter(x => { const at = calendarDay(x); return !!at && sameDay(new Date(at), picked); }),
+    ...(sameDay(picked, new Date()) ? todayPicked.filter(x => !x.parent_id && !tasks.some(y => y.id === x.id)) : []),
+  ];
   const dayEvents = events.filter(e => sameDay(new Date(e.startsAt), picked));
   const cells = useMemo(() => gridFor(cursor.getFullYear(), cursor.getMonth()), [cursor]);
   const today = new Date();
@@ -144,7 +149,7 @@ export default function Calendar() {
     const doneThatDay = wins.filter(w => w.completed_at && sameDay(new Date(w.completed_at), picked) && !dayTasks.some(x => x.id === w.id));
     return [
       ...dayEvents.map(e => ({ kind: 'event' as const, id: `e${e.id}`, at: e.startsAt, title: e.title, timed: true, done: false, task: null as Task | null })),
-      ...dayTasks.map(x => ({ kind: 'task' as const, id: `t${x.id}`, at: x.state === 'done' && x.completed_at ? x.completed_at : x.due_at!, title: x.title, timed: !!x.has_time || x.state === 'done', done: x.state === 'done', task: x as Task | null })),
+      ...dayTasks.map(x => ({ kind: 'task' as const, id: `t${x.id}`, at: x.state === 'done' && x.completed_at ? x.completed_at : x.due_at ?? Date.now(), title: x.title, timed: (!!x.has_time && sameDay(new Date(x.due_at ?? 0), picked)) || x.state === 'done', done: x.state === 'done', task: x as Task | null })),
       ...doneThatDay.map(w => ({ kind: 'task' as const, id: `d${w.id}`, at: w.completed_at!, title: w.title, timed: true, done: true, task: w as Task | null })),
     ].sort((a, b) => (a.timed === b.timed ? a.at - b.at : a.timed ? -1 : 1));
   }, [dayEvents, dayTasks, wins, picked]);

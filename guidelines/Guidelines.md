@@ -37,7 +37,8 @@ Focus, More options, In session, Done.
      or dotted sun;
    - Home's sunrise: the background's coral glow climbs as things get done
      (`Mica` `sunProgress`), and the day's path has dawn under it and a glow
-     around Ra;
+     around Ra (the phone's Home; the desktop's Home puts your next move in
+     the middle instead, with Ra in its glow on that card);
    - Nu's pale glow (`NuGlow`), the rooms' ambient glows (`Mica`), and Done's
      warm-white-to-light-orange ground (`doneGround`).
 2. **Inter Tight, only.** No Poppins anywhere (it was the old app font).
@@ -61,7 +62,9 @@ Focus, More options, In session, Done.
    heading, no "why this one" sentences, no corner notes. The one exception is
    the card in front, which carries one quiet line of facts (Fits before
    7:30 PM · High priority, from `factLine` in `src/priority.ts`): facts, at
-   most two, never a sentence of reasons. No dashes in copy
+   most two, never a sentence of reasons. The desktop's next move (Home,
+   Kim, 28 September) shows up to three of the planner's facts as chips:
+   still facts, never a sentence. No dashes in copy
    (— or –), in the app or on the site: use a comma, a full stop or a colon.
 8. **No number ever goes down.** No streaks, no red, no "you missed". A quiet
    day is a small, empty circle — never a gap, never a warning.

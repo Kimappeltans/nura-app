@@ -5,6 +5,8 @@ import { type as T } from '../theme';
 import { labelById } from '../labels';
 import { LabelGlyph } from './LabelIcon';
 import type { Task } from '../db';
+import { SwipeRow } from './SwipeRow';
+import { taskSwipes, COL_NAME, type Col } from '../desk/kit';
 
 const DAY = 86400_000;
 
@@ -23,9 +25,11 @@ export function taskValue(task: Task): { big: string; small: string } | null {
 /**
  * A TASK, AS A ROW (guidelines/components/overview.md): its label in a
  * circle, the title, and one value on the right — the same wherever a task is
- * listed. Tap to look at it, hold for what you can do with it.
+ * listed. Tap to look at it, hold for what you can do with it. Given what to
+ * do, it swipes: right for Done, left for the other two places and Delete
+ * (the same actions a screen reader gets on the row).
  */
-export function HeldRow({ task, onPress, onHold, faint, meta }: {
+export function HeldRow({ task, onPress, onHold, faint, meta, col, onDone, onMove, onDelete, peek }: {
   task: Task;
   onPress: () => void;
   onHold: () => void;
@@ -33,18 +37,40 @@ export function HeldRow({ task, onPress, onHold, faint, meta }: {
   faint?: 0 | 1 | 2;
   /** a quiet second line (a project's name) */
   meta?: string | null;
+  /** where it is now (Today, This week, Someday), so its moves are the other two */
+  col?: Col;
+  onDone?: () => void;
+  onMove?: (c: Col) => void;
+  onDelete?: () => void;
+  /** once: slide open a little, to show a row can be swiped */
+  peek?: boolean;
 }) {
   const t = useTheme();
   const l = labelById(task.label);
   const v = taskValue(task);
   const dark = t.key === 'nu';
   const hold = () => { Haptics.selectionAsync(); onHold(); };
+  const swipes = taskSwipes(task, col, dark, { onDone, onMove, onDelete });
+  const others = col && onMove ? (['today', 'week', 'someday'] as Col[]).filter(c => c !== col) : [];
+  const actions = [
+    { name: 'more', label: 'More options' },
+    ...(onDone ? [{ name: 'done', label: 'Done' }] : []),
+    ...others.map(c => ({ name: `move:${c}`, label: `Move to ${COL_NAME[c]}` })),
+    ...(onDelete ? [{ name: 'delete', label: 'Delete' }] : []),
+  ];
   return (
+    <SwipeRow left={swipes.left} right={swipes.right} peek={peek}>
     <Pressable onPress={onPress} onLongPress={hold}
       accessibilityRole="button"
       accessibilityLabel={[task.title, l?.name, meta, v ? [v.big, v.small].filter(Boolean).join(' ') : null].filter(Boolean).join(', ')}
-      accessibilityActions={[{ name: 'more', label: 'More options' }]}
-      onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'more') hold(); }}
+      accessibilityActions={actions}
+      onAccessibilityAction={e => {
+        const a = e.nativeEvent.actionName;
+        if (a === 'more') hold();
+        else if (a === 'done') onDone?.();
+        else if (a === 'delete') onDelete?.();
+        else if (a.startsWith('move:')) onMove?.(a.slice(5) as Col);
+      }}
       style={({ pressed }) => ({
         minHeight: faint === 2 ? 48 : 54, flexDirection: 'row', alignItems: 'center', gap: 12,
         borderBottomWidth: 1, borderBottomColor: t.stroke,
@@ -67,5 +93,6 @@ export function HeldRow({ task, onPress, onHold, faint, meta }: {
         </Text>
       )}
     </Pressable>
+    </SwipeRow>
   );
 }
