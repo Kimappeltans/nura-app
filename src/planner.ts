@@ -283,6 +283,7 @@ export function plannerError(status: number | undefined): PlannerError {
 }
 
 async function call(body: Record<string, unknown>): Promise<any> {
+  if (await mockPlanning()) return mockPlanner(body);
   if (__DEV__ && (await getFlag('dev.planner')) === 'local') return localPlanner(body);
   // nothing leaves the phone without your yes, and only with a session
   if (!(await aiAllowed())) throw new PlannerError(NEEDS_OK, 'consent');
@@ -339,7 +340,7 @@ export async function replan(state: PlanState, event: ReplanEvent, note?: string
 async function localPlanner(body: Record<string, any>): Promise<any> {
   await new Promise(r => setTimeout(r, 700));
   const goal: string = body.goal ?? body.state?.goal ?? '';
-  const title = goal.replace(/^(i need to|i have to|i want to|help me)\s+/i, '').replace(/^\w/, c => c.toUpperCase()).slice(0, 60);
+  const title = titleOf(goal);
   const path = [
     { ref: '', title: 'Write one sentence about what finished means', first_action: 'Open a note and type “Finished means…”', why: 'A clear target makes the next move obvious.', est_minutes: 5 },
     { ref: '', title: 'List what’s already done', first_action: 'Open what you have so far.', why: 'So the path starts where you are.', est_minutes: 10 },
@@ -380,4 +381,106 @@ async function localPlanner(body: Record<string, any>): Promise<any> {
   }
   const rest = keep.filter(s => s.ref !== cur?.ref);
   return { reply: rest.length ? 'Nice. Here’s the next move.' : 'That was the last step on the path.', steps: rest, current: rest.length ? 0 : -1, question: '', options: [], maybe_done: !rest.length };
+}
+
+const titleOf = (goal: string) =>
+  goal.replace(/^(i need to|i have to|i want to|help me)\s+/i, '').replace(/^\w/, c => c.toUpperCase()).slice(0, 60);
+
+/* ------------------------------------------------------------------ *
+ *  Dev only: a simulated planner, for recording a demo
+ * ------------------------------------------------------------------ */
+
+/** On when the flag `dev.mockPlan` is '1' (`__nuraFlag('dev.mockPlan', '1')`).
+ *  Skips the yes to AI help and the sign-in: nothing leaves the phone.
+ *  Always off in release builds. */
+export async function mockPlanning(): Promise<boolean> {
+  return __DEV__ && (await getFlag('dev.mockPlan')) === '1';
+}
+
+const BOARD = /board|deck|investor|quarterly|\bq[1-4]\b/i;
+
+const BOARD_PATH = [
+  { title: 'Pull the Q3 numbers: revenue, burn and runway', first_action: 'Open the finance sheet and copy revenue by month.', why: 'Every slide leans on these.', est_minutes: 30 },
+  { title: 'Ask Priya for the product metrics: active users and retention', first_action: 'Send Priya two lines with a Thursday deadline.', why: 'Waiting on others is the slow part, so ask first.', est_minutes: 10 },
+  { title: 'Write the quarter’s story in three sentences', first_action: 'Open a note: what went well, what didn’t, what’s next.', why: 'The slides follow the story.', est_minutes: 15, after: [0] },
+  { title: 'Copy last quarter’s deck and set up 10 slides', first_action: 'Duplicate last quarter’s deck in Google Slides.', why: 'Start from the shape the board already knows.', est_minutes: 20 },
+  { title: 'Build the metrics slides with charts', first_action: 'Paste the revenue table into the chart slide.', why: 'The board reads the charts first.', est_minutes: 45, after: [0, 1, 3] },
+  { title: 'Write the hiring plan and budget slide', first_action: 'List each role with its start month and cost.', why: 'It’s the question the board always asks.', est_minutes: 25, after: [3] },
+  { title: 'Write the asks slide', first_action: 'Write the one decision you need from the board.', why: 'A clear ask gets a clear answer.', est_minutes: 15, after: [2] },
+  { title: 'Send the draft to Sam for comments', first_action: 'Share the deck with comment access.', why: 'A second read catches what you can’t see.', est_minutes: 10, after: [4, 5, 6] },
+  { title: 'Rehearse the talk once, out loud, with a 20 minute timer', first_action: 'Open the deck in presenter view.', why: 'You find the weak slide by saying it.', est_minutes: 30, after: [7] },
+  { title: 'Send the deck to the board by October 18', first_action: 'Export a PDF and write three lines of context.', why: 'Two days ahead gives them time to read.', est_minutes: 10, after: [8] },
+];
+
+/** A path for any goal: five plain steps built from its words. */
+function anyPath(title: string) {
+  return [
+    { title: 'Write down what finished looks like', first_action: 'Open a note and finish the sentence “Done means…”', why: 'A clear end makes each step easier to pick.', est_minutes: 10 },
+    { title: `List what “${title}” takes`, first_action: 'Write every piece you can think of, in any order.', why: 'So nothing surprises you halfway.', est_minutes: 20 },
+    { title: 'Pick the first piece and gather what it needs', first_action: 'Circle one piece on your list.', why: 'Starting is easier with everything to hand.', est_minutes: 15, after: [1] },
+    { title: 'Do the first piece', first_action: 'Set a timer for 25 minutes and start.', why: 'Real progress on the main thing.', est_minutes: 45, after: [2] },
+    { title: 'Check what’s left and plan the week', first_action: 'Cross off what’s done and pick the next piece.', why: 'Keeps the path true to where you are.', est_minutes: 15, after: [3] },
+  ].map(s => ({ ref: '', optional: false, after: [], ...s }));
+}
+
+/**
+ * Plays a live answer, in the same shapes as the server's (so it goes
+ * through the same checks), after a pause that looks like thinking.
+ * A board deck is planned for real: one question, then ten steps. Any other
+ * goal gets five plain steps. "Too big" splits the move in two or three.
+ */
+async function mockPlanner(body: Record<string, any>): Promise<any> {
+  await new Promise(r => setTimeout(r, 1500));
+  const goal: string = body.goal ?? body.state?.goal ?? '';
+  const board = BOARD.test(goal);
+  const title = board ? 'Prepare the Q4 board deck' : titleOf(goal);
+  const path = board
+    ? {
+      title, done_means: 'Deck sent to the board by October 18, two days before the meeting.',
+      assumptions: ['You have last quarter’s deck to start from.', 'Your numbers live in one finance sheet.'],
+      reply: 'Here’s a path to the board meeting on October 20. The numbers come first.',
+      steps: BOARD_PATH.map(s => ({ ref: '', optional: false, after: [], ...s })), current: 0,
+    }
+    : { title, done_means: '', assumptions: [], reply: 'Here’s a possible path.', steps: anyPath(title), current: 0 };
+
+  if (body.action === 'start') {
+    return board
+      ? { kind: 'project', title, reply: '', question: 'What does the board want most this time?', options: ['Numbers and runway', 'The hiring plan', 'Product progress'], done_means: '', assumptions: [], steps: [], current: 0 }
+      : { kind: 'project', ...path, question: '', options: [] };
+  }
+  if (body.action === 'plan') return path;
+
+  const st = body.state as PlanState;
+  const open = st.steps.filter(s => s.state !== 'done');
+  const cur = open.find(s => s.state === 'current');
+  const keep = open.map(s => ({ ref: s.ref, title: s.title, first_action: s.first_action, why: null, est_minutes: s.est_minutes }));
+  const at = Math.max(0, keep.findIndex(s => s.ref === cur?.ref));
+  const kind = body.event?.kind;
+  const none = { question: '', options: [], maybe_done: false };
+
+  if (kind === 'too_big' && cur) {
+    const est = cur.est_minutes ?? 30;
+    const pieces = /^pull the q\d numbers/i.test(cur.title)
+      ? [
+        { title: 'Copy revenue by month into a new tab', first_action: 'Open the finance sheet.', est_minutes: 10 },
+        { title: 'Work out burn and runway', first_action: 'Add up last month’s costs.', est_minutes: 10 },
+        { title: 'Check the three numbers with Dana in finance', first_action: 'Send Dana the three numbers.', est_minutes: 5 },
+      ]
+      : [
+        { title: cur.first_action ? cur.first_action.replace(/[.…]+$/, '') : `Get ready for: ${cur.title}`, first_action: cur.first_action ?? 'Open what you need for it.', est_minutes: Math.min(10, est) },
+        { title: `Do the first half of: ${cur.title}`, first_action: 'Set a timer and start.', est_minutes: Math.max(5, Math.round(est / 2)) },
+        { title: `Finish: ${cur.title}`, first_action: 'Pick up where you stopped.', est_minutes: Math.max(5, Math.round(est / 2)) },
+      ];
+    const small = pieces.map(p => ({ ref: '', why: 'Smaller, so it’s easy to begin.', ...p }));
+    return { reply: 'Here it is in smaller steps.', steps: [...keep.slice(0, at), ...small, ...keep.slice(at + 1)], current: at, ...none };
+  }
+  if (kind === 'blocked') {
+    const around = { ref: '', title: 'Write down exactly what’s missing', first_action: 'Open a note titled “What I need”.', why: 'Naming what’s in the way is a move too.', est_minutes: 5 };
+    return { reply: 'Let’s go around it.', steps: [...keep.slice(0, at), around, ...keep.slice(at)], current: at, ...none };
+  }
+  if (kind === 'done') {
+    const rest = keep.filter(s => s.ref !== cur?.ref);
+    return { reply: rest.length ? 'Nice. Here’s the next move.' : 'That was the last step on the path.', steps: rest, current: rest.length ? 0 : -1, ...none, maybe_done: !rest.length };
+  }
+  return { reply: 'The path still holds. This is the next move.', steps: keep, current: at, ...none };
 }

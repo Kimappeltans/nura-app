@@ -9,7 +9,7 @@ import { PinnedMode, useStore, useTheme } from '../../src/store';
 import { capture } from '../../src/db';
 import { stripFiller } from '../../src/assistant';
 import { createProject, type Note } from '../../src/projects';
-import { start, draftPlan, PlannerError, type PlanResult, type Question } from '../../src/planner';
+import { start, draftPlan, mockPlanning, PlannerError, type PlanResult, type Question } from '../../src/planner';
 import { radius, type as T } from '../../src/theme';
 import { Mica, Primary, Ghost, Character, Surface } from '../../src/ui';
 import { NuGlow } from '../../src/components/NuGlow';
@@ -116,7 +116,7 @@ function Screen() {
     // the goal itself, without the greeting and the ask it came with
     const g = stripFiller(goal) || goal.trim();
     if (!g) return;
-    if ((await aiConsent()) !== 'yes') return setAsking(true);
+    if (!(await mockPlanning()) && (await aiConsent()) !== 'yes') return setAsking(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPhase({ at: 'thinking', line: 'Nu is looking for a way in…' });
     try {

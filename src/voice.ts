@@ -46,6 +46,8 @@ export function useDictation(onText: (heard: string) => void) {
   const [note, setNote] = useState('');
   const cb = useRef(onText);
   cb.current = onText;
+  // the language the last start asked to hear on the phone itself, if it did
+  const tried = useRef<string | null>(null);
 
   useEffect(() => {
     if (!sr) return;
@@ -58,6 +60,8 @@ export function useDictation(onText: (heard: string) => void) {
       }),
       m.addListener('end', () => setState(s => (s === 'listening' ? 'idle' : s))),
       m.addListener('error', e => {
+        // that language isn't on this phone: listen again through the service instead
+        if (retryOffDevice(e, tried.current)) { tried.current = null; start(); return; }
         setState('idle');
         setNote(({
           'not-allowed': 'Microphone or speech permission is off. You can type instead, or turn it on in Settings.',
@@ -78,7 +82,9 @@ export function useDictation(onText: (heard: string) => void) {
       const perm = await m.requestPermissionsAsync();
       if (!perm.granted) { setNote('Microphone or speech permission is off. You can type instead.'); return; }
       const lang = languageTag(await getLanguage());
-      m.start({ lang, interimResults: true, continuous: false, addsPunctuation: true });
+      const here = onDevice(m, lang);
+      tried.current = here ? lang : null;
+      m.start({ lang, interimResults: true, continuous: false, addsPunctuation: true, requiresOnDeviceRecognition: here });
       setState('listening');
       setNote('Listening… speak naturally.');
     } catch {
@@ -108,12 +114,15 @@ export function useVoiceCommands(commands: { words: string[]; run: () => void }[
   const listening = useRef(false);
   const cmds = useRef(commands);
   cmds.current = commands;
+  const tried = useRef<string | null>(null);
 
   const begin = async () => {
     if (!sr) return;
     const m = sr.ExpoSpeechRecognitionModule;
     const lang = languageTag(await getLanguage());
-    m.start({ lang, interimResults: true, continuous: true });
+    const here = onDevice(m, lang);
+    tried.current = here ? lang : null;
+    m.start({ lang, interimResults: true, continuous: true, requiresOnDeviceRecognition: here });
   };
 
   useEffect(() => {
@@ -134,6 +143,11 @@ export function useVoiceCommands(commands: { words: string[]; run: () => void }[
       // listening, start it again
       m.addListener('end', () => { if (listening.current) begin().catch(() => { listening.current = false; setState('idle'); }); }),
       m.addListener('error', e => {
+        if (listening.current && retryOffDevice(e, tried.current)) {
+          tried.current = null;
+          begin().catch(() => { listening.current = false; setState('idle'); });
+          return;
+        }
         if (!listening.current || e.error === 'no-speech' || e.error === 'aborted') return;
         listening.current = false;
         setState('idle');
@@ -169,6 +183,25 @@ export function useVoiceCommands(commands: { words: string[]; run: () => void }[
 function available() {
   if (!sr) return false;
   try { return sr.ExpoSpeechRecognitionModule.isRecognitionAvailable(); } catch { return false; }
+}
+
+/** Languages this phone couldn't hear on the phone itself (not installed for
+ *  offline use): from then on they go to Apple's or Google's service. */
+const offDevice = new Set<string>();
+
+/** On the phone itself when it can (the audio never leaves it); Apple's or
+ *  Google's servers only when it can't. The web's browser decides for itself.
+ *  Whether it can is per language, and only the attempt tells (retryOffDevice). */
+function onDevice(m: SR['ExpoSpeechRecognitionModule'], lang: string) {
+  if (Platform.OS === 'web' || offDevice.has(lang)) return false;
+  try { return m.supportsOnDeviceRecognition(); } catch { return false; }
+}
+
+/** An on-device attempt failed for want of its language: remember it, and say to start again without. */
+function retryOffDevice(e: { error: string }, tried: string | null) {
+  if (!tried || e.error !== 'language-not-supported') return false;
+  offDevice.add(tried);
+  return true;
 }
 
 /* ------------------------------------------------------------------ *
