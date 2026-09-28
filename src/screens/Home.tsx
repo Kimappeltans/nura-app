@@ -67,6 +67,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const { tick } = useTaskActions();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
+  // the rest of what Nu holds, on a wide window: shut until you ask for it
+  const [openHeld, setOpenHeld] = useState(false);
 
   // the planner's order (src/next.ts): the same one Ra and Your Tasks use
   const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
@@ -221,8 +223,10 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
     </>
   );
 
-  // A WIDE WINDOW: the greeting; the day's path and the stack side by side;
-  // what else Nu is holding under them, up to STILL_MAX, then Your Tasks.
+  // A WIDE WINDOW: the greeting; the day's path and the stack side by side.
+  // What else Nu is holding stays shut under them: one line to open it, and
+  // only then the rows, up to STILL_MAX, then Your Tasks. A list on Home is
+  // the thing the stack exists to avoid, so you have to ask for it.
   // In the middle of the window's height, not stuck to the top of it.
   if (desk) {
     const more = still.slice(2, 2 + STILL_MAX);
@@ -249,21 +253,33 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
                 <View style={{ marginTop: 20 }}><Suggestions limit={1} /></View>
               </View>
               <View style={{ width: side }}>
-                {!more.length && holding}
+                {holding}
                 {stack}
               </View>
             </View>
             {more.length > 0 && (
               <View style={{ marginTop: 44 }}>
-                {holding}
-                <View style={{ flexDirection: 'row', gap: DESK_PAD }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>{more.slice(0, half).map(row)}</View>
-                  <View style={{ flex: 1, minWidth: 0 }}>{more.slice(half).map(row)}</View>
-                </View>
-                {still.length > 2 + STILL_MAX && (
-                  <Pressable onPress={() => onTab('tasks')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Your Tasks" style={{ alignSelf: 'flex-start', marginTop: 16 }}>
-                    <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Your Tasks ›</Text>
-                  </Pressable>
+                <Pressable onPress={() => setOpenHeld(o => !o)} hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: openHeld }}
+                  accessibilityLabel={openHeld ? 'Hide what I’m holding' : 'See what I’m holding'}
+                  style={{ alignSelf: 'flex-start' }}>
+                  <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>
+                    {openHeld ? 'Hide' : 'See what I’m holding'}
+                  </Text>
+                </Pressable>
+                {openHeld && (
+                  <View style={{ marginTop: 16 }}>
+                    <View style={{ flexDirection: 'row', gap: DESK_PAD }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>{more.slice(0, half).map(row)}</View>
+                      <View style={{ flex: 1, minWidth: 0 }}>{more.slice(half).map(row)}</View>
+                    </View>
+                    {still.length > 2 + STILL_MAX && (
+                      <Pressable onPress={() => onTab('tasks')} hitSlop={6} accessibilityRole="button" accessibilityLabel="Your Tasks" style={{ alignSelf: 'flex-start', marginTop: 16 }}>
+                        <Text style={{ color: t.nu, fontSize: 14.5, fontFamily: T.display }}>Your Tasks ›</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 )}
               </View>
             )}
