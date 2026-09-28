@@ -164,14 +164,11 @@ async function openDb() {
       meta    TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS nudge (
-      id        TEXT PRIMARY KEY,
-      task_id   TEXT REFERENCES task(id),
-      kind      TEXT NOT NULL,
-      fire_at   INTEGER NOT NULL,
-      os_handle TEXT,
-      state     TEXT NOT NULL DEFAULT 'pending'
-    );
+    -- nudge was never read or written: reminders are scheduled with the OS and
+    -- tracked in app_state (nudge.*) and the event log (nudge_sent,
+    -- nudge_acted). Cut in SCOPE.md, and dropped here rather than left behind
+    -- on devices that already created it.
+    DROP TABLE IF EXISTS nudge;
 
     CREATE TABLE IF NOT EXISTS app_state (k TEXT PRIMARY KEY, v TEXT);
 
@@ -289,7 +286,6 @@ async function openDb() {
     CREATE INDEX IF NOT EXISTS idx_task_due     ON task(due_at);
     CREATE INDEX IF NOT EXISTS idx_event_at     ON event(at);
     CREATE INDEX IF NOT EXISTS idx_event_kind   ON event(kind);
-    CREATE INDEX IF NOT EXISTS idx_nudge_fire   ON nudge(fire_at);
     CREATE INDEX IF NOT EXISTS idx_habit_log_habit ON habit_log(habit_id);
   `);
   await addColumns(db);
@@ -1619,7 +1615,7 @@ export async function wipeLocalData(keep: readonly string[]) {
     `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'app_state'`,
   )).map(r => r.name);
   // rows that point at other rows go first, in case foreign keys are enforced
-  const children = ['project_step', 'project_event', 'habit_log', 'nudge', 'breadcrumb', 'event'];
+  const children = ['project_step', 'project_event', 'habit_log', 'breadcrumb', 'event'];
   const order = [...children.filter(n => tables.includes(n)), ...tables.filter(n => !children.includes(n))];
   const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
   const kept = keep.map(k => (k.endsWith('.') ? `k LIKE ${quote(`${k}%`)}` : `k = ${quote(k)}`));
