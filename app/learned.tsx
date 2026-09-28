@@ -13,6 +13,8 @@ import { Mica, IconChevron } from '../src/ui';
 import { ActionSheet } from '../src/components/ActionSheet';
 import { announce, decorative } from '../src/a11y';
 import { setOff } from '../src/patterns';
+import { getFlag, setFlag } from '../src/db';
+import { GUIDE_KEYS } from '../src/guide';
 import { learnedFrom, loadLearned, rowSaid, stageSaid, type Learned, type LearnedRow, type Stage } from '../src/learned';
 
 /**
@@ -36,6 +38,11 @@ function LearnedScreen() {
   // without the database there's still the screen: every row, still learning
   const load = useCallback(() => loadLearned().then(setData, () => setData(learnedFrom({ rows: [] }))), []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  // opened once: the guide's last step is done (src/guide.ts)
+  useFocusEffect(useCallback(() => {
+    const k = GUIDE_KEYS.step(5);
+    getFlag(k).then(v => (v ? null : setFlag(k, String(Date.now())))).catch(() => {});
+  }, []));
 
   const turn = async (row: LearnedRow, off: boolean) => {
     if (!row.pattern) return;

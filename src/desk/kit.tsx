@@ -70,10 +70,12 @@ export function clockParts(min: number) {
 /** What the desktop rooms remember between them: the Calendar's view and its picked day (Home's week opens it). */
 export const useDeskState = create<{
   calMode: 'week' | 'month'; calOff: number; calDay: number | null;
-  /** bumped to put the cursor in Tell Nu from outside it (the getting started guide's "Type your own") */
+  /** bumped to put the cursor in Tell Nu from outside it (the guide's Tell Nu, src/components/Guide.tsx) */
   tellFocus: number;
+  /** words Tell Nu opens with when it's next asked for (an example tapped in the guide); nothing is added until Enter */
+  tellFill: string | null;
 }>(() => ({
-  calMode: 'week', calOff: 0, calDay: null, tellFocus: 0,
+  calMode: 'week', calOff: 0, calDay: null, tellFocus: 0, tellFill: null,
 }));
 
 /**
@@ -252,10 +254,12 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
   const [lang, setLang] = useState('en');
   const input = useRef<TextInput>(null);
   useEffect(() => { getLanguage().then(setLang).catch(() => {}); }, []);
-  // the getting started guide's "Type your own" comes here
+  // the guide's Tell Nu comes here, with the example it had tapped, if any
   const asked = useDeskState(x => x.tellFocus);
   useEffect(() => {
     if (!asked) return;
+    const fill = useDeskState.getState().tellFill;
+    if (fill) { setText(fill); useDeskState.setState({ tellFill: null }); }
     const id = setTimeout(() => input.current?.focus(), 0);
     return () => clearTimeout(id);
   }, [asked]);
@@ -407,7 +411,7 @@ function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readO
 /**
  * How Nu read some words: a project, a task with its parts named, or
  * several tasks. Under Tell Nu as you type, and beside each example in the
- * getting started guide (`said`: a project says what Nu does with it).
+ * guide (src/components/Guide.tsx; `said`: a project says what Nu does with it).
  */
 export function Reading({ read, ask, said }: { read: NonNullable<ReturnType<typeof readOf>>; ask?: string | null; said?: boolean }) {
   const t = useTheme();
@@ -448,9 +452,7 @@ export function Reading({ read, ask, said }: { read: NonNullable<ReturnType<type
 }
 
 /** What Nu read from the words, each part named: When, Repeats, How long, Priority, Kind. */
-function Parts({ d }: { d: Draft }) {
-  const t = useTheme();
-  const k = deskTokens(t);
+export function partsOf(d: Draft): [string, string][] {
   const label = labelById(d.label);
   const at = d.due_at ? new Date(d.due_at) : null;
   const parts: [string, string][] = [];
@@ -459,6 +461,13 @@ function Parts({ d }: { d: Draft }) {
   if (d.est_minutes) parts.push(['How long', d.est_minutes < 60 ? `${d.est_minutes} min` : `${d.est_minutes / 60} hr`]);
   if (d.priority >= 3) parts.push(['Priority', 'High']);
   if (label) parts.push(['Kind', label.name]);
+  return parts;
+}
+
+function Parts({ d }: { d: Draft }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const parts = partsOf(d);
   if (!parts.length) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 54 }}>

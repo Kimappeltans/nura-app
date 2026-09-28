@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useStore, useTheme } from '../store';
-import { passOn, pickForToday, updateTask, type Task } from '../db';
+import { passOn, pickForToday, setFlag, updateTask, type Task } from '../db';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
 import { TaskPeek } from '../components/TaskPeek';
@@ -24,7 +24,8 @@ import {
 import { useNow } from './useRange';
 import { DayArc } from './DayArc';
 import { useArcThings } from '../components/ArcMarks';
-import { Guide, useGuide } from './Guide';
+import { Guide, useGuide } from '../components/Guide';
+import { GUIDE_KEYS } from '../guide';
 import { backToSession } from '../nav';
 
 /**
@@ -36,8 +37,8 @@ import { backToSession } from '../nav';
  * where the day is. Beside the move, your day: the time you actually have
  * left, what Today holds, and what Nu suggests changing (one tap, with
  * Undo). Under the move, what comes after
- * it. Until you've done the three things Nura is for, Getting started shows
- * them (src/desk/Guide.tsx). The clock, the counts and the week live in the
+ * it. Until you've done the five things Nura is for, the guide shows them
+ * one at a time (src/components/Guide.tsx). The clock, the counts and the week live in the
  * Calendar; the sun's glow still rises behind the room as things get done.
  */
 export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
@@ -58,7 +59,6 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
   const [changing, setChanging] = useState(false);
-  const guide = useGuide();
 
   const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
   const cols = useMemo(() => columns(inbox, todayPicked, order), [inbox, todayPicked, order]);
@@ -67,6 +67,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const m = now.getHours() * 60 + now.getMinutes();
   const mm = dayEndMin > 24 * 60 && m < dayStartMin ? m + 24 * 60 : m;
   const phase: 'early' | 'day' | 'night' = mm < dayStartMin ? 'early' : mm >= dayEndMin ? 'night' : 'day';
+  // someone new: the guide, one step at a time (src/guide.ts); not at night
+  const guide = useGuide(phase === 'night');
 
   const accountName = (session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name) as string | undefined;
   const first = (profile.name || accountName || '').trim().split(' ')[0];
@@ -114,7 +116,11 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
     });
   };
   const openMove = () => move && router.push({ pathname: '/project/[id]', params: { id: move.project.id } });
-  const changed: SheetAction[] = front ? [
+  // Something changed, answered: the guide's step 4 is done (Not now says so in its own event)
+  const answered = (a: SheetAction): SheetAction => ({
+    ...a, onPress: () => { setFlag(GUIDE_KEYS.step(4), String(Date.now())).catch(() => {}); a.onPress(); },
+  });
+  const changed: SheetAction[] = (front ? [
     move
       ? { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu finds a smaller way in', onPress: openMove }
       : { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu plans it as steps', onPress: () => router.push({ pathname: '/project/new', params: { goal: front.title, auto: '1' } }) },
@@ -124,7 +130,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
     { key: 'tomorrow', glyph: '→', label: 'Not today', sub: 'Moves it to tomorrow', onPress: () => tomorrow(front) },
     { key: 'done', glyph: '✓', label: 'Already done', onPress: () => tick(front.id) },
     { key: 'drop', glyph: '×', label: 'Not needed any more', tone: 'quiet', onPress: () => deleteTask(front) },
-  ] : [];
+  ] as SheetAction[] : []).map(answered);
 
   // what's on the day's arc: what's done, what has a time, and the move in front, at now
   const onArc = useArcThings(front);
@@ -137,7 +143,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   // the arc: a fifth of the window's height, so the move under it stays in view
   const arcH = Math.round(Math.max(120, Math.min(190, winH * 0.2)));
   // nothing held yet, and the guide still to do: the guide is the room
-  const firstRun = guide.show && !front && phase !== 'night';
+  const firstRun = guide.show && !front;
 
   return (
     <View style={{ flex: 1 }}>
@@ -159,8 +165,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
             <DayArc now={now} height={firstRun ? Math.min(arcH, 130) : arcH} done={doneAt} count
               things={{ ...onArc, onStart: id => focusOn(id), onOpen: id => { const x = [...inbox, ...todayPicked].find(y => y.id === id); if (x) setPeek(x); }, onDay: () => openToday() }} />
           </View>
-          {/* someone new: getting started, where the move will be */}
-          {firstRun && <Guide full wide={side} done={guide.done} at={guide.at} onHide={guide.hide} />}
+          {/* someone new: the guide, where the move will be */}
+          {firstRun && <Guide g={guide} beside={!side} />}
 
           {!firstRun && (
           <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
@@ -219,8 +225,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
 
             {/* your day: the time you have, what Today holds, and what Nu would change */}
             <View style={{ flex: side ? 2 : undefined, minWidth: 0, gap: 16 }}>
-              {/* getting started, small, once there's a move in front */}
-              {!!front && guide.show && phase !== 'night' && <Guide done={guide.done} at={guide.at} onHide={guide.hide} />}
+              {/* the guide, small, once there's a move in front */}
+              {!!front && guide.show && <Guide g={guide} beside />}
               <DeskCard style={{ paddingVertical: 20, paddingHorizontal: 24 }}>
                 <Label>Your day</Label>
                 <Text style={{ color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display, marginTop: 10 }}>

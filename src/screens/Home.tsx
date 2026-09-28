@@ -26,7 +26,7 @@ import { colOf, moveTo, deleteTask } from '../desk/kit';
 import { useTaskActions } from '../useTaskActions';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
 import { decorative } from '../a11y';
-import { StartHere, useStartHere } from '../components/StartHere';
+import { Guide, useGuide } from '../components/Guide';
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
 export const byPriority = (a: Task, b: Task) =>
@@ -120,8 +120,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   // NIGHT (design 11:50 PM): once the day you set has ended, Home is quiet —
   // Ra has sat down at the horizon, Nu is resting, and tomorrow is waiting
   const night = !isDaylight(dayEndMin);
-  // someone new: three steps under the path, until the last is done (src/startHere.ts)
-  const start = useStartHere(!night);
+  // someone new: the guide under the path, one step at a time, until all five are done (src/guide.ts)
+  const guide = useGuide(night);
   const tomorrow = useMemo(() => {
     const from = new Date(); from.setHours(24, 0, 0, 0);
     const to = from.getTime() + 86400_000;
@@ -292,16 +292,16 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
         <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={compact ? 96 : 118} things={arc}
           style={{ marginHorizontal: 24, marginTop: compact ? 24 : 20 }} />
 
-        {/* someone new: put it all down, let Ra pick one, begin five minutes */}
-        {start.show && (
+        {/* someone new: the guide, one step at full size */}
+        {guide.show && (
           <View style={{ marginHorizontal: 24, marginTop: compact ? 14 : 18 }}>
-            <StartHere start={start} />
+            <Guide g={guide} />
           </View>
         )}
 
         {/* what Nu is holding: the one she found in front, the rest behind
-            (with nothing in front, Start here's steps stand in for the empty card) */}
-        {!(start.show && !held_) && (
+            (with nothing in front, the guide stands in for the empty card) */}
+        {!(guide.show && !held_) && (
           <>
             {holding}
             <View style={{ marginHorizontal: 24 }}>
