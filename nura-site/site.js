@@ -793,7 +793,9 @@ if (bd && window.NuraParser) {
     if (!d || me !== run) return;
     front.querySelector('.bf-title').textContent = d.task.title;
     front.querySelector('.bf-fact').textContent = d.facts.slice(0, 2).join(' · ');
-    front.querySelector('.bf-min').innerHTML = d.task.est_minutes ? `${d.task.est_minutes}<small>min</small>` : '';
+    const min = front.querySelector('.bf-min');
+    min.replaceChildren();
+    if (d.task.est_minutes) min.append(String(d.task.est_minutes), el('small', '', 'min'));
     front.hidden = false;
     front.style.animation = 'none'; void front.offsetWidth; front.style.animation = '';
     const p = d.task.piece;

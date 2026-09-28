@@ -1,6 +1,12 @@
 /* Nura — the site, v2 ("daybreak", light).
    The page moves like the app's day: it opens on a morning sky with the day's path,
    the work happens in clear daylight, and it closes on a warm horizon. Coral stays for the one thing to do. */
+/* Inter Tight from this site, not Google: no second and third origin to reach before
+   the text shows. The Latin set only (Google's own split); fonts/OFL.txt is its licence. */
+@font-face { font-family: 'Inter Tight'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/InterTight-400.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter Tight'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/InterTight-500.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter Tight'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/InterTight-600.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 :root {
   --cream: #FAF7F0; --layer: #F3EEE2; --subtle: #EFE9DB; --card: #FFFFFF;
   --ink: #171313; --ink-2: #4A4340; --ink-3: #7B7360; --mute: #958B77;

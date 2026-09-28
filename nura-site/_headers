@@ -1,5 +1,5 @@
 # Netlify headers for the landing page (for when it goes live on risewithnura.com).
-# Scripts only from this site; styles and fonts also from Google Fonts;
+# Scripts, styles and fonts only from this site (Inter Tight is in fonts/);
 # the early-access form posts back to this site (Netlify Forms); images may
 # be blob: URLs, which site.js makes of the animated characters.
 /*
@@ -8,4 +8,22 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+
+# Caching. The fonts never change under the same name: a year. The stylesheets
+# and scripts are asked for with ?v=, bumped on every change (always bump it,
+# or visitors keep the old file): a year as well.
+# Images keep their names when they're redone, so a week, then checked again.
+# The pages themselves are always checked (Netlify's default).
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+/site.css
+  Cache-Control: public, max-age=31536000, immutable
+/story.css
+  Cache-Control: public, max-age=31536000, immutable
+/site.js
+  Cache-Control: public, max-age=31536000, immutable
+/story.js
+  Cache-Control: public, max-age=31536000, immutable
+/assets/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400

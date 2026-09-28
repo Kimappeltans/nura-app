@@ -85,5 +85,9 @@ as a file: some previews show a file from disk without its stylesheet.
 
 ## Deploying
 
-Netlify / Vercel / Cloudflare Pages: drag the folder in. Nothing to configure.
-GitHub Pages: push it, set Pages to the branch root.
+Netlify or Cloudflare Pages: drag the folder in. Nothing to configure: both
+read `_headers` (the content security policy, HSTS, no framing), and Netlify
+runs the early-access form.
+
+Not Vercel or GitHub Pages: neither reads `_headers`, so the site would go out
+without its security headers, and the form would go nowhere.
