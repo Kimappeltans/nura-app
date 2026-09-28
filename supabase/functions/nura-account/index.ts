@@ -11,12 +11,13 @@
  */
 import { createClient } from 'npm:@supabase/supabase-js@2.109.0';
 
-/** Browsers may call from these pages only; the phone sends no Origin at all. */
+/** Browsers may call from these pages only; the phone sends no Origin at all.
+ *  A local dev server's address only when NURA_DEV_ORIGINS names it
+ *  (comma-separated, e.g. http://localhost:8081). */
 const ORIGINS = new Set([
   'https://app.risewithnura.com',
   'https://nura-app-811.netlify.app',
-  'http://localhost:8081',
-  'http://localhost:8120',
+  ...(Deno.env.get('NURA_DEV_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean),
 ]);
 /** Nothing this function takes needs more (it reads no body at all). */
 const MAX_BODY = 64 * 1024;

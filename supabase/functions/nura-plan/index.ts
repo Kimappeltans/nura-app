@@ -37,12 +37,13 @@ const GLOBAL_PER_DAY = Number(Deno.env.get('NURA_GLOBAL_DAILY_LIMIT') ?? 3000);
 const TRY_MS = 45_000;
 const DEADLINE_MS = 50_000;
 
-/** Browsers may call from these pages only; the phone sends no Origin at all. */
+/** Browsers may call from these pages only; the phone sends no Origin at all.
+ *  A local dev server's address only when NURA_DEV_ORIGINS names it
+ *  (comma-separated, e.g. http://localhost:8081). */
 const ORIGINS = new Set([
   'https://app.risewithnura.com',
   'https://nura-app-811.netlify.app',
-  'http://localhost:8081',
-  'http://localhost:8120',
+  ...(Deno.env.get('NURA_DEV_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean),
 ]);
 /** A request bigger than this is refused before it's read. */
 const MAX_BODY = 64 * 1024;
@@ -174,10 +175,17 @@ async function userOf(req: Request): Promise<{ id: string; email: string } | { s
 
 /** Until there's billing, AI is only for the accounts in NURA_AI_ALLOWLIST:
  *  emails and/or user ids, comma-separated. Unset or empty, nobody gets it.
- *  Read on every request, so a change to the secret holds at once. */
-function mayUseAi(user: { id: string; email: string }): boolean {
+ *  Read on every request, so a change to the secret holds at once. An email
+ *  only counts once the account has confirmed it: the claim alone would let
+ *  anyone who signs up with a listed address in (if "Confirm email" were
+ *  ever turned off), so that one case asks the Auth server. */
+async function mayUseAi(user: { id: string; email: string }): Promise<boolean> {
   const allowed = (Deno.env.get('NURA_AI_ALLOWLIST') ?? '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  return allowed.includes(user.id.toLowerCase()) || (!!user.email && allowed.includes(user.email));
+  if (allowed.includes(user.id.toLowerCase())) return true;
+  if (!user.email || !allowed.includes(user.email)) return false;
+  const { data, error } = await admin.auth.admin.getUserById(user.id);
+  const u = data?.user;
+  return !error && !!u?.email_confirmed_at && u.email?.trim().toLowerCase() === user.email;
 }
 
 /** The caller's address, for the second limit. On Supabase's edge
@@ -295,7 +303,7 @@ async function serve(req: Request): Promise<Response> {
   const user = await userOf(req);
   if ('status' in user) return json({ error: user.status === 401 ? 'auth' : 'server' }, user.status);
   // not on the list: refused before anything is counted or sent
-  if (!mayUseAi(user)) return json({ error: 'ai_access' }, 403);
+  if (!(await mayUseAi(user))) return json({ error: 'ai_access' }, 403);
 
   let body: z.infer<typeof Request>;
   try {

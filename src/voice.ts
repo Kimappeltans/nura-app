@@ -78,7 +78,7 @@ export function useDictation(onText: (heard: string) => void) {
       const perm = await m.requestPermissionsAsync();
       if (!perm.granted) { setNote('Microphone or speech permission is off. You can type instead.'); return; }
       const lang = languageTag(await getLanguage());
-      m.start({ lang, interimResults: true, continuous: false, addsPunctuation: true });
+      m.start({ lang, interimResults: true, continuous: false, addsPunctuation: true, requiresOnDeviceRecognition: onDevice(m) });
       setState('listening');
       setNote('Listening… speak naturally.');
     } catch {
@@ -113,7 +113,7 @@ export function useVoiceCommands(commands: { words: string[]; run: () => void }[
     if (!sr) return;
     const m = sr.ExpoSpeechRecognitionModule;
     const lang = languageTag(await getLanguage());
-    m.start({ lang, interimResults: true, continuous: true });
+    m.start({ lang, interimResults: true, continuous: true, requiresOnDeviceRecognition: onDevice(m) });
   };
 
   useEffect(() => {
@@ -169,6 +169,13 @@ export function useVoiceCommands(commands: { words: string[]; run: () => void }[
 function available() {
   if (!sr) return false;
   try { return sr.ExpoSpeechRecognitionModule.isRecognitionAvailable(); } catch { return false; }
+}
+
+/** On the phone itself when it can (the audio never leaves it); Apple's or
+ *  Google's servers only when it can't. The web's browser decides for itself. */
+function onDevice(m: SR['ExpoSpeechRecognitionModule']) {
+  if (Platform.OS === 'web') return false;
+  try { return m.supportsOnDeviceRecognition(); } catch { return false; }
 }
 
 /* ------------------------------------------------------------------ *

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from './db';
 import type { CharacterName } from './ui';
@@ -118,4 +118,13 @@ function shrinkOnWeb(src: string, px = 320): Promise<string> {
     img.onerror = () => reject(new Error('This photo could not be read'));
     img.src = src;
   });
+}
+
+/** Every photo this phone kept (clearDevice in account.ts): the next person starts without one. */
+export function forgetPhotos() {
+  try {
+    for (const f of new Directory(Paths.document).list()) {
+      if (f instanceof File && /^avatar-/.test(f.name)) f.delete();
+    }
+  } catch { /* nothing to clear */ }
 }
