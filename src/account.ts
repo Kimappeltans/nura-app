@@ -6,6 +6,8 @@ import { getFlag, setFlag, wipeLocalData } from './db';
 import { pushNow, syncIdle } from './sync';
 import { useStore } from './store';
 import { ask, notify } from './notify';
+import { forgetPhotos } from './avatar';
+import { forgetModelSuggestions } from './learn/engine';
 
 /**
  * The account's two doors out: Log out at the foot of Settings, Delete
@@ -30,9 +32,16 @@ export const landedOnSignIn = () => { signInNext = false; };
 /** A sign-in link that didn't sign in here (app/_layout.tsx): the sign-in, not the welcome. */
 export const toSignInNext = () => { signInNext = true; };
 
-/** Nothing of the last person left: their rows, their flags, their reminders. */
+/** Nothing of the last person left: their rows, their flags, their reminders
+ *  (scheduled and already shown), their photo, the model's last suggestions. */
 async function clearDevice(keep: readonly string[]) {
-  if (Platform.OS !== 'web') await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+  forgetModelSuggestions();
+  if (Platform.OS !== 'web') {
+    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    await Notifications.setBadgeCountAsync(0).catch(() => {});
+    forgetPhotos();
+  }
   await wipeLocalData(keep);
 }
 

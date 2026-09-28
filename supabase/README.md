@@ -76,8 +76,9 @@ Configuration, **Redirect URLs** must list every address a link comes back to:
 - `nura://**` for the phone app (password resets come back to `nura://reset`,
   sign-in links and confirmations to `nura://`). Without it, a link asked for
   on the phone is sent to the Site URL, the web app, instead.
-- every web address the app runs on, for example `http://localhost:8081/**`
-  and your site's `https://…/**`.
+- every web address the app runs on (your site's `https://…/**`). Keep
+  `http://localhost…` out of the live project's list: a local dev server
+  belongs on a separate dev project.
 
 Google sign-in, magic links, confirmations and password resets come back to
 these; one that isn't listed is sent to the Site URL instead.
@@ -149,15 +150,18 @@ anonymous. The app sends the session's access token
 signed out. `nura-account` checks the session with `auth.getUser()`.
 
 Until there's billing, AI is only for the accounts in `NURA_AI_ALLOWLIST`
-(emails and/or user ids, comma-separated, any case). Anyone else signed in
+(emails and/or user ids, comma-separated, any case). An email only counts
+once that account has confirmed it (the function asks the Auth server), so
+signing up with a listed address isn't enough; user ids are the surest.
+Anyone else signed in
 gets a 403 `ai_access` from `nura-plan` and `nura-coach`, before anything is
 counted or sent to Claude. Unset or empty, nobody gets AI. The app says "AI
 help isn't open yet" on Plan a project (writing the first move yourself
 still works) and quietly uses the phone's own reads and suggestions.
 
 Browsers may only call the functions from `https://app.risewithnura.com`,
-`https://nura-app-811.netlify.app` and `http://localhost:8081` / `8120`:
-only those get an `Access-Control-Allow-Origin`, and it names the page
+`https://nura-app-811.netlify.app`, plus any address in `NURA_DEV_ORIGINS`
+(none unless set, e.g. `http://localhost:8081` while developing): only those get an `Access-Control-Allow-Origin`, and it names the page
 itself. The phone sends no Origin, so it isn't affected. A request body over
 64 KB is refused with a 413 before it's read.
 
@@ -216,6 +220,7 @@ to get AI at all.
 | `NURA_GLOBAL_DAILY_LIMIT` | `3000` | Planning counter: calls per day for everyone together |
 | `NURA_READ_GLOBAL_DAILY_LIMIT` | `6000` | Read counter: calls per day for everyone together |
 | `NURA_AI_ALLOWLIST` | none: nobody | Who may use AI: emails and/or user ids, comma-separated. Everyone else gets a 403 `ai_access` |
+| `NURA_DEV_ORIGINS` | none | Extra web addresses allowed to call the functions from a browser, comma-separated (a local dev server) |
 | `NURA_IP_SALT` | the service role key | The key the IP address is hashed with (HMAC-SHA-256) before it's counted |
 
 Haiku 4.5 doesn't take adaptive thinking or `effort`, so both functions

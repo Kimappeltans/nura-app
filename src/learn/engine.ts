@@ -54,14 +54,20 @@ async function outcomesSince(since: number): Promise<OutcomeCount[]> {
   }).filter(o => o.accepted + o.dismissed + o.ignored > 0);
 }
 
-let modelCache: { at: number; list: Suggestion[] } | null = null;
+/** The model's last list, for one account: a log out or another account's sign-in drops it (account.ts). */
+let modelCache: { at: number; user: string; list: Suggestion[] } | null = null;
+export const forgetModelSuggestions = () => { modelCache = null; };
 
 /** Today's suggestions: the phone's, and — every few hours, when there's anything to go on — the model's. */
 export function useCoach(limit = 2) {
   const inbox = useStore(s => s.inbox);
   const todayPicked = useStore(s => s.todayPicked);
   const extra = useCallback(async (): Promise<Suggestion[]> => {
-    if (modelCache && Date.now() - modelCache.at < MODEL_EVERY) return modelCache.list;
+    const user = useStore.getState().session?.user.id;
+    if (!user) return [];
+    // AI help off: the phone's own only, and nothing cached either
+    if (!(await aiAllowed())) { modelCache = null; return []; }
+    if (modelCache && modelCache.user === user && Date.now() - modelCache.at < MODEL_EVERY) return modelCache.list;
     const seen = new Set<string>();
     const tasks: TodayTask[] = [...todayPicked, ...inbox]
       .filter(t => !seen.has(t.id) && (seen.add(t.id), true))
@@ -70,9 +76,8 @@ export function useCoach(limit = 2) {
     if (!tasks.length) return [];
     const profile = await profileInUse();
     if (profile.days < 3) return [];                 // the phone's rules are enough until there's history
-    if (!(await aiAllowed())) return [];             // AI help off: the phone's own only, and nothing cached
     const list = await modelSuggestions(profileSummary(profile), { tasks });
-    modelCache = { at: Date.now(), list };
+    modelCache = { at: Date.now(), user, list };
     return list;
   }, [inbox, todayPicked]);
   return useSuggestions(limit, extra);

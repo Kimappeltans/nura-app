@@ -129,6 +129,8 @@ async function openDb() {
   const db = await SQLite.openDatabaseAsync('nura.db');
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
+    -- a deleted row is overwritten, not left in a free page (wipeLocalData)
+    PRAGMA secure_delete = ON;
 
     CREATE TABLE IF NOT EXISTS breadcrumb (
       id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1634,4 +1636,6 @@ export async function wipeLocalData(keep: readonly string[]) {
     ...order.map(n => `DELETE FROM "${n.replace(/"/g, '""')}";`),
     `DELETE FROM app_state${kept.length ? ` WHERE NOT (${kept.join(' OR ')})` : ''};`,
   ].join('\n'));
+  // and nothing of them left in the write-ahead log either
+  await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);').catch(() => {});
 }

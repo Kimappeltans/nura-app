@@ -103,13 +103,24 @@ function minutesSaid(min: number): string {
 
 const SHARES = [[1, 10], [1, 5], [1, 4], [1, 3], [2, 5], [1, 2], [3, 5], [2, 3], [3, 4], [4, 5], [9, 10]] as const;
 
+/** A share as the nearest plain one: [1, 4] for "1 in 4", or null at the two ends. */
+function nearestShare(rate: number): readonly [number, number] | null {
+  if (rate < 0.05 || rate > 0.95) return null;
+  const far = (s: readonly [number, number]) => Math.abs(s[0] / s[1] - rate);
+  return SHARES.reduce<readonly [number, number]>((best, s) => (far(s) < far(best) ? s : best), SHARES[0]);
+}
+
+/** A share on its own, for a number tile: "1 in 4", "Rarely", "Nearly always". */
+export function shareOf(rate: number): string {
+  const s = nearestShare(rate);
+  return s ? `${s[0]} in ${s[1]}` : rate < 0.5 ? 'Rarely' : 'Nearly always';
+}
+
 /** A share as the nearest plain one ("1 in 4 …"), with the two ends in words. */
 function shareSaid(rate: number, what: string, does: (one: boolean) => string): string {
-  if (rate < 0.05) return `${what} rarely ${does(false)}`;
-  if (rate > 0.95) return `${what} nearly always ${does(false)}`;
-  const far = (s: readonly [number, number]) => Math.abs(s[0] / s[1] - rate);
-  const [k, of] = SHARES.reduce<readonly [number, number]>((best, s) => (far(s) < far(best) ? s : best), SHARES[0]);
-  return `${k} in ${of} ${what.toLowerCase()} ${does(k === 1)}`;
+  const s = nearestShare(rate);
+  if (!s) return `${what} ${rate < 0.5 ? 'rarely' : 'nearly always'} ${does(false)}`;
+  return `${s[0]} in ${s[1]} ${what.toLowerCase()} ${does(s[0] === 1)}`;
 }
 
 function paceSaid(ratio: number, label?: string): string {

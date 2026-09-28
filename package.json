@@ -11,10 +11,7 @@
     "test": "node tests/planner.test.cjs && node tests/coach.test.cjs && node tests/learn.test.cjs && node tests/next.test.cjs && node tests/learned.test.cjs && node tests/parser.test.cjs && node tests/understand.test.cjs && node tests/plan.test.cjs && node tests/habits.test.cjs && node tests/guide.test.cjs && node tests/arcmarks.test.cjs"
   },
   "dependencies": {
-    "@expo-google-fonts/fraunces": "^0.4.1",
     "@expo-google-fonts/inter-tight": "^0.4.2",
-    "@expo-google-fonts/poppins": "^0.2.3",
-    "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.109.0",
@@ -56,5 +53,10 @@
     "@types/react": "~19.2.4",
     "typescript": "~6.0.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@xmldom/xmldom@<0.9.0": "^0.8.15",
+    "@xmldom/xmldom@>=0.9.0": "^0.9.12",
+    "uuid": "^11.1.1"
+  }
 }
