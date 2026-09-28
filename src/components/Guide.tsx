@@ -447,26 +447,41 @@ function BigShow({ big, tapped, onTap }: { big?: boolean; tapped: boolean; onTap
 /** Step 4: the buttons as they are on the move (the desktop), or where the phone keeps them. Only shown. */
 function ChangeShow({ desk, big }: { desk: boolean; big?: boolean }) {
   const t = useTheme();
+  const k = useDeskTokens();
+  // a picture of the buttons, not buttons: dashed and quiet, under an Example tag (as step 3's path)
+  const tag = (
+    <View style={{ flexDirection: 'row', marginBottom: big ? 10 : 8 }}>
+      <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, backgroundColor: k.wash }}>
+        <Text style={{ color: t.ink3, fontSize: 11.5, fontFamily: T.brand }}>Example</Text>
+      </View>
+    </View>
+  );
   const pill = (label: string) => (
-    <View key={label} style={{ height: big ? 46 : 38, paddingHorizontal: big ? 20 : 15, borderRadius: 23, justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong }}>
-      <Text style={{ color: t.ink, fontSize: big ? 15.5 : 14, fontFamily: T.brand }}>{label}</Text>
+    <View key={label} style={{ height: big ? 46 : 38, paddingHorizontal: big ? 20 : 15, borderRadius: 23, justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: t.strokeStrong }}>
+      <Text style={{ color: t.ink2, fontSize: big ? 15.5 : 14, fontFamily: T.brand }}>{label}</Text>
     </View>
   );
   if (desk) {
     return (
-      <View {...decorative} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: big ? 4 : 0 }}>
-        {pill('Not now')}
-        {pill('Something changed')}
+      <View {...decorative} style={{ paddingTop: big ? 4 : 0 }}>
+        {tag}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {pill('Not now')}
+          {pill('Something changed')}
+        </View>
       </View>
     );
   }
   // the phone: Focus's More options, and its first row, as the sheet has them
   return (
-    <View {...decorative} style={{ borderRadius: 16, borderWidth: 1, borderColor: t.stroke, paddingHorizontal: 14 }}>
+    <View {...decorative}>
+    {tag}
+    <View style={{ borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: t.strokeStrong, paddingHorizontal: 14 }}>
       <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.display, paddingVertical: 10 }}>More options</Text>
       <View style={{ borderTopWidth: 1, borderTopColor: t.stroke, paddingVertical: 11 }}>
-        <Text style={{ color: t.ink, fontSize: 15.5, fontFamily: T.brand }}>Something else</Text>
+        <Text style={{ color: t.ink2, fontSize: 15.5, fontFamily: T.brand }}>Something else</Text>
       </View>
+    </View>
     </View>
   );
 }

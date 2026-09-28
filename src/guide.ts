@@ -123,7 +123,7 @@ export const GUIDE_KEYS = {
 /** What you can say in step 1: one thing, and several at once. Shown, never added. */
 export const SAY = [
   { what: 'One thing', words: 'pay rent friday 10 min' },
-  { what: 'Several at once', words: 'finish the deck, call the dentist tue 3pm, send Sarah the notes' },
+  { what: 'Several at once', words: 'finish the deck, call the dentist tue 3pm, text Sarah back' },
 ] as const;
 
 /** Step 3's example: the goal, and a path Nu might make of it (a picture, not a plan). */

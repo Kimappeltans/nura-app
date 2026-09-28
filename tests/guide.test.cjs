@@ -186,7 +186,7 @@ test('its flags live under guide2.*', () => {
   assert.strictEqual(GUIDE_KEYS.step(4), 'guide2.4');
 });
 test('the examples are the two Kim chose, and step 3 is an example path with three moves', () => {
-  assert.deepStrictEqual(SAY.map(x => x.words), ['pay rent friday 10 min', 'finish the deck, call the dentist tue 3pm, send Sarah the notes']);
+  assert.deepStrictEqual(SAY.map(x => x.words), ['pay rent friday 10 min', 'finish the deck, call the dentist tue 3pm, text Sarah back']);
   assert.strictEqual(BIG.words, 'launch my website');
   assert.strictEqual(BIG.path.length, 3);
 });
