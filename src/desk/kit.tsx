@@ -9,7 +9,7 @@ import { useStore, useTheme } from '../store';
 import { pickForToday, updateTask, capture, dropTask, steps, type Task } from '../db';
 import { parseTask, describe } from '../assistant';
 import { router } from 'expo-router';
-import { understandLocal } from '../understand';
+import { understandLocal, SURE, UNSURE } from '../understand';
 import { getLanguage } from '../planner';
 import { readOf } from '../components/CaptureSheet';
 import { type as T, type Theme } from '../theme';
@@ -269,6 +269,10 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
   const u = useMemo(() => (v ? understandLocal(v, lang) : null), [v, lang]);
   const read = useMemo(() => (v ? readOf([v], u) : null), [v, u]);
 
+  // not sure what it is, or only half sure: the sheet, which asks one question
+  // (or reads it with Claude, with your yes), never a guess put down from here
+  const unsure = read?.kind === 'task' && !!u && (u.type === 'unclear' || (u.confidence >= UNSURE && u.confidence < SURE));
+  const busy = useRef(false);
   const sheet = () => {
     setText('');
     useStore.setState({ telling: true, tellDraft: v || null });
@@ -276,7 +280,9 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
   const send = async () => {
     if (!v) return sheet();
     if (listening) dict.stop();
-    if (!read) return;
+    if (!read || busy.current) return;
+    if (unsure) { input.current?.blur(); return sheet(); }
+    busy.current = true;
     setText('');
     if (read.kind === 'project') {
       input.current?.blur();
@@ -284,12 +290,14 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
       return;
     }
     const drafts = read.kind === 'many' ? read.drafts : [read.draft];
-    for (const d of drafts) {
-      await capture(d.title, {
-        activity: d.activity, label: d.label, est_minutes: d.est_minutes, due_at: d.due_at, has_time: d.has_time,
-        repeat_rule: d.repeat_rule, repeat_days: d.repeat_days, priority: d.priority,
-      });
-    }
+    try {
+      for (const d of drafts) {
+        await capture(d.title, {
+          activity: d.activity, label: d.label, est_minutes: d.est_minutes, due_at: d.due_at, has_time: d.has_time,
+          repeat_rule: d.repeat_rule, repeat_days: d.repeat_days, priority: d.priority,
+        });
+      }
+    } finally { busy.current = false; }
     await useStore.getState().refresh();
     useStore.getState().showToast(drafts.length > 1 ? `${drafts.length} things put down` : `Put down: ${drafts[0].title}`);
     // ready for the next one
@@ -336,13 +344,14 @@ export function TellNuField({ stacked }: { stacked?: boolean } = {}) {
           </View>
         )}
       </Pressable>
-      {open && <ReadOut read={read} listening={listening} note={dict.note} />}
+      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} />}
     </View>
   );
 }
 
 /** Under Tell Nu while you type: what Nu read, and what Enter will do with it. */
-function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; listening: boolean; note: string }) {
+/** `ask`: Nu isn't sure; Enter opens the sheet, which asks this (or reads it with Claude). */
+function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null }) {
   const t = useTheme();
   const k = deskTokens(t);
   const chips = (d: ReturnType<typeof parseTask>) => {
@@ -350,7 +359,7 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
     const label = labelById(d.label);
     return label ? [...bits, label.name] : bits;
   };
-  const enter = read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
+  const enter = ask != null ? 'Ask Nu' : read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
   useEffect(() => { if (read?.kind === 'project') announce('A project. Enter plans it.'); }, [read?.kind]);
   return (
     <View accessibilityLiveRegion="polite" style={{
@@ -364,13 +373,12 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
         <View style={{ gap: 4 }}>
           <Text style={{ color: k.raText, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>A project</Text>
           <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-          <Text style={{ color: t.ink2, fontSize: 14.5, fontFamily: T.brand }}>Nu breaks it into steps and opens it on the first one.</Text>
         </View>
       )}
       {read?.kind === 'task' && (
         <View style={{ gap: 8 }}>
           <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-          <Chips items={chips(read.draft)} />
+          {ask ? <Text style={{ color: k.raText, fontSize: 14.5, fontFamily: T.brand }}>{ask}</Text> : <Chips items={chips(read.draft)} />}
         </View>
       )}
       {read?.kind === 'many' && (
@@ -387,7 +395,6 @@ function ReadOut({ read, listening, note }: { read: ReturnType<typeof readOf>; l
         <View {...decorative} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.stroke }}>
           <Key k="↵" />
           <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{enter}</Text>
-          <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand, marginLeft: 'auto' }}>Esc clears</Text>
         </View>
       )}
     </View>
