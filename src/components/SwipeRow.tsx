@@ -96,11 +96,11 @@ export function SwipeRow({ left = [], right = [], children, style, peek, disable
     if (closeOpen === close) closeOpen = null;
     to(dir * width.current, () => { a.run(); x.setValue(0); setSide(null); setLong(false); });
   };
-  /** A drag (or a trackpad swipe) let go at v, moving at vx. */
-  const settle = (v: number, vx: number) => {
+  /** A drag (or a trackpad swipe) let go at v, moving at vx. `reach`: a long swipe may do the outermost action. */
+  const settle = (v: number, vx: number, reach = true) => {
     const { left: l, right: r } = acts.current;
-    if (v > farAt() && l.length) return fire(l[0], 1);
-    if (-v > farAt() && r.length) return fire(r[r.length - 1], -1);
+    if (reach && v > farAt() && l.length) return fire(l[0], 1);
+    if (reach && -v > farAt() && r.length) return fire(r[r.length - 1], -1);
     if (v > 0 && (v > (l.length * BUTTON) / 2 || vx > 0.6)) return open(l.length * BUTTON);
     if (v < 0 && (-v > (r.length * BUTTON) / 2 || vx < -0.6)) return open(-r.length * BUTTON);
     close();
@@ -129,7 +129,9 @@ export function SwipeRow({ left = [], right = [], children, style, peek, disable
     onPanResponderTerminationRequest: () => false,
   }), [disabled]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // a two-finger swipe on a trackpad (the web): sideways wheel moves the row, and it settles once the wheel stops
+  // a two-finger swipe on a trackpad (the web): sideways wheel moves the row, and it settles once the wheel stops.
+  // It only ever opens the buttons: the wheel keeps coming after the fingers lift (inertia), so how far it
+  // travels isn't a decision, and Done or Delete is a click on the button.
   useEffect(() => {
     if (Platform.OS !== 'web' || disabled) return;
     const el = box.current as unknown as HTMLElement | null;
@@ -144,10 +146,12 @@ export function SwipeRow({ left = [], right = [], children, style, peek, disable
         x.stopAnimation();
         v = at.current;
       }
-      v = clamp(v - e.deltaX);
-      track(v);
+      const { left: l, right: r } = acts.current;
+      v = Math.max(-r.length * BUTTON, Math.min(l.length * BUTTON, clamp(v - e.deltaX)));
+      x.setValue(v);
+      setSide(v > 0 ? 'left' : v < 0 ? 'right' : null);
       clearTimeout(idle);
-      idle = setTimeout(() => { const end = v ?? 0; v = null; settle(end, 0); }, 140);
+      idle = setTimeout(() => { const end = v ?? 0; v = null; settle(end, 0, false); }, 140);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => { el.removeEventListener('wheel', onWheel); clearTimeout(idle); };
