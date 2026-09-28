@@ -41,28 +41,59 @@ the cream by day, 20% into the navy at night (`labelTint` in
 "Nu found this one", the title at 23–26px, one line of facts under it
 (Fits before 7:30 PM · High priority), Begin (dark circle), minutes at 58px. Nu (nu-hold) sits on the front card's corner. Above the stack: NU IS HOLDING · N.
 
-## Home: Start here
+## Home: the guide
 
-For someone new (Kim, 28 September): under the day's path, START HERE with
-Skip on the right, then three steps you do: *Put it all down* (Nu, Tell Nu),
-*Let Ra pick one* (Ra, Focus on the planner's pick), *Begin · 5 minutes* (Ra,
-that pick in the timer). Each is a card: the character in a 46pt circle, the
-step, one button (filled for the step you're on, outlined after it). A step
-done stays, quiet: struck through, with a coral check. After the last, the
-block is gone for good, and it never shows for someone with a done task or a
-session from before. Stacked on a phone; side by side under the arc on the
-desktop. Not at night. Logic: `src/startHere.ts`; the cards:
-`src/components/StartHere.tsx`.
+One first-run guide, the same on the phone's Home and the desktop's (Kim,
+28 September). Show first, then do: one step at full size, the others as a
+quiet row above it (five marks, done ones a coral tick, the one showing
+ringed, "2 of 5", Hide on the right; tap a mark still to do to see it). Each
+step is a card: the character (Nu in his glow, Ra in the sun's), the step,
+what it shows, one ink button. No step has a "mark done": each ticks itself
+off from what you really did, and a ticked step stays ticked.
+
+| Step | Shows | Does | Done when |
+|---|---|---|---|
+| **Put it all down** (nu-listen) | Examples you can tap, You say / Nu reads (the app's parser: dates, times, minutes, the pieces) | Tell Nu, with the example tapped (nothing goes in until you add it) | A task of your own, in any state |
+| **Start your next move** (ra-hello) | The planner's pick, the same as Home's move | Begin · 5 minutes (on Today, the timer) | A session started |
+| **Plan something bigger** (nu-ask) | "launch my website", and a small example path with the first move marked | Plan it with Nu (with the goal if tapped) | A project |
+| **Change the day** (ra-sun) | Not now and Something changed, as on the move (the phone: More options, Something else, as on Focus) | Nothing extra: "On your next move." / "On Focus, under More options." | Either used once |
+| **See what Nura learns** (nu-hello) | One row as the screen has it | What Nura has learned | Opened once |
+
+All five done, or Hide, and it's gone for good. Never for someone who was
+here before (a done task or a session older than when it was first offered),
+nor for someone who put away Start here or Getting started, the two guides
+it replaced. Not at night. `?guide=again` on the web starts it over,
+counting only from then on. Phone: under the day's arc (the stack under it
+once there's a move). Desktop: with nothing held it is the main card under
+the arc, the step on one side and what it shows on the other; with a move in
+front, a small card beside it. Logic: `src/guide.ts`; the card:
+`src/components/Guide.tsx`.
 
 ## The day's path
 
 The sun's path from the start of the day (Settings → Day starts, 7:00 by
 default) to when it ends (the Day ends setting): solid while the day runs,
 dotted below the horizon either side.
-Ra rides it at the current time; coral dots mark where things got done;
-ticks under the horizon (`--sub`) are calendar events. Under it: 7:00 Start ·
-N done · 11:45 Day ends. The path is on Home only.
-After the day ends, Ra sits down at the horizon (ra-rest).
+Ra rides it at the current time. Under it: 7:00 Start · N done · 11:45 Day
+ends. The path is on Home only, on the phone and the desktop alike. After
+the day ends, Ra sits down at the horizon (ra-rest).
+
+**The marks on it** (Kim, 28 September; rules in `src/arcMarks.ts`, drawn by
+`src/components/ArcMarks.tsx`). The path keeps its shape: it is the sun's
+path, never a chart. What's on it:
+
+| Mark | What it is | Tapped |
+|---|---|---|
+| Coral dot | Something finished, where it was finished | The day in the Calendar |
+| Open ring | A task with a set time, still to come | Opens the task |
+| Small dark mark | A calendar event | The day in the Calendar |
+| A count | Marks within 20 px of each other, as one | The day in the Calendar |
+| Coral ring at Ra, and the one name | Your next move, pinned at now whether or not it has a time | Start |
+
+Only the next move is named, under the arc towards the middle of the day
+(one line on the phone; left out where there's no room). Everything else
+says what it is under the pointer on the desktop, and to a screen reader.
+No other titles on the arc: the Calendar does detail.
 
 ## Your Tasks: the water
 
@@ -181,9 +212,9 @@ Reference: the redesign preview of 27 September.
   soft fill. Under 1180 wide it's the icons only, so the room keeps the width.
 - **Header:** each room's name, what belongs beside it (the date, search,
   the calendar's arrows and Week / Month), and Tell Nu on the right as a
-  field with a mic. As you type, Nu shows what it read under the field (the
-  task, its day, time and length; several things; or a goal it will plan);
-  Enter puts it down. ⌘K goes to the field, N opens Tell Nu anywhere. In a
+  field with a mic. As you type, Nu shows what it read under the field, each
+  part named (Task, When, How long, Kind; several things; or a goal it will
+  plan); Enter adds it. ⌘K goes to the field, N opens Tell Nu anywhere. In a
   narrow room the name and Tell Nu keep the first row, the rest goes under.
 - **Home (Kim, 28 September): what Nura figured out, not a dashboard.** Tell
   Nu across the top ("Tell Nu what's going on…"), then, as on the phone,
@@ -196,13 +227,10 @@ Reference: the redesign preview of 27 September.
   today, already done, not needed). Under it **After that**: the next three,
   Today's first. Beside it **Your day**: the time you really have left
   (around your events), what Today holds, and what Nu suggests changing, one
-  at a time with Yes and Undo. **Getting started** (`src/desk/Guide.tsx`):
-  three steps that tick themselves off when you've really done them (tell
-  Nu what's going on, start your next move, tell Nu when the day changes).
-  With nothing held it is the main card and shows what you can say, each
-  line marked Example; tapping one puts it in Tell Nu to show how Nu reads
-  it, and nothing is added until Enter. With a move in front it is a small
-  card beside it. Done, or Hide, and it's gone. After the day's end: Nu resting, and what
+  at a time with Yes and Undo. **The guide** (Home: the guide, above):
+  with nothing held it is the main card, under the arc where the move will
+  be (the arc keeps its place in every state); with a move in front it is
+  a small card beside it. After the day's end: Nu resting, and what
   tomorrow starts with. The clock, the counts and the week are the
   Calendar's now; the sun's glow still rises behind the room (Mica).
 - **Tasks:** Nu on the surface of the water, Today / This week / Someday as

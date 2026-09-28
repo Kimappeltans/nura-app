@@ -5,6 +5,7 @@ import { useStore, useTheme } from '../store';
 import { type as T } from '../theme';
 import { poseImage } from '../ui';
 import { decorative } from '../a11y';
+import { ArcDots, ArcNext, useMarks, type ArcThings } from './ArcMarks';
 
 const CORAL = '#FF6B35';
 
@@ -18,9 +19,13 @@ const clock = (min: number) => {
  * start of the day to when it ends: solid while the day runs, dotted below the
  * horizon either side. Ra rides it at the current time; coral dots are where
  * things got done; indigo ticks under the horizon are calendar events. Once
- * the day has ended, Ra sits down at the horizon.
+ * the day has ended, Ra sits down at the horizon. Given `things`, the marks
+ * are the ones in src/arcMarks.ts: done, to come, the calendar, several in
+ * one place as a count, and your next move named beside Ra (tap it to Start).
  */
-export function DayPath({ done = [], events = [], nu, height = 118, style }: {
+export function DayPath({ done = [], events = [], nu, height = 118, style, things }: {
+  /** what's on the day: marks on the path (src/arcMarks.ts), your next move named beside Ra */
+  things?: ArcThings;
   /** when things were done today (ms) */
   done?: number[];
   /** when today's calendar events start (ms) */
@@ -58,13 +63,17 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
   const below = [1, 2, 3, 4, 5, 6, 7].flatMap(i => [-i * 0.018, 1 + i * 0.018]);
 
   const raSize = ended ? 104 : 66;
+  const marks = useMarks(things, Date.now(), pathStart, dayEndMin, x1 - x0);
+  const at = (p: number) => [xAt(p), yAt(p)] as [number, number];
   // the picture, in words: where the sun is, and what's on the calendar
   const inView = events.map(pOf).filter(p => p >= 0 && p <= 1).length;
   const spoken = (ended ? 'The day has ended' : `Now ${clock(minOf(Date.now()))}`)
     + (inView ? `, ${inView} ${inView === 1 ? 'event' : 'events'} on the calendar` : '');
   return (
     <View style={style} onLayout={e => setW(e.nativeEvent.layout.width)}>
-      <View style={{ height: H }} accessible accessibilityRole="image" accessibilityLabel={spoken}>
+      <View style={{ height: H }}>
+        {/* the picture is one image to a screen reader; the marks on it are buttons of their own */}
+        <View accessible accessibilityRole="image" accessibilityLabel={spoken} style={{ position: 'absolute', left: 0, top: 0, width: W, height: H }}>
         <Svg width={W} height={H} style={{ position: 'absolute' }}>
           <Defs>
             {/* the sunrise: warm light low on the horizon, fading up the sky */}
@@ -86,14 +95,16 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
           {below.map((p, i) => <Circle key={i} cx={xAt(p)} cy={yAt(p)} r={1.6} fill={dim} />)}
           <Circle cx={xAt(0)} cy={hz} r={4} fill={ink} />
           <Circle cx={xAt(1)} cy={hz} r={4} fill={ink} />
-          {events.map(pOf).filter(p => p >= 0 && p <= 1).map((p, i) => (
+          {!things && events.map(pOf).filter(p => p >= 0 && p <= 1).map((p, i) => (
             <Rect key={i} x={xAt(p) - 1} y={hz + 6} width={2} height={9} rx={1} fill={t.ink3} />
           ))}
-          {done.map(pOf).filter(p => p >= 0 && p <= 1).map((p, i) => (
+          {!things && done.map(pOf).filter(p => p >= 0 && p <= 1).map((p, i) => (
             <Circle key={i} cx={xAt(p)} cy={yAt(p)} r={6} fill={CORAL} stroke={t.base} strokeWidth={2.5} />
           ))}
           {!ended && <Line x1={xAt(raP)} y1={yAt(raP)} x2={xAt(raP)} y2={hz} stroke={ink} strokeWidth={1.2} strokeDasharray="2 3" />}
         </Svg>
+        </View>
+        {!!things && <ArcDots marks={marks} at={at} width={W} things={things} />}
         {nu && (
           <Image source={poseImage('nu-hello')} resizeMode="contain"
             style={{ position: 'absolute', width: 44, height: 44, left: xAt(0) - 32, top: hz - 31 }} />
@@ -105,6 +116,7 @@ export function DayPath({ done = [], events = [], nu, height = 118, style }: {
             left: (ended ? xAt(1) - 20 : xAt(raP)) - raSize / 2,
             top: (ended ? hz + 4 : yAt(raP)) - raSize * (ended ? 0.88 : 0.78),
           }} />
+        {!!things && !ended && <ArcNext marks={marks} at={at} width={W} ra={raSize} floor={hz} things={things} />}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8 }}>
         <Ends value={clock(pathStart)} label="Start" />

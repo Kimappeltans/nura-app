@@ -13,13 +13,16 @@ import { Mica, IconChevron } from '../src/ui';
 import { ActionSheet } from '../src/components/ActionSheet';
 import { announce, decorative } from '../src/a11y';
 import { setOff } from '../src/patterns';
-import { learnedFrom, loadLearned, rowSaid, STAGE_NAME, type Learned, type LearnedRow, type Stage } from '../src/learned';
+import { getFlag, setFlag } from '../src/db';
+import { GUIDE_KEYS } from '../src/guide';
+import { learnedFrom, loadLearned, rowSaid, stageSaid, type Learned, type LearnedRow, type Stage } from '../src/learned';
 
 /**
  * What Nura has learned about how you work, and the way to change what it
  * got wrong. Each pattern is one row: the fact, how far along it is (still
- * learning, starting to notice, learned: the planner uses it from there) and
- * what it rests on. A new account shows the same rows, still learning.
+ * learning, starting to notice, learned: from there it says whether it
+ * shapes your plan or what Nura suggests) and what it rests on. A new
+ * account shows the same rows, still learning.
  *
  * Tap one Nura has noticed for "That's not me": it stays on the screen as
  * Off, Nura stops acting on it (src/patterns.ts), and the same tap turns it
@@ -35,6 +38,11 @@ function LearnedScreen() {
   // without the database there's still the screen: every row, still learning
   const load = useCallback(() => loadLearned().then(setData, () => setData(learnedFrom({ rows: [] }))), []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  // opened once: the guide's last step is done (src/guide.ts)
+  useFocusEffect(useCallback(() => {
+    const k = GUIDE_KEYS.step(5);
+    getFlag(k).then(v => (v ? null : setFlag(k, String(Date.now())))).catch(() => {});
+  }, []));
 
   const turn = async (row: LearnedRow, off: boolean) => {
     if (!row.pattern) return;
@@ -76,12 +84,14 @@ function LearnedScreen() {
       </ScrollView>
 
       <ActionSheet visible={asking} title={picked?.title ?? ''}
-        subtitle={picked ? [picked.off ? 'Off' : STAGE_NAME[picked.stage], picked.evidence].filter(Boolean).join(' · ') : undefined}
+        subtitle={picked ? [stageSaid(picked), picked.evidence].filter(Boolean).join(' · ') : undefined}
         dismissLabel={picked?.off ? 'Leave it off' : 'Keep it'}
         onDismiss={() => setAsking(false)}
         actions={!picked ? [] : picked.off
           ? [{ key: 'on', glyph: '↻', label: 'Turn it back on', sub: used ? 'Nura uses it again' : undefined, onPress: () => turn(picked, false) }]
-          : [{ key: 'off', glyph: '×', label: 'That’s not me', sub: used ? 'Nura stops using it' : 'Nura won’t use it', onPress: () => turn(picked, true) }]} />
+          : [{ key: 'off', glyph: '×', label: 'That’s not me',
+              sub: !used ? 'Nura won’t use it' : picked.use === 'plan' ? 'Nura stops planning with it' : 'Nura stops suggesting from it',
+              onPress: () => turn(picked, true) }]} />
     </SafeAreaView>
   );
 }
@@ -108,15 +118,16 @@ function Line() {
   return <View style={{ height: 1, backgroundColor: t.stroke, marginLeft: 38 }} />;
 }
 
-/** How far along, as a dot: an empty ring, a coral ring, a coral dot. The words beside it say the same. */
+/** How far along, as a dot: an empty ring, an ink ring, an ink dot (Nu's marks are ink; coral is for
+ *  the one action). The words beside it say the same. */
 function Mark({ stage, off }: { stage: Stage; off: boolean }) {
   const t = useTheme();
   const lit = !off && stage !== 'learning';
   return (
     <View {...decorative} style={{
       width: 10, height: 10, borderRadius: 5, borderWidth: 1.5,
-      borderColor: lit ? t.ra : t.ink3, opacity: lit ? 1 : 0.5,
-      backgroundColor: lit && stage === 'learned' ? t.ra : 'transparent',
+      borderColor: lit ? t.nu : t.ink3, opacity: lit ? 1 : 0.5,
+      backgroundColor: lit && stage === 'learned' ? t.nu : 'transparent',
     }} />
   );
 }
@@ -131,7 +142,7 @@ function Fact({ row, onPress }: { row: LearnedRow; onPress?: () => void }) {
       <View style={{ flex: 1 }}>
         <Text style={{ color: row.off ? t.ink3 : learning ? t.ink2 : t.ink, fontSize: 15.5, lineHeight: 21, fontFamily: T.brand }}>{row.title}</Text>
         <Text style={{ color: t.ink3, fontSize: 13, lineHeight: 18, marginTop: 2, fontFamily: T.brand }}>
-          <Text style={{ color: row.off || learning ? t.ink3 : t.ink2 }}>{row.off ? 'Off' : STAGE_NAME[row.stage]}</Text>
+          <Text style={{ color: row.off || learning ? t.ink3 : t.ink2 }}>{stageSaid(row)}</Text>
           {!!row.evidence && ` · ${row.evidence}`}
         </Text>
       </View>

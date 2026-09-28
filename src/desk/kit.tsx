@@ -70,22 +70,24 @@ export function clockParts(min: number) {
 /** What the desktop rooms remember between them: the Calendar's view and its picked day (Home's week opens it). */
 export const useDeskState = create<{
   calMode: 'week' | 'month'; calOff: number; calDay: number | null;
-  /** words handed to Tell Nu from outside it (the getting started guide's examples): shown as an example, not added */
-  tellText: string | null;
+  /** bumped to put the cursor in Tell Nu from outside it (the guide's Tell Nu, src/components/Guide.tsx) */
+  tellFocus: number;
+  /** words Tell Nu opens with when it's next asked for (an example tapped in the guide); nothing is added until Enter */
+  tellFill: string | null;
 }>(() => ({
-  calMode: 'week', calOff: 0, calDay: null, tellText: null,
+  calMode: 'week', calOff: 0, calDay: null, tellFocus: 0, tellFill: null,
 }));
 
 /**
  * The room's width (the window less the sidebar), the padding at its sides,
- * and the width that leaves for its contents (rooms stop growing at 1240).
+ * and the width that leaves for its contents (rooms stop growing at 1100).
  */
 export function useRoom() {
   const given = useContext(ScreenWidth);
   const { width } = useWindowDimensions();
   const room = given ?? width;
   const pad = room < 1000 ? 28 : 40;
-  return { room, pad, inner: Math.min(room, 1240) - pad * 2 };
+  return { room, pad, inner: Math.min(room, 1100) - pad * 2 };
 }
 
 /** The colours the desktop adds on top of the room's palette, for each light. */
@@ -212,10 +214,10 @@ export function usePageKeys(fn: (e: KeyboardEvent) => void, on = true) {
 }
 
 /**
- * The room's header: its name, what belongs beside it (the date, search, the
- * calendar's arrows), and Tell Nu on the right. Enter puts it down right there
- * (a goal goes to the planner); ⌘K comes here. In a narrow room the name and
- * Tell Nu keep the first row and the rest goes under them, so nothing squeezes.
+ * The top of every room, the same in each (Kim, 28 September): Tell Nu
+ * across the top, where Home has it, and under it the room's name with what
+ * belongs beside it (search, the calendar's arrows). Enter in Tell Nu adds
+ * it right there (a goal goes to the planner); ⌘K comes here.
  */
 export function DeskHeader({ title, day, children }: {
   title: string;
@@ -224,21 +226,13 @@ export function DeskHeader({ title, day, children }: {
   children?: React.ReactNode;
 }) {
   const t = useTheme();
-  const { inner } = useRoom();
-  const name = <Text accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 0, color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display }}>{title}</Text>;
-  if (children && inner < 900) {
-    return (
-      <View style={{ zIndex: 10, paddingTop: 22, paddingBottom: 18, gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, zIndex: 2 }}>{name}<TellNuField day={day} /></View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: -10 }}>{children}</View>
-      </View>
-    );
-  }
   return (
-    <View style={{ zIndex: 10, height: 96, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-      {name}
-      {children}
-      <TellNuField day={day} />
+    <View style={{ zIndex: 10, paddingTop: 28, paddingBottom: 20, gap: 22 }}>
+      <View style={{ zIndex: 2 }}><TellNuField stacked day={day} /></View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 14, rowGap: 10, minHeight: 46 }}>
+        <Text accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 0, color: t.ink, fontSize: 34, letterSpacing: -1.2, fontFamily: T.display }}>{title}</Text>
+        {children}
+      </View>
     </View>
   );
 }
@@ -260,17 +254,15 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
   const [lang, setLang] = useState('en');
   const input = useRef<TextInput>(null);
   useEffect(() => { getLanguage().then(setLang).catch(() => {}); }, []);
-  // an example from the getting started guide: the words arrive here, marked as an
-  // example, so you see how Nu reads them. Nothing is added until you press Enter.
-  const [example, setExample] = useState(false);
-  const given = useDeskState(x => x.tellText);
+  // the guide's Tell Nu comes here, with the example it had tapped, if any
+  const asked = useDeskState(x => x.tellFocus);
   useEffect(() => {
-    if (given == null) return;
-    setText(given); setExample(true);
-    useDeskState.setState({ tellText: null });
+    if (!asked) return;
+    const fill = useDeskState.getState().tellFill;
+    if (fill) { setText(fill); useDeskState.setState({ tellFill: null }); }
     const id = setTimeout(() => input.current?.focus(), 0);
     return () => clearTimeout(id);
-  }, [given]);
+  }, [asked]);
   // ⌘K (Ctrl K) comes here from anywhere in the room, while it's in front
   useFocusEffect(useCallback(() => { tellFields++; return () => { tellFields--; }; }, []));
   const front = useInFront();
@@ -290,7 +282,6 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
   const dict = useDictation(heard => setText([base.current, heard].filter(Boolean).join(' ')));
   const listening = dict.state === 'listening';
   const mic = () => {
-    setExample(false);
     if (!listening) base.current = text.trim();
     dict.toggle();
     setTimeout(() => input.current?.focus(), 0);
@@ -342,8 +333,7 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
     input.current?.focus();
   };
   const mac = Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
-  // an example shows its read-out whether or not the field took the focus
-  const open = (focus || listening || example) && (!!read || listening);
+  const open = (focus || listening) && (!!read || listening);
   return (
     <View style={{ ...(stacked ? {} : { marginLeft: 'auto', flexShrink: 1, flexBasis: 520, minWidth: 200 }), zIndex: 20 } as ViewStyle}>
       <Pressable onPress={() => input.current?.focus()} accessible={false}
@@ -358,7 +348,7 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
         <Pressable onPress={sheet} accessibilityRole="button" accessibilityLabel="Open Tell Nu" hitSlop={6}>
           <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: stacked ? 42 : 36, height: stacked ? 42 : 36 }} />
         </Pressable>
-        <TextInput ref={input} value={text} onChangeText={x => { setText(x); setExample(false); }} onSubmitEditing={send}
+        <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
           {...({ dataSet: { ownFocus: '1' } } as object)}
           onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
           placeholder={listening ? 'Listening…' : stacked ? 'Tell Nu what’s going on…' : 'Tell Nu anything…'} placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
@@ -384,22 +374,20 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
           </View>
         )}
       </Pressable>
-      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} example={example} />}
+      {open && <ReadOut read={read} listening={listening} note={dict.note} ask={unsure ? u?.question ?? '' : null} />}
     </View>
   );
 }
 
-/** Under Tell Nu while you type: what Nu read, and what Enter will do with it. */
-/** `ask`: Nu isn't sure; Enter opens the sheet, which asks this (or reads it with Claude). */
-function ReadOut({ read, listening, note, ask, example }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null; example?: boolean }) {
+/**
+ * Under Tell Nu while you type: what Nu read, each part named (When, How
+ * long, Kind), and what Enter will do with it. `ask`: Nu isn't sure; Enter
+ * opens the sheet, which asks this (or reads it with Claude).
+ */
+function ReadOut({ read, listening, note, ask }: { read: ReturnType<typeof readOf>; listening: boolean; note: string; ask: string | null }) {
   const t = useTheme();
   const k = deskTokens(t);
-  const chips = (d: ReturnType<typeof parseTask>) => {
-    const bits = describe(d).split(' · ').filter(Boolean);
-    const label = labelById(d.label);
-    return label ? [...bits, label.name] : bits;
-  };
-  const enter = ask != null ? 'Ask Nu' : read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Put down all ${read.drafts.length}` : 'Put it down';
+  const enter = ask != null ? 'Ask Nu' : read?.kind === 'project' ? 'Plan it' : read?.kind === 'many' ? `Add all ${read.drafts.length}` : 'Add it';
   useEffect(() => { if (read?.kind === 'project') announce('A project. Enter plans it.'); }, [read?.kind]);
   return (
     <View accessibilityLiveRegion="polite" style={{
@@ -408,43 +396,94 @@ function ReadOut({ read, listening, note, ask, example }: { read: ReturnType<typ
       paddingVertical: 14, paddingHorizontal: 16, gap: 10,
       shadowColor: '#171313', shadowOpacity: k.dark ? 0.4 : 0.1, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
     } as ViewStyle}>
-      {example && !!read && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ borderRadius: 6, borderWidth: 1, borderColor: t.strokeStrong, paddingHorizontal: 7, paddingVertical: 2 }}>
-            <Text style={{ color: t.ink2, fontSize: 12.5, fontFamily: T.display }}>Example</Text>
-          </View>
-          <Text style={{ flex: 1, color: t.ink2, fontSize: 14, fontFamily: T.brand }}>This is how Nu reads it. Type your own over it.</Text>
-        </View>
-      )}
       {listening && !read && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{note || 'Listening…'}</Text>}
-      {read?.kind === 'project' && (
-        <View style={{ gap: 4 }}>
-          <Text style={{ color: k.raText, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>A project</Text>
-          <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-        </View>
-      )}
-      {read?.kind === 'task' && (
-        <View style={{ gap: 8 }}>
-          <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
-          {ask ? <Text style={{ color: k.raText, fontSize: 14.5, fontFamily: T.brand }}>{ask}</Text> : <Chips items={chips(read.draft)} />}
-        </View>
-      )}
-      {read?.kind === 'many' && (
-        <View style={{ gap: 8 }}>
-          {read.drafts.map((d, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <Text numberOfLines={1} style={{ color: t.ink, fontSize: 16, fontFamily: T.display, letterSpacing: -0.2 }}>{d.title}</Text>
-              <Chips items={chips(d)} />
-            </View>
-          ))}
-        </View>
-      )}
+      {!!read && <Reading read={read} ask={ask} />}
       {!!read && (
         <View {...decorative} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.stroke }}>
           <Key k="↵" />
           <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{enter}</Text>
         </View>
       )}
+    </View>
+  );
+}
+
+/**
+ * How Nu read some words: a project, a task with its parts named, or
+ * several tasks. Under Tell Nu as you type, and beside each example in the
+ * guide (src/components/Guide.tsx; `said`: a project says what Nu does with it).
+ */
+export function Reading({ read, ask, said }: { read: NonNullable<ReturnType<typeof readOf>>; ask?: string | null; said?: boolean }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const title = (text: string, n?: number) => (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+      <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand, width: 44 }}>{n ? `Task ${n}` : 'Task'}</Text>
+      <Text numberOfLines={2} style={{ flex: 1, color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{text}</Text>
+    </View>
+  );
+  if (read.kind === 'project') {
+    return (
+      <View style={{ gap: 4 }}>
+        <Text style={{ color: k.raText, fontSize: 12.5, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>A project</Text>
+        <Text numberOfLines={2} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3 }}>{read.draft.title}</Text>
+        {said && <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, fontFamily: T.brand }}>Nu plans it as steps and starts you on the first.</Text>}
+      </View>
+    );
+  }
+  if (read.kind === 'many') {
+    return (
+      <View style={{ gap: 12 }}>
+        {read.drafts.map((d, i) => (
+          <View key={i} style={{ gap: 6 }}>
+            {title(d.title, i + 1)}
+            <Parts d={d} />
+          </View>
+        ))}
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      {title(read.draft.title)}
+      {ask ? <Text style={{ color: k.raText, fontSize: 14.5, fontFamily: T.brand }}>{ask}</Text> : <Parts d={read.draft} />}
+    </View>
+  );
+}
+
+/** "45 min", "1 hr", "1 hr 30 min": never a fraction of an hour. */
+const howLong = (min: number) => {
+  const h = Math.floor(min / 60), m = Math.round(min % 60);
+  return !h ? `${m} min` : m ? `${h} hr ${m} min` : `${h} hr`;
+};
+
+/** What Nu read from the words, each part named: When, Repeats, How long, Priority, Kind. */
+export function partsOf(d: Draft): [string, string][] {
+  const label = labelById(d.label);
+  const at = d.due_at ? new Date(d.due_at) : null;
+  const parts: [string, string][] = [];
+  if (at && !d.repeat_rule) parts.push(['When', [at.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }), d.has_time ? at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null].filter(Boolean).join(', ')]);
+  if (d.repeat_rule) parts.push(['Repeats', [describe({ ...d, due_at: null, est_minutes: null, priority: 0 }), at && d.has_time ? at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null].filter(Boolean).join(', ')]);
+  if (d.est_minutes) parts.push(['How long', howLong(d.est_minutes)]);
+  if (d.priority >= 3) parts.push(['Priority', 'High']);
+  if (label) parts.push(['Kind', label.name]);
+  return parts;
+}
+
+function Parts({ d }: { d: Draft }) {
+  const t = useTheme();
+  const k = deskTokens(t);
+  const parts = partsOf(d);
+  if (!parts.length) return null;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 54 }}>
+      {parts.map(([name, value]) => (
+        <View key={name} accessible accessibilityLabel={`${name}: ${value}`}
+          style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: k.wash }}>
+          <Text style={{ color: t.ink3, fontSize: 12.5, fontFamily: T.brand }}>{name}</Text>
+          <Text style={{ color: t.ink, fontSize: 14, fontFamily: T.brand }}>{value}</Text>
+        </View>
+      ))}
     </View>
   );
 }

@@ -1507,25 +1507,36 @@ export async function smallestTask(ceiling = 999) {
  * ================================================================== */
 
 /**
- * What Start here on Home reads (src/startHere.ts): how many tasks there
- * are, the earliest finished thing (a done task, or a `completed` event),
- * the earliest session, and the last time Ra showed a task.
+ * What the guide on Home reads (src/guide.ts): the tasks and the newest,
+ * the earliest finished thing (a done task, or a `completed` event), the
+ * first and latest session, the newest project, and the latest Not now or
+ * Something else (a `skipped` that was a delete doesn't count).
  */
-export async function startHereFacts() {
+export async function guideFacts() {
   const db = await getDb();
-  const r = await db.getFirstAsync<{ tasks: number; doneTask: number | null; done: number | null; session: number | null; shown: number | null }>(
+  const r = await db.getFirstAsync<{
+    tasks: number; lastTask: number | null; doneTask: number | null; done: number | null;
+    first: number | null; last: number | null; project: number | null; change: number | null;
+  }>(
     `SELECT
        (SELECT COUNT(*) FROM task WHERE parent_id IS NULL) AS tasks,
+       (SELECT MAX(created_at) FROM task WHERE parent_id IS NULL) AS lastTask,
        (SELECT MIN(completed_at) FROM task WHERE state = 'done' AND completed_at IS NOT NULL) AS doneTask,
        (SELECT MIN(at) FROM event WHERE kind = 'completed') AS done,
-       (SELECT MIN(at) FROM event WHERE kind = 'session_start') AS session,
-       (SELECT MAX(at) FROM event WHERE kind = 'shown') AS shown`);
+       (SELECT MIN(at) FROM event WHERE kind = 'session_start') AS first,
+       (SELECT MAX(at) FROM event WHERE kind = 'session_start') AS last,
+       (SELECT MAX(created_at) FROM project) AS project,
+       (SELECT MAX(at) FROM event WHERE kind IN ('swapped','snoozed')
+          OR (kind = 'skipped' AND COALESCE(meta, '') NOT LIKE '%"dropped":true%')) AS change`);
   const firsts = [r?.doneTask, r?.done].filter((x): x is number => x != null);
   return {
     tasks: r?.tasks ?? 0,
+    lastTask: r?.lastTask ?? null,
     firstDone: firsts.length ? Math.min(...firsts) : null,
-    firstSession: r?.session ?? null,
-    lastShown: r?.shown ?? null,
+    firstSession: r?.first ?? null,
+    lastSession: r?.last ?? null,
+    lastProject: r?.project ?? null,
+    lastChange: r?.change ?? null,
   };
 }
 

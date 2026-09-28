@@ -171,7 +171,9 @@ test('a share is the nearest plain one, with the ends in words', () => {
 });
 test('only the labels that get moved are named', () => {
   const starting = view.groups.find(g => g.key === 'starting').rows;
-  assert.deepStrictEqual(starting.map(r => r.title), ['Money tasks get moved about twice each']);
+  assert.deepStrictEqual(starting.map(r => r.title), ['Money tasks tend to get moved to later']);
+  // which ones, never how often: a put-off is not shown as a number
+  assert.ok(starting.every(r => !/\d|once|twice|times/.test(r.title)));
   assert.strictEqual(starting[0].evidence, '4 of 5 tasks so far');
 });
 test('no dashes, and none of the words Nura never says', () => {
@@ -182,7 +184,7 @@ test('no dashes, and none of the words Nura never says', () => {
   }
 });
 test('read out: the fact, how far along, what it rests on', () => {
-  assert.strictEqual(learned.rowSaid(row(view, 'estimate_ratio.all')), 'Things take you 1.3× your guess, Learned, From 8 timed tasks');
+  assert.strictEqual(learned.rowSaid(row(view, 'estimate_ratio.all')), 'Things take you 1.3× your guess, Learned, shapes your plan, From 8 timed tasks');
   assert.strictEqual(learned.rowSaid(row(learned.learnedFrom({ rows: [] }), 'capacity')), 'What a day holds, Still learning');
 });
 
@@ -313,6 +315,100 @@ test('without the flags, the patterns still come back', async () => {
   });
   const rows = await broken.currentPatterns(NOW + 13 * 60_000);
   assert.strictEqual(rows.find(r => r.id === 'estimate_ratio:all').confidence, patterns.trust(11));
+});
+
+section('what a learned pattern shapes');
+test('your pace, your good hours and what a day holds shape the plan; the rest, what Nura suggests', () => {
+  for (const k of ['estimate_ratio', 'best_hour', 'capacity']) assert.strictEqual(learned.useOf(k), 'plan');
+  for (const k of ['putoff_rate', 'too_big', 'blocked', 'session_length', 'early_stop']) assert.strictEqual(learned.useOf(k), 'suggest');
+});
+test('a learned row says which, a row still being noticed says only that', () => {
+  const v = learned.learnedFrom({
+    rows: [pat('estimate_ratio', 'all', 1.3, 8), pat('session_length', 'all', 25, 12), pat('capacity', 'all', 90, 2)],
+    profile: { days: 12, estimateN: 8 },
+  });
+  assert.strictEqual(learned.stageSaid(row(v, 'estimate_ratio.all')), 'Learned, shapes your plan');
+  assert.strictEqual(learned.stageSaid(row(v, 'session_length.all')), 'Learned, shapes suggestions');
+  assert.strictEqual(learned.stageSaid(row(v, 'capacity.all')), 'Starting to notice');
+  assert.strictEqual(learned.stageSaid({ ...row(v, 'estimate_ratio.all'), off: true }), 'Off');
+});
+
+section('the switches sync');
+const freshPatterns = () => load('src/patterns.ts', { './db': db, './learn/signals': signals });
+test('turning one off writes a row, which is what syncs', async () => {
+  flags.clear(); stored = [];
+  profile = emptyProfile({ days: 12, estimateRatio: 1.4, estimateN: 8 });
+  const p = freshPatterns();
+  await p.currentPatterns(NOW);
+  await p.setOff({ kind: 'estimate_ratio', scope: 'all', value: 1.4 }, true);
+  const sw = stored.find(r => r.id === 'off:estimate_ratio.all');
+  assert.ok(sw, 'the switch is a stored row');
+  assert.strictEqual(sw.value, 1);
+});
+test('on another device the row is enough: no flag there, and it is still off', async () => {
+  flags.clear();                                   // the other device never had the flag
+  const p = freshPatterns();
+  assert.deepStrictEqual([...await p.turnedOff()], ['estimate_ratio.all']);
+  const rows = await p.currentPatterns(NOW + 1000);
+  assert.strictEqual(rows.find(r => r.id === 'estimate_ratio:all').confidence, 0);
+});
+test('a switch is never handed back as a pattern, and looking again leaves it as it is', async () => {
+  const p = freshPatterns();
+  const rows = await p.currentPatterns(NOW + 10 * 60_000);
+  assert.ok(!rows.some(r => r.kind === 'off'));
+  assert.ok(!(await p.storedPatterns(NOW + 20 * 60_000)).rows.some(r => r.kind === 'off'));
+  assert.strictEqual(stored.find(r => r.id === 'off:estimate_ratio.all').value, 1);
+});
+test('back on somewhere else wins over an old flag here', async () => {
+  flags.set('learned.off.estimate_ratio.all', '1');                      // this device's old flag
+  stored = stored.map(r => (r.id === 'off:estimate_ratio.all' ? { ...r, value: 0 } : r));   // the row that arrived
+  const p = freshPatterns();
+  assert.strictEqual((await p.turnedOff()).size, 0);
+  assert.strictEqual((await p.currentPatterns(NOW + 30 * 60_000)).find(r => r.id === 'estimate_ratio:all').confidence, patterns.trust(8));
+});
+test('a flag from before the switches synced still holds', async () => {
+  flags.clear(); flags.set('learned.off.capacity.all', '1');
+  stored = stored.filter(r => r.kind !== 'off');
+  assert.deepStrictEqual([...await freshPatterns().turnedOff()], ['capacity.all']);
+});
+
+section('a device with no history of its own');
+test('leaves what came with the account as it is', async () => {
+  flags.clear();
+  stored = [{ id: 'estimate_ratio:all', ...pat('estimate_ratio', 'all', 1.4, 8), updated_at: NOW }];
+  profile = emptyProfile();                         // a new phone: no days, no log
+  const rows = await freshPatterns().currentPatterns(NOW + 60 * 60_000);
+  assert.strictEqual(rows.find(r => r.id === 'estimate_ratio:all').confidence, patterns.trust(8));
+  assert.strictEqual(stored.find(r => r.id === 'estimate_ratio:all').confidence, patterns.trust(8));
+});
+test('with history of its own, what it no longer sees is kept at 0, as before', async () => {
+  profile = emptyProfile({ days: 6, typicalSessionMin: 25 });
+  await freshPatterns().currentPatterns(NOW + 2 * 60 * 60_000);
+  assert.strictEqual(stored.find(r => r.id === 'estimate_ratio:all').confidence, 0);
+  assert.strictEqual(stored.find(r => r.id === 'session_length:all').confidence, patterns.trust(6));
+});
+
+section('the summary the coach gets');
+test('a rate that is off is left out, never said as 0%', () => {
+  const p = emptyProfile({ days: 12, tooBigRate: 0.25, blockedRate: 0.1 });
+  assert.ok(signals.profileSummary(p).includes('25% replanned as too big, 10% blocked'));
+  const q = patterns.profileWithout(p, new Set(['blocked.all']));
+  const said = signals.profileSummary(q);
+  assert.ok(said.includes('Project steps: 25% replanned as too big.'), said);
+  assert.ok(!/blocked/.test(said), said);
+  const only = signals.profileSummary(patterns.profileWithout(p, new Set(['too_big.all'])));
+  assert.ok(only.includes('Project steps: 10% blocked.'), only);
+});
+test('an hour that is off is not counted in the parts of the day', () => {
+  const byHour = emptyProfile().byHour.map(b => (b.key === 10 ? { ...b, started: 9, completed: 8 } : b.key === 15 ? { ...b, started: 3, completed: 3 } : b));
+  const p = emptyProfile({ days: 12, bestHours: [10, 15], byHour });
+  assert.ok(signals.profileSummary(p).includes('8 of 11 completions in the morning'));
+  const q = patterns.profileWithout(p, new Set(['best_hour.10']));
+  assert.strictEqual(q.byHour[10].completed, 0);
+  assert.strictEqual(p.byHour[10].completed, 8);           // the profile itself is left alone
+  const said = signals.profileSummary(q);
+  assert.ok(!said.includes('10:00'), said);
+  assert.ok(!said.includes('morning'), said);
 });
 
 (async () => {

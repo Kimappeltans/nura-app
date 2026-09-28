@@ -37,7 +37,7 @@ a { color: inherit; }
 section { position: relative; background-color: var(--bg); color: var(--text); overflow-x: clip; }
 .wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); }
 /* the room above and under a section: two of these sit between one section and the next */
-.pad { padding-block: clamp(48px, 5.5vw, 80px); }
+.pad { padding-block: clamp(32px, 3.6vw, 52px); }
 .pt0 { padding-top: 0; }
 p { margin: 0; }
 
@@ -48,7 +48,7 @@ h2 { font-size: clamp(34px, 4.8vw, 60px); }
 h3 { font-size: 21px; letter-spacing: -0.03em; line-height: 1.15; }
 .mh { color: var(--mh); }
 .block { display: block; }
-.lead { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.5; color: var(--sub); max-width: 34em; margin: 24px 0 0; text-wrap: pretty; }
+.lead { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.5; color: var(--sub); max-width: 34em; margin: 18px 0 0; text-wrap: pretty; }
 .kicker, .eyebrow { display: inline-flex; align-items: center; gap: 9px; margin: 0 0 24px; padding: 7px 14px 7px 11px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--tile-2); font-size: 13px; font-weight: 500; letter-spacing: .01em; color: var(--sub); }
 .kicker::before, .eyebrow i { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--coral); }
@@ -114,7 +114,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 
 /* ─── the sky hero ─── */
 .hero { padding-block: clamp(48px, 7vw, 96px) clamp(56px, 8vw, 104px); }
-.hero.sky { overflow: hidden; overflow: clip; isolation: isolate; padding: calc(65px + clamp(40px, 5.5vw, 76px)) 0 0; background:
+.hero.sky { overflow: hidden; overflow: clip; isolation: isolate; padding: calc(65px + clamp(28px, 4vw, 52px)) 0 0; background:
     radial-gradient(55% 60% at 88% 18%, rgba(255,150,100,.16), transparent 70%),
     radial-gradient(45% 50% at 0% 100%, rgba(255,190,150,.16), transparent 70%), #FFFFFF; }
 .hx-copy { position: relative; z-index: 2; text-align: center; max-width: 1040px; }
@@ -123,7 +123,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
    orange: dark enough to read on the light sky at this size */
 .hx-copy h1 .mh { color: #E8551C; background: linear-gradient(95deg, #FF6B35 0%, #F25C22 45%, #D9480F 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.hx-copy .lead { margin: 26px auto 0; }
+.hx-copy .lead { margin: 20px auto 0; }
 .hx-copy .cta { justify-content: center; }
 
 /* the horizon: the app's day path, the phone rising behind it */
@@ -161,7 +161,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* the home page's stage: bigger on a big screen, and pinned while the sun
    crosses it when the window is tall enough to hold all of it (site.js sets
    .pin and the run's height) */
-.hx-run { position: relative; margin-top: clamp(40px, 5vw, 64px); }
+.hx-run { position: relative; margin-top: clamp(28px, 3.5vw, 44px); }
 .hx-run .hx-stage { margin-top: 0; height: clamp(440px, 52vw, 760px); }
 .hx-run .hx-stage .phone { width: clamp(260px, 22vw, 520px); }
 .hx-run.pin .hx-stage { position: sticky; top: 84px; }
@@ -254,14 +254,14 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* every numbered section opens the same way: its number, its title and its
    line centred, what it shows under them (Kim, 28 September) */
 .head.center .rest-ra { display: block; margin: 0 auto 10px; }
-.panel > .split.under { margin-top: clamp(32px, 5vw, 56px); }
+.panel > .split.under { margin-top: clamp(24px, 3vw, 36px); }
 .split.under .points { margin-top: 0; }
-.points.trio { grid-template-columns: repeat(3, 1fr); column-gap: clamp(20px, 3vw, 44px); max-width: none; margin: clamp(32px, 4vw, 48px) 0 0; align-items: start; }
+.points.trio { grid-template-columns: repeat(3, 1fr); column-gap: clamp(20px, 3vw, 44px); max-width: none; margin: clamp(20px, 2.6vw, 32px) 0 0; align-items: start; }
 .points.trio li { border-bottom: 1px solid var(--line); }
-.learn-stack .learn-demo { justify-self: auto; margin: clamp(36px, 5vw, 56px) auto 0; }
+.learn-stack .learn-demo { justify-self: auto; margin: clamp(24px, 3vw, 36px) auto 0; }
 @media (max-width: 860px) { .points.trio { grid-template-columns: 1fr; } .points.trio li:not(:last-child) { border-bottom: 0; } }
 @media (max-width: 860px) { .head { grid-template-columns: 1fr; } }
-.num { display: block; margin-bottom: 18px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--coral-deep); font-variant-numeric: tabular-nums; }
+.num { display: block; margin-bottom: 12px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--coral-deep); font-variant-numeric: tabular-nums; }
 
 /* ─── cards: one recipe, a fill and a hairline ─── */
 .card, .tile, .roadmap, .suggest, .who, .path, .demo-in, .demo-out, .bd-say, .bd-sort, .nm-move, .nm-card, .learn-task {
@@ -392,12 +392,12 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* your next move (site.js): the one thing at full size with the planner's
    facts, what comes after it, the day you have, and what Nu says when you
    tell it the day changed */
-.nm-when { display: flex; justify-content: center; gap: 4px; width: max-content; max-width: 100%; margin: clamp(28px, 4vw, 44px) auto 0; padding: 4px; border-radius: 999px; background: rgba(23,19,19,.05); }
+.nm-when { display: flex; justify-content: center; gap: 4px; width: max-content; max-width: 100%; margin: clamp(20px, 2.6vw, 30px) auto 0; padding: 4px; border-radius: 999px; background: rgba(23,19,19,.05); }
 .nm-when button { height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: transparent; font: 500 15.5px var(--font); letter-spacing: -0.01em; color: var(--ink-2); cursor: pointer; }
 .nm-when button[aria-pressed="true"] { background: #FFFFFF; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(23,19,19,.12); }
 .nm-when + .nm { margin-top: 18px; }
-.nm { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: clamp(36px, 5vw, 56px); align-items: start; }
-.nm-move { position: relative; overflow: hidden; border-radius: var(--r-lg); padding: clamp(24px, 3vw, 34px); min-height: 100%; }
+.nm { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
+.nm-move { position: sticky; top: 88px; overflow: hidden; border-radius: var(--r-lg); padding: clamp(24px, 3vw, 34px); }
 .nm-move::before { content: ""; position: absolute; right: -90px; top: -100px; width: 340px; height: 340px; border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255,176,103,.42), rgba(255,138,92,.16) 45%, rgba(255,107,53,0) 100%); }
 .nm-ra { position: absolute; right: 22px; top: 18px; width: 96px; height: 96px; pointer-events: none; }
@@ -422,6 +422,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts { animation: rise .45s var(--ease-pop) both; }
 .nm-move.going .nm-facts li { background: rgba(255,107,53,.14); color: var(--coral-deep); font-weight: 600; }
 .nm-side { display: grid; gap: 16px; }
+.nm-then { grid-column: 1 / -1; }
 .nm-card { border-radius: var(--r-lg); padding: 22px 24px; }
 .nm-after { list-style: none; margin: 0; padding: 0; }
 .nm-after li { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); animation: rise .4s var(--ease-pop) both; }
@@ -448,6 +449,9 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .nm-events em { font-style: normal; color: var(--ink-2); min-width: 72px; }
 @media (max-width: 860px) {
   .nm { grid-template-columns: 1fr; }
+  .nm-move { position: relative; top: auto; }
+  .nm-then { order: 1; }
+  .nm-side { order: 2; }
   .nm-title { margin-right: 84px; }
   .nm-ra { width: 72px; height: 72px; right: 14px; top: 14px; }
   .nm-acts .btn, .nm-q { height: 50px; }
@@ -456,7 +460,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* the breakdown (Try it, site.js): what you said, each piece marked and named
    as Nu reads it, then the pieces sorted, the big one in steps, and the
    planner's pick in front */
-.bd { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: clamp(36px, 5vw, 56px); align-items: start; }
+.bd { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
 .bd-say, .bd-sort { border-radius: var(--r-lg); padding: 24px 26px; }
 .bd-mess { margin: 6px 0 0; min-height: 170px; font-size: clamp(19px, 1.9vw, 24px); line-height: 2.05; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
 .bd-mess .f { transition: color .5s ease; }
@@ -493,6 +497,13 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .bd-plan { margin: 6px 0 2px; padding-left: 14px; border-left: 2px solid rgba(255,107,53,.4); display: grid; gap: 4px; }
 .bd-phase { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; animation: rise .4s var(--ease-pop) both; }
 .bd-phase:first-child { margin-top: 2px; }
+.bd-rest { display: grid; gap: 4px; }
+.bd-rest[hidden] { display: none; }
+.bd-rest .bd-phase:first-child { margin-top: 12px; }
+.bd-more { justify-self: start; height: 40px; margin: 8px 0 4px; padding: 0 16px; border-radius: 20px; border: 1px solid rgba(23,19,19,.18); background: #fff;
+  font: 500 14px var(--font); letter-spacing: -0.01em; color: var(--ink); cursor: pointer; animation: rise .4s var(--ease-pop) both; }
+.bd-more:hover { background: rgba(23,19,19,.05); border-color: rgba(23,19,19,.3); }
+.bd-list > li { scroll-margin-top: 96px; }
 .bd-phase b { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--coral-deep); }
 .bd-phase span { font-size: 12px; color: var(--sub); }
 .bd-steps { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -509,11 +520,11 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 @media (max-width: 860px) { .bd { grid-template-columns: 1fr; } .bd-mess { min-height: 0; } .bd-say { position: static; } }
 
 /* ─── recovery: a quiet panel ─── */
-.panel { border-radius: 36px; padding: clamp(28px, 5vw, 64px); background: #FBF6F1; border: 1px solid var(--line); }
+.panel { border-radius: 36px; padding: clamp(24px, 3.4vw, 44px); background: #FBF6F1; border: 1px solid var(--line); }
 .rest-ra { width: 140px; margin: 0 0 8px -10px; }
 
 /* ─── the tour (how it works) ─── */
-.tour { display: grid; gap: clamp(64px, 8vw, 104px); }
+.tour { display: grid; gap: clamp(48px, 6vw, 80px); }
 .tour .split .stage .phone { max-width: 280px; }
 .part-n { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: var(--sub); }
 /* how it works: each part's number and title centred over its column */
@@ -696,6 +707,7 @@ footer .c { margin-left: auto; opacity: .7; }
   .bd-mess { line-height: 2.5; }
   .bd-mess mark::before { font-size: 14px; letter-spacing: .02em; }
   .bd-steps .n { width: 22px; }
+  .bd-more { height: 44px; border-radius: 22px; font-size: 15px; }
   .bd-steps small, .bd-need { margin-left: 32px; }
   .front .begin { width: 58px; height: 58px; }
 }

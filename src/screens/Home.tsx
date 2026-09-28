@@ -13,6 +13,7 @@ import { LabelGlyph } from '../components/LabelIcon';
 import { TodayStack } from '../components/TodayStack';
 import { byPlan, reasonFor } from '../next';
 import { DayPath } from '../components/DayPath';
+import { useArcThings } from '../components/ArcMarks';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { RoomBar } from '../components/RoomBar';
@@ -25,7 +26,7 @@ import { colOf, moveTo, deleteTask } from '../desk/kit';
 import { useTaskActions } from '../useTaskActions';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
 import { decorative } from '../a11y';
-import { StartHere, useStartHere } from '../components/StartHere';
+import { Guide, useGuide } from '../components/Guide';
 
 /** High before Medium before Low before none; then the soonest date; then the oldest. */
 export const byPriority = (a: Task, b: Task) =>
@@ -99,6 +100,14 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneAt = wins.map(w => w.completed_at ?? 0).filter(at => at >= new Date().setHours(0, 0, 0, 0));
+  // what's on the day's path: what's done, what has a time, and the move in front, at now (src/arcMarks.ts)
+  const onArc = useArcThings(held_);
+  const arc = {
+    ...onArc,
+    onStart: (id: string) => { setPickedId(null); focusOn(id); },
+    onOpen: (id: string) => { const x = [...today, ...inbox].find(y => y.id === id); if (x) setPeek(x); },
+    onDay: () => onTab('day'),
+  };
   // the sunrise behind Home: the coral glow climbs and warms as things get done (full by five)
   const sunUp = Math.min(1, doneAt.length / 5);
   const hour = new Date().getHours();
@@ -113,8 +122,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   // NIGHT (design 11:50 PM): once the day you set has ended, Home is quiet —
   // Ra has sat down at the horizon, Nu is resting, and tomorrow is waiting
   const night = !isDaylight(dayEndMin);
-  // someone new: three steps under the path, until the last is done (src/startHere.ts)
-  const start = useStartHere(!night);
+  // someone new: the guide under the path, one step at a time, until all five are done (src/guide.ts)
+  const guide = useGuide(night);
   const tomorrow = useMemo(() => {
     const from = new Date(); from.setHours(24, 0, 0, 0);
     const to = from.getTime() + 86400_000;
@@ -238,7 +247,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
             </Text>
             <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 32, alignItems: 'flex-start' }}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} />
+                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} things={arc} />
                 <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 28 }} />
                 {/* what the planner proposes to change, one at a time (src/interventions.ts) */}
                 <View style={{ marginTop: 20 }}><Suggestions limit={1} /></View>
@@ -296,19 +305,19 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
           </Text>
         </View>
 
-        <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={compact ? 96 : 118}
+        <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={compact ? 96 : 118} things={arc}
           style={{ marginHorizontal: 24, marginTop: compact ? 24 : 20 }} />
 
-        {/* someone new: put it all down, let Ra pick one, begin five minutes */}
-        {start.show && (
+        {/* someone new: the guide, one step at full size */}
+        {guide.show && (
           <View style={{ marginHorizontal: 24, marginTop: compact ? 14 : 18 }}>
-            <StartHere start={start} />
+            <Guide g={guide} />
           </View>
         )}
 
         {/* what Nu is holding: the one she found in front, the rest behind
-            (with nothing in front, Start here's steps stand in for the empty card) */}
-        {!(start.show && !held_) && (
+            (with nothing in front, the guide stands in for the empty card) */}
+        {!(guide.show && !held_) && (
           <>
             {holding}
             <View style={{ marginHorizontal: 24 }}>

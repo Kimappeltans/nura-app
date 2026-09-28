@@ -288,3 +288,17 @@ development build.
    repeated it. The third tab is now Calendar: the month of suns and the
    picked day's flow. Day ends moved to Settings; the old screen is
    `src/legacy/Day.tsx`.
+
+## Decisions (28 September)
+
+1. **One first-run guide, phone and laptop** (Kim). Start here (the phone)
+   and Getting started (the desktop) became one guide, the same on both
+   Homes: show first, then do, one step at full size, the others a quiet
+   row. Five steps, each ticked off by what the person really did: put it
+   all down (a task), start your next move (a session), plan something
+   bigger (a project), change the day (Not now or Something changed; on the
+   phone, Something else on Focus), see what Nura learns (the screen opened
+   once). Examples are shown and only go in if the person adds them. Hide
+   any time; gone for good once all five are done. Returning people, and
+   anyone who put an old guide away, never see it; not at night.
+   `src/guide.ts`, `src/components/Guide.tsx`.

@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { getFlag, setFlag } from './db';
 import { aiAllowed, noDashes, signedIn } from './ai';
-import { route } from './assistant';
+import { route, stripFiller } from './assistant';
 import { getLanguage, languageName } from './planner';
 import type { StateRead, Suggestion, SuggestionKind, WorkingNotes } from './learn/types';
 
@@ -93,7 +93,8 @@ const LEAD = /^(and|also|then|plus|i need to|i have to|need to|have to|i must|i 
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 
-const clean = (p: string) => p.trim().replace(LEAD, '').replace(/[.!\s]+$/, '').trim();
+// a piece keeps your words, less what led up to them ("ugh ok so I need to…", "and then…")
+const clean = (p: string) => { const t = p.trim().replace(LEAD, '').replace(/[.!\s]+$/, '').trim(); return stripFiller(t) || t; };
 
 /** Several things in one message, in your words — or [] when it's one. */
 export function splitItems(text: string): string[] {

@@ -186,6 +186,7 @@ exports.makeCustomId = makeCustomId;
   "./assistant": function (module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.stripFiller = stripFiller;
 exports.parseTask = parseTask;
 exports.parseTaskAt = parseTaskAt;
 exports.route = route;
@@ -257,6 +258,8 @@ function findTime(s) {
             h = 0;
         if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s))
             h += 12;
+        else if (!ap && !m[2] && h >= 1 && h <= 6 && !/\bmorning\b/i.test(s))
+            h += 12;
         if (h >= 0 && h <= 23)
             return { h, m: min };
     }
@@ -272,12 +275,24 @@ function findTime(s) {
         return { h: 18, m: 0 };
     return null;
 }
+const GREETING = /^(?:hello|hi|hiya|hey|yo|ok(?:ay)?|so|um+|uh+|ugh+|argh+|oh|hmm+|well|right|alright|anyways?|basically|actually|honestly|and|also|then|plus|nu|dear nu)\b[\s,.!:]*/i;
+const ASK = /^(?:(?:i|we)\s+(?:really\s+|just\s+|still\s+|also\s+)?(?:want|need|have|would like|'d like|wanna|gotta|got|ought|am going|'m going|plan|hope|wanted|was going|am supposed|'m supposed)\s+to|(?:i|we)(?:'ve|\s+have)\s+got\s+to|(?:i|we)\s+gotta|i'?d\s+(?:really\s+)?(?:like|love)\s+to|i'?m\s+(?:going|trying|planning|hoping)\s+to|i\s+(?:should|must|could)|(?:can|could|will|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+(?:to\s+)?)?|help\s+me\s+(?:to\s+)?|remind\s+me\s+(?:to|that\s+i\s+(?:need|have)\s+to)|(?:don'?t|do\s+not)\s+(?:let\s+me\s+)?forget\s+to|remember\s+to|make\s+sure\s+(?:i|to)|note\s+to\s+self|to\s*-?\s*do\s*:|task\s*:|please|let'?s|my\s+goal\s+is\s+to|the\s+goal\s+is\s+to|(?:it'?s\s+)?time\s+to)\b[\s,:]*/i;
+function stripFiller(input) {
+    let s = input.trim().replace(/[‘’]/g, "'");
+    for (let i = 0; i < 8; i++) {
+        const next = s.replace(GREETING, '').replace(ASK, '').trim();
+        if (next === s)
+            break;
+        s = next;
+    }
+    return s.replace(/[.!\s]+$/, '');
+}
 function parseTask(input) {
     return parseTaskAt(input, new Date());
 }
 function parseTaskAt(input, now) {
     var _a;
-    let s = ` ${input.trim()} `;
+    let s = ` ${stripFiller(input) || input.trim()} `;
     const found = [];
     const eat = (re) => { s = s.replace(re, ` ${GAP} `); };
     let repeat = null;
@@ -600,7 +615,7 @@ const BIG = /^(plan|organi[sz]e|prepare for|launch|build|renovate|redo)\s+(my|th
 const AND_GUARD = /^(mon|tue|wed|thu|fri|sat|sun|today|tomorrow|tonight|next|this|every|at|on|in|by|\d)/i;
 const LEAD = /^(and|also|then|plus|i need to|i have to|need to|have to|i must|i should|i gotta|remember to)\s+/i;
 const words = (s) => s.split(/\s+/).filter(Boolean).length;
-const clean = (p) => p.trim().replace(LEAD, '').replace(/[.!\s]+$/, '').trim();
+const clean = (p) => { const t = p.trim().replace(LEAD, '').replace(/[.!\s]+$/, '').trim(); return (0, assistant_1.stripFiller)(t) || t; };
 function splitItems(text) {
     const lines = text.split(/\n+/).map(clean).filter(Boolean);
     if (lines.length >= 2)
@@ -1055,26 +1070,15 @@ async function localCoach(body) {
   "./understand": function (module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UNSURE = exports.SURE = void 0;
-exports.stripFiller = stripFiller;
+exports.UNSURE = exports.SURE = exports.stripFiller = void 0;
 exports.understandLocal = understandLocal;
 exports.fromModel = fromModel;
 exports.understand = understand;
 const coach_1 = require("./coach");
+const assistant_1 = require("./assistant");
+Object.defineProperty(exports, "stripFiller", { enumerable: true, get: function () { return assistant_1.stripFiller; } });
 exports.SURE = 0.85;
 exports.UNSURE = 0.5;
-const GREETING = /^(?:hello|hi|hiya|hey|yo|ok(?:ay)?|so|um+|uh+|well|right|alright|nu|dear nu)\b[\s,.!:]*/i;
-const ASK = /^(?:(?:i|we)\s+(?:really\s+|just\s+|still\s+)?(?:want|need|have|would like|'d like|wanna|gotta|got|ought|am going|'m going|plan|hope)\s+to|i'?d\s+(?:really\s+)?(?:like|love)\s+to|i'?m\s+(?:going|trying|planning|hoping)\s+to|i\s+(?:should|must|could)|(?:can|could|will|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+(?:to\s+)?)?|help\s+me\s+(?:to\s+)?|please|let'?s|my\s+goal\s+is\s+to|the\s+goal\s+is\s+to)\b[\s,]*/i;
-function stripFiller(input) {
-    let s = input.trim().replace(/[‘’]/g, "'");
-    for (let i = 0; i < 6; i++) {
-        const next = s.replace(GREETING, '').replace(ASK, '').trim();
-        if (next === s)
-            break;
-        s = next;
-    }
-    return s.replace(/[.!\s]+$/, '');
-}
 const GOAL_VERB = /^(finish|complete|launch|ship|build|create|make|design|redesign|redo|rebuild|renovate|organi[sz]e|plan|prepare(?:\s+for)?|get\s+ready(?:\s+for)?|set\s+up|start|write|learn|move|improve|update|overhaul|clean\s+up|declutter|study\s+for|apply\s+(?:for|to))\b/i;
 const BIG_THING = /\b(website|site|app|portfolio|thesis|dissertation|book|novel|chapter|business|startup|company|shop|store|house|flat|apartment|garage|kitchen|bathroom|garden|wedding|trip|holiday|move|taxes|tax return|course|exam|exams|presentation|project|report|paper|essay|application|applications|cv|resume|campaign|album|podcast|channel|brand|product|plan|budget|studio|room|wardrobe|closet|research|proposal|pitch|deck|game|film|video|newsletter|blog|launch)\b/i;
 const SMALL_VERB = /^(call|ring|phone|email|e-mail|text|message|dm|reply|buy|get\s+some|pay|book|pick\s+up|drop\s+off|send|return|order|cancel|renew|print|sign|post|check|water|feed|take|bring|collect|wash|charge|remind|ask|tell|thank|invite|confirm|schedule|file|submit|read|watch|listen|clean|tidy|fix)\b/i;
@@ -1086,7 +1090,7 @@ const count = (s) => s.split(/\s+/).filter(Boolean).length;
 const cap = (s) => s.replace(/^\w/, c => c.toUpperCase());
 function understandLocal(input, lang = 'en') {
     var _a;
-    const text = stripFiller(input) || input.trim();
+    const text = (0, assistant_1.stripFiller)(input) || input.trim();
     const read = (0, coach_1.localRead)(text, lang);
     const n = count(text);
     const sure = (0, coach_1.localIsSure)(text, read, lang);

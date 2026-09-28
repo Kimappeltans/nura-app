@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useStore, useTheme } from '../store';
-import { passOn, pickForToday, updateTask, type Task } from '../db';
+import { passOn, pickForToday, setFlag, updateTask, type Task } from '../db';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
 import { TaskPeek } from '../components/TaskPeek';
@@ -18,12 +18,14 @@ import type { Tab } from '../components/TabBar';
 import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
-  DeskCard, TellNuField, Label, LinkButton, columns, deleteTask, useDeskTokens, useRoom,
+  DeskCard, TellNuField, Label, LinkButton, columns, deleteTask, useDeskTokens, useDeskState, useRoom,
   day0, addDays, WDL, MO, CORAL, ON_CORAL,
 } from './kit';
 import { useNow } from './useRange';
 import { DayArc } from './DayArc';
-import { Guide, useGuide } from './Guide';
+import { useArcThings } from '../components/ArcMarks';
+import { Guide, useGuide } from '../components/Guide';
+import { GUIDE_KEYS } from '../guide';
 import { backToSession } from '../nav';
 
 /**
@@ -35,8 +37,8 @@ import { backToSession } from '../nav';
  * where the day is. Beside the move, your day: the time you actually have
  * left, what Today holds, and what Nu suggests changing (one tap, with
  * Undo). Under the move, what comes after
- * it. Until you've done the three things Nura is for, Getting started shows
- * them (src/desk/Guide.tsx). The clock, the counts and the week live in the
+ * it. Until you've done the five things Nura is for, the guide shows them
+ * one at a time (src/components/Guide.tsx). The clock, the counts and the week live in the
  * Calendar; the sun's glow still rises behind the room as things get done.
  */
 export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
@@ -47,7 +49,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const now = useNow();
   const {
     inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, profile, projects,
-    dayStartMin, dayEndMin, left: leftThen, leftAt, refresh, showToast,
+    dayStartMin, dayEndMin, left: leftThen, leftAt, refresh, showToast, agenda,
   } = useStore();
   // the time left as of the last refresh, less the minutes since (the clock moves every half minute)
   const left = Math.max(0, leftThen - Math.max(0, (now.getTime() - leftAt) / 60_000));
@@ -57,7 +59,6 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
   const [changing, setChanging] = useState(false);
-  const guide = useGuide();
 
   const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
   const cols = useMemo(() => columns(inbox, todayPicked, order), [inbox, todayPicked, order]);
@@ -66,6 +67,8 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const m = now.getHours() * 60 + now.getMinutes();
   const mm = dayEndMin > 24 * 60 && m < dayStartMin ? m + 24 * 60 : m;
   const phase: 'early' | 'day' | 'night' = mm < dayStartMin ? 'early' : mm >= dayEndMin ? 'night' : 'day';
+  // someone new: the guide, one step at a time (src/guide.ts); not at night
+  const guide = useGuide(phase === 'night');
 
   const accountName = (session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name) as string | undefined;
   const first = (profile.name || accountName || '').trim().split(' ')[0];
@@ -113,7 +116,11 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
     });
   };
   const openMove = () => move && router.push({ pathname: '/project/[id]', params: { id: move.project.id } });
-  const changed: SheetAction[] = front ? [
+  // Something changed, answered: the guide's step 4 is done (Not now says so in its own event)
+  const answered = (a: SheetAction): SheetAction => ({
+    ...a, onPress: () => { setFlag(GUIDE_KEYS.step(4), String(Date.now())).catch(() => {}); a.onPress(); },
+  });
+  const changed: SheetAction[] = (front ? [
     move
       ? { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu finds a smaller way in', onPress: openMove }
       : { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu plans it as steps', onPress: () => router.push({ pathname: '/project/new', params: { goal: front.title, auto: '1' } }) },
@@ -123,12 +130,20 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
     { key: 'tomorrow', glyph: '→', label: 'Not today', sub: 'Moves it to tomorrow', onPress: () => tomorrow(front) },
     { key: 'done', glyph: '✓', label: 'Already done', onPress: () => tick(front.id) },
     { key: 'drop', glyph: '×', label: 'Not needed any more', tone: 'quiet', onPress: () => deleteTask(front) },
-  ] : [];
+  ] as SheetAction[] : []).map(answered);
 
+  // what's on the day's arc: what's done, what has a time, and the move in front, at now
+  const onArc = useArcThings(front);
+  const openToday = () => {
+    useDeskState.setState({ calMode: 'week', calOff: 0, calDay: day0(Date.now()).getTime() });
+    onTab('day');
+  };
   // the move and your day side by side when there's room; one column when not
   const side = inner >= 900;
   // the arc: a fifth of the window's height, so the move under it stays in view
   const arcH = Math.round(Math.max(120, Math.min(190, winH * 0.2)));
+  // nothing held yet, and the guide still to do: the guide is the room
+  const firstRun = guide.show && !front;
 
   return (
     <View style={{ flex: 1 }}>
@@ -145,22 +160,25 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               {WDL[now.getDay()]}, {MO[now.getMonth()]} {now.getDate()}
             </Text>
           </View>
+          {/* the arc is always here, under the greeting; a little lower for someone new, so the guide under it is in view */}
           <View style={{ marginTop: 30 }}>
-            <DayArc now={now} height={arcH} done={doneAt} count />
+            <DayArc now={now} height={firstRun ? Math.min(arcH, 130) : arcH} done={doneAt} count
+              things={{ ...onArc, onStart: id => focusOn(id), onOpen: id => { const x = [...inbox, ...todayPicked].find(y => y.id === id); if (x) setPeek(x); }, onDay: () => openToday() }} />
           </View>
+          {/* someone new: the guide, where the move will be */}
+          {firstRun && <Guide g={guide} beside={!side} />}
 
+          {!firstRun && (
           <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
             <View style={{ flex: side ? 3 : undefined, minWidth: 0, gap: 20 }}>
               {/* the one thing, at full size */}
               {phase === 'night' ? (
                 <Resting first={decisions[0]?.task ?? null} />
-              ) : !front && guide.show ? (
-                <Guide full done={guide.done} at={guide.at} onHide={guide.hide} />
               ) : !front ? (
                 <Start />
               ) : (
                 <DeskCard style={{ paddingTop: 26, paddingHorizontal: 30, paddingBottom: 26, overflow: 'hidden' }}>
-                  {/* Ra, the one thing you're doing, with the sun's glow behind */}
+                  {/* the sun's glow; Ra is on the arc above, so not here a second time */}
                   <View {...decorative} pointerEvents="none" style={{ position: 'absolute', right: -80, top: -90, width: 320, height: 320 }}>
                     <Svg width={320} height={320}>
                       <Defs>
@@ -173,12 +191,10 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
                       <Circle cx={160} cy={160} r={160} fill="url(#raGlow)" />
                     </Svg>
                   </View>
-                  <Image {...decorative} source={poseImage('ra-hello')} resizeMode="contain"
-                    style={{ position: 'absolute', right: 24, top: 20, width: 92, height: 92 }} />
 
                   <Text style={{ color: k.raText, fontSize: 13, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>Your next move</Text>
                   <Text accessibilityRole="header" numberOfLines={3}
-                    style={{ color: t.ink, fontSize: 36, lineHeight: 41, letterSpacing: -1.4, fontFamily: T.display, marginTop: 10, marginRight: 116 }}>
+                    style={{ color: t.ink, fontSize: 36, lineHeight: 41, letterSpacing: -1.4, fontFamily: T.display, marginTop: 10, marginRight: 40 }}>
                     {front.title}
                   </Text>
                   {!!(minutes || move) && (
@@ -205,33 +221,19 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
                 </DeskCard>
               )}
 
-              {/* what comes after it, in the planner's order */}
-              {phase !== 'night' && after.length > 0 && (
-                <DeskCard style={{ paddingVertical: 18, paddingHorizontal: 24 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Label>After that</Label>
-                    <LinkButton label={more ? `All tasks · ${more} more ›` : 'All tasks ›'} accessibilityLabel="All tasks" onPress={() => onTab('tasks')} />
-                  </View>
-                  {after.map((d, i) => (
-                    <AfterRow key={d.taskId} n={i + 2} task={d.task} minutes={d.suggestedMinutes ?? d.task.est_minutes}
-                      fact={onToday.has(d.taskId) ? ['On Today', ...d.facts.filter(f => !f.startsWith('Fits'))].slice(0, 2).join(' · ') : d.facts.find(f => !f.startsWith('Fits')) ?? null}
-                      onPress={() => setPeek(d.task)} onHold={() => setHeld(d.task)} />
-                  ))}
-                </DeskCard>
-              )}
             </View>
 
             {/* your day: the time you have, what Today holds, and what Nu would change */}
             <View style={{ flex: side ? 2 : undefined, minWidth: 0, gap: 16 }}>
-              {/* getting started, small, once there's a move in front */}
-              {!!front && guide.show && phase !== 'night' && <Guide done={guide.done} at={guide.at} onHide={guide.hide} />}
+              {/* the guide, small, once there's a move in front */}
+              {!!front && guide.show && <Guide g={guide} beside />}
               <DeskCard style={{ paddingVertical: 20, paddingHorizontal: 24 }}>
                 <Label>Your day</Label>
                 <Text style={{ color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display, marginTop: 10 }}>
                   {phase === 'day' ? fmtMins(left) : phase === 'early' ? clockOf(dayStartMin) : 'Done'}
                 </Text>
                 <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>
-                  {phase === 'day' ? 'left today, around your events' : phase === 'early' ? 'is when your day starts' : 'Anything now is extra.'}
+                  {phase === 'day' ? (agenda.length ? 'left today, around your events' : 'left today') : phase === 'early' ? 'is when your day starts' : 'Anything now is extra.'}
                 </Text>
                 {phase === 'day' && left > 0 && todayMins > 0 && (
                   <View {...decorative} style={{ height: 6, borderRadius: 3, backgroundColor: k.wash, marginTop: 14, overflow: 'hidden' }}>
@@ -252,6 +254,21 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               <Suggestions limit={2} />
             </View>
           </View>
+          )}
+            {/* what comes after it, in the planner's order */}
+            {!firstRun && phase !== 'night' && after.length > 0 && (
+              <DeskCard style={{ paddingVertical: 18, paddingHorizontal: 24 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Label>After that</Label>
+                  <LinkButton label={more ? `All tasks · ${more} more ›` : 'All tasks ›'} accessibilityLabel="All tasks" onPress={() => onTab('tasks')} />
+                </View>
+                {after.map((d, i) => (
+                  <AfterRow key={d.taskId} n={i + 2} task={d.task} minutes={d.suggestedMinutes ?? d.task.est_minutes}
+                    fact={onToday.has(d.taskId) ? ['On Today', ...d.facts.filter(f => !f.startsWith('Fits'))].slice(0, 2).join(' · ') : d.facts.find(f => !f.startsWith('Fits')) ?? null}
+                    onPress={() => setPeek(d.task)} onHold={() => setHeld(d.task)} />
+                ))}
+              </DeskCard>
+            )}
         </View>
       </ScrollView>
 
