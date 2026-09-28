@@ -39,6 +39,145 @@ if (!still) {
 }
 
 
+// The hero: one line across the page and through the phone, where it is the
+// day's path. The sun rides it as you scroll, and as it passes, each of the
+// day's things comes up just above the line beside it, then lands in the
+// phone's stack. One at a time, however fast the scroll. Landed things stay
+// (no number goes down): scrolling back only moves the sun. Where there's no
+// room beside the phone they land straight in it. Reduce Motion: the sun sits
+// at noon and the day is already there.
+const stage = document.querySelector('.hx-stage');
+const live = stage && stage.querySelector('.phone.live');
+const line = stage && stage.querySelector('.hx-line');
+if (live && line) {
+  line.innerHTML = `<defs>
+      <linearGradient id="hxlit" gradientUnits="userSpaceOnUse" x1="0" x2="1"><stop offset="0" stop-color="#FF6B35" stop-opacity="0"/><stop offset=".12" stop-color="#FF6B35"/><stop offset="1" stop-color="#FF8A5C"/></linearGradient>
+      <radialGradient id="hxhalo"><stop offset="0" stop-color="#FFE2B8" stop-opacity=".9"/><stop offset=".3" stop-color="#FFB067" stop-opacity=".45"/><stop offset=".65" stop-color="#FF8A5C" stop-opacity=".14"/><stop offset="1" stop-color="#FF6B35" stop-opacity="0"/></radialGradient>
+      <linearGradient id="hxdisc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF0D6"/><stop offset=".45" stop-color="#FFB067"/><stop offset="1" stop-color="#FF7A3D"/></linearGradient>
+    </defs>
+    <path class="ahead" fill="none" stroke="#171313" stroke-opacity=".2" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1.5 7"/>
+    <path class="lit" fill="none" stroke="url(#hxlit)" stroke-width="2.5" stroke-linecap="round"/>
+    <g class="sun"><circle class="halo" fill="url(#hxhalo)"/><circle class="disc" fill="url(#hxdisc)"/></g>`;
+  const [ahead, lit] = line.querySelectorAll('path');
+  const sun = line.querySelector('.sun');
+  const chips = [...stage.querySelectorAll('.hx-chip')];
+  const slots = [...live.querySelectorAll('[data-slot]')];
+  const today = live.querySelector('[data-today]'), held = live.querySelector('[data-held]');
+  const SAY = ['Nothing on yet.', '1 thing today.', '2 things today.', '3 things today.'];
+  // where on the line each thing comes up: two on the way in, the one Nu found once the sun is past noon
+  const AT = [0.2, 0.34, 0.66];
+
+  // The line, in the stage's own pixels: a hill whose top is the phone's day.
+  // It crosses the horizon at Start and at Day ends, peaks under the
+  // greeting, and levels off low across the page on either side.
+  let pts = [], total = 0, from = 0, to = 0, yAt = () => 0;
+  const lay = () => {
+    const s = stage.getBoundingClientRect();
+    const mid = el => { const b = live.querySelector(el).getBoundingClientRect(); return [b.left + b.width / 2 - s.left, b.top + b.height / 2 - s.top]; };
+    const [x0, hz] = mid('.day .s'), [x1] = mid('.day .e');
+    const W = s.width, H = s.height, C = (x0 + x1) / 2, half = (x1 - x0) / 2;
+    const rise = (hz - (live.querySelector('.day').getBoundingClientRect().top - s.top)) * 0.64;
+    const low = Math.min(H - 24 - hz, Math.max(80, W * 0.085));  // how far under the horizon it runs across the page
+    const sigma = half / Math.sqrt(2 * Math.log((low + rise) / low));
+    yAt = x => hz + low - (low + rise) * Math.exp(-(((x - C) / sigma) ** 2) / 2);
+    pts = []; total = 0;
+    for (let x = -30, px, py; x <= W + 30; x += 4) {
+      const y = yAt(x);
+      if (px != null) total += Math.hypot(x - px, y - py);
+      pts.push([x, y, total]); px = x; py = y;
+    }
+    const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L');
+    line.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    ahead.setAttribute('d', d); lit.setAttribute('d', d);
+    lit.style.strokeDasharray = `${total} ${total}`;
+    line.querySelector('#hxlit').setAttribute('x2', W);
+    // the sun rides only the stretch that's on screen
+    const lenAt = x => pts[Math.max(0, Math.min(pts.length - 1, Math.round((x + 30) / 4)))][2];
+    const edge = Math.max(24, W * 0.03);
+    from = lenAt(edge); to = lenAt(W - edge);
+    const k = Math.min(1, live.offsetWidth / 340);
+    sun.querySelector('.halo').setAttribute('r', (74 * k).toFixed(1));
+    sun.querySelector('.disc').setAttribute('r', (17 * k).toFixed(1));
+  };
+  // the point on the line at p (0 to 1 of the stretch on screen), and how far along it is
+  const pointAt = p => {
+    const want = from + (to - from) * p;
+    let i = 1; while (i < pts.length - 1 && pts[i][2] < want) i++;
+    const [ax, ay, al] = pts[i - 1], [bx, by, bl] = pts[i], f = bl > al ? (want - al) / (bl - al) : 0;
+    return [ax + (bx - ax) * f, ay + (by - ay) * f, want];
+  };
+  let at = 0;
+  const place = p => {
+    at = p;
+    const [x, y, len] = pointAt(p);
+    sun.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    lit.style.strokeDashoffset = (total - len).toFixed(1);
+  };
+  // a thing comes up just above the line where the sun passed it, beside the
+  // phone and never over it; false when there's no room there
+  const perch = i => {
+    const chip = chips[i];
+    if (!chip || !chip.offsetWidth) return false;
+    const s = stage.getBoundingClientRect(), ph = live.getBoundingClientRect();
+    const cw = chip.offsetWidth, ch = chip.offsetHeight, [ax] = pointAt(AT[i]);
+    const lo = ph.left - s.left - 28 - cw, hi = ph.right - s.left + 28;   // the last left, the first right
+    let x = ax - cw / 2;
+    x = ax < (ph.left + ph.right) / 2 - s.left ? Math.min(x, lo) : Math.max(x, hi);
+    if (x < 16 || x + cw > s.width - 16) return false;
+    chip.style.left = `${x.toFixed(1)}px`; chip.style.right = 'auto';
+    chip.style.top = `${(Math.min(yAt(x), yAt(x + cw)) - 34 - ch).toFixed(1)}px`;
+    return true;
+  };
+
+  let count = 0, busy = false;
+  const landed = AT.map(() => false), queue = [];
+  const say = () => { today.textContent = SAY[count]; held.textContent = count; };
+  const put = i => { slots[i].classList.add('in'); count++; say(); };
+  const next = () => {
+    const i = queue.shift();
+    if (i == null) { busy = false; return; }
+    busy = true;
+    if (!perch(i)) { put(i); setTimeout(next, 380); return; }
+    const chip = chips[i];
+    chip.classList.add('on');                                      // it comes up
+    setTimeout(() => {                                             // then flies into its place
+      const a = chip.getBoundingClientRect(), b = slots[i].getBoundingClientRect();
+      const bh = i < 2 ? b.height * 0.7 : b.height;                 // a stone shows its top, not the part under the next one
+      chip.style.translate = `${(b.left + b.width / 2 - a.left - a.width / 2).toFixed(1)}px ${(b.top + bh / 2 - a.top - a.height / 2).toFixed(1)}px`;
+      chip.style.scale = Math.min(1.2, b.width / a.width).toFixed(3);
+      chip.classList.add('fly');
+      setTimeout(() => put(i), 480);
+      setTimeout(next, 900);
+    }, 700);
+  };
+  const reach = p => AT.forEach((a, i) => { if (p >= a && !landed[i]) { landed[i] = true; queue.push(i); if (!busy) next(); } });
+
+  stage.classList.add('rising');
+  say();
+  lay();
+  if (still) {
+    place(0.5);
+    slots.forEach((_, i) => { landed[i] = true; put(i); });
+    chips.forEach(c => c.classList.add('fly'));
+  } else {
+    const scrolled = () => {
+      const travel = Math.max(360, stage.offsetTop + stage.offsetHeight * 0.7 - innerHeight * 0.4);
+      return Math.min(1, Math.max(0, scrollY / travel));
+    };
+    let dawn = 0, queued = false;
+    const draw = () => { queued = false; const p = Math.max(dawn, scrolled()); place(p); reach(p); };
+    const ask = () => { if (!queued) { queued = true; requestAnimationFrame(draw); } };
+    addEventListener('scroll', ask, { passive: true });
+    addEventListener('resize', () => { lay(); place(at); ask(); });
+    // on arrival the sun comes up over the edge of the page, not yet to the first thing
+    const t0 = performance.now(), RISE_MS = 1800, RISE_TO = 0.12;
+    const rise = now => { const k = Math.min(1, (now - t0) / RISE_MS); dawn = RISE_TO * (1 - Math.pow(1 - k, 3)); draw(); if (k < 1) requestAnimationFrame(rise); };
+    place(0); requestAnimationFrame(rise);
+  }
+  // the phone's layout settles with the fonts: draw the line again once they're in
+  if (document.fonts) document.fonts.ready.then(() => { lay(); place(at); });
+}
+
 // The early-access form: sent in the background (Netlify Forms reads a plain
 // urlencoded POST), then a quiet line instead of the form.
 const signup = document.querySelector('form.signup');
