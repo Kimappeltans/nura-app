@@ -1511,6 +1511,29 @@ export async function smallestTask(ceiling = 999) {
  * ================================================================== */
 
 /**
+ * What Start here on Home reads (src/startHere.ts): how many tasks there
+ * are, the earliest finished thing (a done task, or a `completed` event),
+ * the earliest session, and the last time Ra showed a task.
+ */
+export async function startHereFacts() {
+  const db = await getDb();
+  const r = await db.getFirstAsync<{ tasks: number; doneTask: number | null; done: number | null; session: number | null; shown: number | null }>(
+    `SELECT
+       (SELECT COUNT(*) FROM task WHERE parent_id IS NULL) AS tasks,
+       (SELECT MIN(completed_at) FROM task WHERE state = 'done' AND completed_at IS NOT NULL) AS doneTask,
+       (SELECT MIN(at) FROM event WHERE kind = 'completed') AS done,
+       (SELECT MIN(at) FROM event WHERE kind = 'session_start') AS session,
+       (SELECT MAX(at) FROM event WHERE kind = 'shown') AS shown`);
+  const firsts = [r?.doneTask, r?.done].filter((x): x is number => x != null);
+  return {
+    tasks: r?.tasks ?? 0,
+    firstDone: firsts.length ? Math.min(...firsts) : null,
+    firstSession: r?.session ?? null,
+    lastShown: r?.shown ?? null,
+  };
+}
+
+/**
  * The one number that says whether Nura works: of the tasks Ra showed you,
  * how many you started — a focus session, or marking it done — within a day
  * of being shown. Counted once per task per day, so a task shown on three

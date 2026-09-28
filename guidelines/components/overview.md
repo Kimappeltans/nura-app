@@ -41,6 +41,19 @@ the cream by day, 20% into the navy at night (`labelTint` in
 "Nu found this one", the title at 23–26px, one line of facts under it
 (Fits before 7:30 PM · High priority), Begin (dark circle), minutes at 58px. Nu (nu-hold) sits on the front card's corner. Above the stack: NU IS HOLDING · N.
 
+## Home: Start here
+
+For someone new (Kim, 28 September): under the day's path, START HERE with
+Skip on the right, then three steps you do: *Put it all down* (Nu, Tell Nu),
+*Let Ra pick one* (Ra, Focus on the planner's pick), *Begin · 5 minutes* (Ra,
+that pick in the timer). Each is a card: the character in a 46pt circle, the
+step, one button (filled for the step you're on, outlined after it). A step
+done stays, quiet: struck through, with a coral check. After the last, the
+block is gone for good, and it never shows for someone with a done task or a
+session from before. Stacked on a phone; side by side under the arc on the
+desktop. Not at night. Logic: `src/startHere.ts`; the cards:
+`src/components/StartHere.tsx`.
+
 ## The day's path
 
 The sun's path from the start of the day (Settings → Day starts, 7:00 by

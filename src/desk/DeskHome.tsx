@@ -24,6 +24,8 @@ import {
 } from './kit';
 import { useNow } from './useRange';
 import { backToSession } from '../nav';
+import { DayArc } from './DayArc';
+import { StartHere, useStartHere } from '../components/StartHere';
 
 /**
  * HOME, ON THE DESKTOP: what Nura figured out, not a dashboard (Kim, 28
@@ -119,6 +121,9 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
 
   // the move and your day side by side when there's room; one column when not
   const side = inner >= 900;
+  // someone new: the day's arc, and three steps under it (src/startHere.ts)
+  const start = useStartHere(phase !== 'night');
+  const firstRun = start.show && !front;
 
   return (
     <View style={{ flex: 1 }}>
@@ -135,6 +140,20 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
             </Text>
           </View>
 
+          {start.show && (
+            <View style={{ gap: 18 }}>
+              <DayArc now={now} height={firstRun ? 190 : 140} done={wins.filter(w => (w.completed_at ?? 0) >= day0(now).getTime()).map(w => w.completed_at ?? 0)} />
+              <StartHere start={start} row={inner >= 680} />
+            </View>
+          )}
+
+          {/* with nothing held yet, Start here's steps stand in for the move and the day */}
+          {firstRun ? (
+            <>
+              <HomeAsks taskCount={inbox.length + todayPicked.length} />
+              <Suggestions limit={2} />
+            </>
+          ) : (
           <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
             <View style={{ flex: side ? 3 : undefined, minWidth: 0, gap: 20 }}>
               {/* the one thing, at full size */}
@@ -235,6 +254,7 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
               <Suggestions limit={2} />
             </View>
           </View>
+          )}
         </View>
       </ScrollView>
 
