@@ -1208,7 +1208,7 @@ function decide(task, ctx) {
             facts.push([2, fact]);
         else if (until > 0 && until <= 6 * DAY) {
             const days = Math.round((new Date(task.due_at).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / DAY);
-            facts.push([7, days === 1 ? 'Due tomorrow' : `Due ${new Date(task.due_at).toLocaleDateString(undefined, { weekday: 'long' })}`]);
+            facts.push([4.5, days === 1 ? 'Due tomorrow' : `Due ${new Date(task.due_at).toLocaleDateString(undefined, { weekday: 'long' })}`]);
         }
     }
     const pr = (_b = task.priority) !== null && _b !== void 0 ? _b : 0;
@@ -1251,8 +1251,10 @@ function decide(task, ctx) {
         f.energy_fit = ((_f = f.energy_fit) !== null && _f !== void 0 ? _f : 0) + 6;
         facts.push([6, 'Your good hour']);
     }
-    if (predicted != null && task.est_minutes && predicted !== task.est_minutes)
+    if (predicted != null && task.est_minutes && predicted !== task.est_minutes) {
         f.historical_duration = 0;
+        facts.push([6, `You guessed ${task.est_minutes} min`]);
+    }
     const off = ((_g = task.snooze_count) !== null && _g !== void 0 ? _g : 0) + ((_j = (_h = ctx.putOffs) === null || _h === void 0 ? void 0 : _h.get(task.id)) !== null && _j !== void 0 ? _j : 0);
     if (off >= 2)
         f.repeated_putoff = -Math.min(12, 3 * off);

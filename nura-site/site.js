@@ -292,6 +292,171 @@ if (learn) {
   });
 }
 
+// Your next move: the one thing, the planner's facts for it, what comes after
+// and the day you have. Not now, Something changed, Start and Done all go
+// through the app's own planner (assets/nura-parser.js, from src/next.ts), so
+// what comes up next, and why, is what the app would say. The day is an
+// example: today at 2:10 PM, a call at 3:00, the day ending at 6:00. Every
+// change can be undone.
+const nm = document.querySelector('.nm');
+if (nm && window.NuraParser) {
+  const P = window.NuraParser;
+  const $ = q => nm.querySelector(q);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const NOW = new Date().setHours(14, 10, 0, 0);
+  const at = (days, h, m = 0) => { const d = new Date(NOW); d.setDate(d.getDate() + days); return d.setHours(h, m, 0, 0); };
+  const CALL = at(0, 15), LEFT = 200;                       // 2:10 to 6:00, less the half hour call
+  const mins = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+  const seed = () => [
+    { id: 'a', title: 'Send the revised proposal to Maya', est_minutes: 12, due_at: at(0, 17), has_time: 1, priority: 3, project: 'The proposal',
+      smaller: [['Open the proposal and mark what changed', 5], ['Rewrite the pricing section', 20], ['Send it to Maya', 5]] },
+    { id: 'b', title: 'Review the Q3 numbers', est_minutes: 30, due_at: at(1, 9), project: 'The Q3 review',
+      smaller: [['Open the Q3 sheet and skim the totals', 5], ['Check the three biggest changes', 15], ['Write two lines for the team', 10]] },
+    { id: 'c', title: 'Reply to Alex', est_minutes: 10, project: 'The reply to Alex',
+      smaller: [['Read Alex’s message again', 2], ['Write the first line', 5]] },
+    { id: 'd', title: 'Book the dentist', est_minutes: 10, project: 'The dentist',
+      smaller: [['Find the dentist’s number', 2], ['Call and pick a day', 8]] },
+    { id: 'e', title: 'Prepare the board slides', est_minutes: 60, due_at: at(3, 9), project: 'The board slides',
+      smaller: [['Write the five headings', 10], ['Draft the slides', 40], ['Run through it once', 10]] },
+    { id: 'f', title: 'Research competitors', est_minutes: 60, project: 'The research',
+      smaller: [['List five names to look at', 5], ['Read their pricing pages', 30], ['Note what stands out', 25]] },
+  ].map((t, i) => ({ state: 'inbox', created_at: NOW - (i + 1) * 3_600_000, snooze_count: 0, snoozed_until: null, parent_id: null, priority: 0, due_at: null, has_time: 0, ...t }));
+  // what Nura has learned from you (src/patterns.ts): your pace against your guesses, your good hour
+  const LEARNED = [
+    { kind: 'estimate_ratio', scope: 'all', value: 1.3, confidence: 0.8, sample_count: 8 },
+    { kind: 'best_hour', scope: '1', value: 14, confidence: 0.8, sample_count: 8 },
+  ];
+  // back after a week: the same things, their days gone by. Nothing is called late.
+  const GONE = { a: at(-3, 17), b: at(-2, 9), e: at(-1, 9) };
+  const fresh = (mode = 'day') => ({
+    mode, tasks: seed().map(t => (mode === 'back' && GONE[t.id] ? { ...t, due_at: GONE[t.id] } : t)),
+    passed: [], done: 0, short: false, moves: {}, going: null, touched: false,
+  });
+  let S = fresh();
+  const past = [];                                          // what Undo goes back to
+  const keep = () => { past.push(JSON.stringify(S)); if (past.length > 20) past.shift(); };
+  const rank = () => P.rankActions(S.tasks, {
+    now: NOW, dayEndMin: 18 * 60, energy: 'steady', anchors: [CALL, ...(S.short ? [NOW + 15 * 60_000] : [])],
+    passedIds: S.passed, moves: new Map(Object.entries(S.moves)), patterns: LEARNED,
+  });
+  // The app's comeback (src/learn/suggest.ts): after days away, before anything else
+  // has happened, the smallest thing you're holding goes first. Then the planner again.
+  const order = () => {
+    const ranked = rank();
+    if (S.mode !== 'back' || S.touched || !ranked.length) return { ranked, back: false };
+    const small = [...ranked].sort((a, b) => (a.task.est_minutes ?? 15) - (b.task.est_minutes ?? 15) || a.task.created_at - b.task.created_at)[0];
+    return { ranked: [small, ...ranked.filter(d => d !== small)], back: true };
+  };
+  // the facts that say most first: a day, a priority, a project; "fits before" last
+  const telling = fs => [...fs.filter(f => !f.startsWith('Fits')), ...fs.filter(f => f.startsWith('Fits'))];
+
+  const move = $('.nm-move'), title = $('.nm-title'), about = $('.nm-about'), facts = $('.nm-facts');
+  const acts = $('.nm-acts'), changed = $('.nm-changed'), note = $('.nm-note'), after = $('.nm-after');
+  const [bStart, bNot, bChanged] = acts.querySelectorAll('button');
+  const say = (text, undo = true) => {
+    note.hidden = !text;
+    if (!text) return;
+    note.querySelector('span').textContent = text;
+    note.querySelector('[data-act="undo"]').hidden = !undo || !past.length;
+    note.style.animation = 'none'; void note.offsetWidth; note.style.animation = '';
+  };
+  const open = on => { changed.hidden = !on; bChanged.setAttribute('aria-expanded', String(on)); };
+
+  const render = swap => {
+    const { ranked, back } = order(), d = ranked[0];
+    const going = !!d && S.going === d.taskId;
+    move.classList.toggle('going', going);
+    facts.textContent = '';
+    if (!d) {
+      title.textContent = 'That’s everything.';
+      about.textContent = 'Anything now is extra.';
+      bStart.textContent = 'Start the day again'; bStart.dataset.act = 'reset';
+      bNot.hidden = bChanged.hidden = true;
+    } else {
+      const m = d.suggestedMinutes ?? d.task.est_minutes, of = S.moves[d.taskId];
+      title.textContent = d.task.title;
+      about.textContent = [m ? `About ${mins(m)}` : null, of ? of.project : null].filter(Boolean).join(' · ');
+      const why = going ? ['In session'] : back ? ['Last here 6 days ago', 'The smallest thing you’re holding', ...telling(d.facts).filter(f => f.startsWith('You guessed'))] : telling(d.facts);
+      why.slice(0, 3).forEach(f => facts.append(el('li', '', f)));
+      bStart.textContent = going ? 'Done' : 'Start'; bStart.dataset.act = going ? 'finish' : 'start';
+      bNot.textContent = going ? 'Stop here' : 'Not now'; bNot.dataset.act = going ? 'stop' : 'notnow';
+      bNot.hidden = false; bChanged.hidden = going;
+    }
+    after.textContent = '';
+    ranked.slice(1, 4).forEach((x, i) => {
+      const li = el('li'), text = el('span'), fact = telling(x.facts).find(f => !f.startsWith('Fits'));
+      text.append(el('b', '', x.task.title));
+      if (fact) text.append(el('small', '', fact));
+      li.append(el('i', '', String(i + 2)), text, el('em', '', mins(x.suggestedMinutes ?? x.task.est_minutes)));
+      li.style.animationDelay = still ? '0s' : `${i * 0.07}s`;
+      after.append(li);
+    });
+    if (ranked.length < 2) after.append(el('li', 'none', d ? 'Nothing after this one.' : 'Nothing held.'));
+    $('.nm-left').textContent = S.short ? '15 min' : mins(LEFT);
+    $('.nm-leftk').textContent = S.short ? 'before you have to go' : 'left today, around your events';
+    const done = $('.nm-done');
+    done.hidden = !S.done && S.mode !== 'back';
+    done.textContent = [S.mode === 'back' ? 'Last here 6 days ago' : null, S.done ? `${S.done} done today` : null].filter(Boolean).join(' · ');
+    nm.parentElement.querySelectorAll('.nm-when button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.day === S.mode)));
+    if (swap) { move.classList.remove('swap'); void move.offsetWidth; move.classList.add('swap'); }
+  };
+
+  // a finished move: a project's next step comes up in its place, anything else is gone
+  const finish = t => {
+    S.done++;
+    const i = S.tasks.indexOf(t);
+    if (t.rest && t.rest.length) {
+      const [name, m] = t.rest[0], id = `${t.id}+`;
+      S.moves[id] = S.moves[t.id];
+      S.tasks[i] = { ...t, id, title: name, est_minutes: m, rest: t.rest.slice(1), state: 'inbox' };
+    } else S.tasks.splice(i, 1);
+  };
+  const DO = {
+    start: t => { S.going = t.id; say(null); },
+    finish: t => { keep(); S.going = null; finish(t); say('Done. That one is gone.'); },
+    stop: t => { keep(); S.going = null; t.state = 'doing'; say('Stopped. The time still counts.'); },
+    notnow: t => { keep(); S.passed.push(t.id); say('Out of the way for today. Here’s the next one.'); },
+    bigger: t => {
+      keep();
+      if (!t.smaller) { t.est_minutes = Math.min(t.est_minutes ?? 5, 5); return say('This is the smallest piece. Five minutes is enough to begin.'); }
+      const [[name, m], ...rest] = t.smaller, id = `${t.id}+`;
+      S.moves[id] = { project: t.project, touchedAt: NOW, blocked: false };
+      S.tasks[S.tasks.indexOf(t)] = { ...t, id, title: name, est_minutes: m, rest, smaller: null };
+      say(`Nu found a smaller way in: ${m} minutes to begin.`);
+    },
+    waiting: t => { keep(); Object.assign(t, { due_at: at(1, 9), has_time: 0, snoozed_until: at(1, 7) }); say('Moved to tomorrow while you wait. Here’s what you can do now.'); },
+    short: () => { keep(); S.short = true; say('15 minutes it is. What fits comes first.'); },
+    done: t => { keep(); finish(t); say('Done. That one is gone.'); },
+    undo: () => { const was = past.pop(); if (was) S = JSON.parse(was); say(null); },
+    reset: () => { S = fresh(S.mode); past.length = 0; say(S.mode === 'back' ? WELCOME : null, false); },
+  };
+  const WELCOME = 'Welcome back. No catching up needed, just one small thing.';
+  nm.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'changed') return open(changed.hidden);
+    const d = order().ranked[0];
+    const t = d && S.tasks.find(x => x.id === d.taskId);
+    if (!t && act !== 'undo' && act !== 'reset') return;
+    open(false);
+    DO[act](t);
+    // anything but starting it ends the welcome: from here on it's the planner's order
+    if (act !== 'start' && act !== 'undo' && act !== 'reset') S.touched = true;
+    render(true);
+  });
+  // the day you're shown: an ordinary one, or the first one back after a week away
+  nm.parentElement.querySelector('.nm-when').addEventListener('click', e => {
+    const b = e.target.closest('[data-day]');
+    if (!b || b.dataset.day === S.mode) return;
+    S = fresh(b.dataset.day); past.length = 0;
+    open(false);
+    say(S.mode === 'back' ? WELCOME : null, false);
+    render(true);
+  });
+  render(false);
+}
+
 // The breakdown (Try it): what you said, Nu reading it piece by piece (each
 // thing marked and named in your own sentence, the rest fading), then the
 // pieces sorted with a day and a length, the big one broken into steps, and

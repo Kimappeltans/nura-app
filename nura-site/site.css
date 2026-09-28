@@ -36,7 +36,8 @@ img { display: block; max-width: 100%; height: auto; }
 a { color: inherit; }
 section { position: relative; background-color: var(--bg); color: var(--text); overflow-x: clip; }
 .wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); }
-.pad { padding-block: clamp(80px, 11vw, 144px); }
+/* the room above and under a section: two of these sit between one section and the next */
+.pad { padding-block: clamp(48px, 5.5vw, 80px); }
 .pt0 { padding-top: 0; }
 p { margin: 0; }
 
@@ -263,7 +264,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .num { display: block; margin-bottom: 18px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--coral-deep); font-variant-numeric: tabular-nums; }
 
 /* ─── cards: one recipe, a fill and a hairline ─── */
-.card, .tile, .roadmap, .suggest, .who, .path, .demo-in, .demo-out, .bd-say, .bd-sort, .learn-task {
+.card, .tile, .roadmap, .suggest, .who, .path, .demo-in, .demo-out, .bd-say, .bd-sort, .nm-move, .nm-card, .learn-task {
   border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text); }
 .tile { border-radius: var(--r-lg); padding: 28px; transition: transform .5s var(--ease-pop); }
 .tile p { margin-top: 8px; color: var(--sub); font-size: 15.5px; }
@@ -388,6 +389,70 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (max-width: 860px) { .demo { grid-template-columns: 1fr; } }
 
+/* your next move (site.js): the one thing at full size with the planner's
+   facts, what comes after it, the day you have, and what Nu says when you
+   tell it the day changed */
+.nm-when { display: flex; justify-content: center; gap: 4px; width: max-content; max-width: 100%; margin: clamp(28px, 4vw, 44px) auto 0; padding: 4px; border-radius: 999px; background: rgba(23,19,19,.05); }
+.nm-when button { height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: transparent; font: 500 15.5px var(--font); letter-spacing: -0.01em; color: var(--ink-2); cursor: pointer; }
+.nm-when button[aria-pressed="true"] { background: #FFFFFF; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(23,19,19,.12); }
+.nm-when + .nm { margin-top: 18px; }
+.nm { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: clamp(36px, 5vw, 56px); align-items: start; }
+.nm-move { position: relative; overflow: hidden; border-radius: var(--r-lg); padding: clamp(24px, 3vw, 34px); min-height: 100%; }
+.nm-move::before { content: ""; position: absolute; right: -90px; top: -100px; width: 340px; height: 340px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,176,103,.42), rgba(255,138,92,.16) 45%, rgba(255,107,53,0) 100%); }
+.nm-ra { position: absolute; right: 22px; top: 18px; width: 96px; height: 96px; pointer-events: none; }
+.nm-k { position: relative; display: block; font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--coral-deep); }
+.nm-title { position: relative; display: block; margin: 12px 120px 0 0; font-size: clamp(28px, 3.2vw, 40px); line-height: 1.1; letter-spacing: -0.045em; font-weight: 600; text-wrap: balance; }
+.nm-about { position: relative; margin: 10px 0 0; font-size: 17px; color: var(--ink-2); }
+.nm-facts { position: relative; list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; min-height: 30px; }
+.nm-facts li { padding: 5px 11px; border-radius: 8px; background: rgba(23,19,19,.05); font-size: 14.5px; color: var(--ink-2); }
+.nm-acts { position: relative; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.nm-acts .btn { height: 52px; padding-inline: 34px; font-size: 17px; border: 0; cursor: pointer; font-family: var(--font); }
+.nm-q, .nm-changed button { height: 52px; padding: 0 22px; border-radius: 26px; border: 1px solid rgba(23,19,19,.18); background: transparent;
+  font: 500 16px var(--font); letter-spacing: -0.01em; color: var(--ink); cursor: pointer; transition: background-color .2s, border-color .2s; }
+.nm-q:hover, .nm-changed button:hover, .nm-q[aria-expanded="true"] { background: rgba(23,19,19,.05); border-color: rgba(23,19,19,.3); }
+.nm-changed { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); animation: rise .35s var(--ease-pop) both; }
+.nm-changed[hidden] { display: none; }
+.nm-changed button { height: 44px; padding: 0 16px; border-radius: 22px; font-size: 15px; }
+.nm-note { position: relative; display: flex; align-items: center; gap: 12px; margin: 18px 0 0; padding: 12px 14px; border-radius: 16px; background: #EFF4FC; font-size: 15.5px; color: var(--ink); animation: rise .4s var(--ease-pop) both; }
+.nm-note[hidden] { display: none; }
+.nm-note img { flex: none; width: 40px; height: 40px; }
+.nm-note span { flex: 1; min-width: 0; }
+.nm-note .link { flex: none; }
+.nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts { animation: rise .45s var(--ease-pop) both; }
+.nm-move.going .nm-facts li { background: rgba(255,107,53,.14); color: var(--coral-deep); font-weight: 600; }
+.nm-side { display: grid; gap: 16px; }
+.nm-card { border-radius: var(--r-lg); padding: 22px 24px; }
+.nm-after { list-style: none; margin: 0; padding: 0; }
+.nm-after li { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); animation: rise .4s var(--ease-pop) both; }
+.nm-after li:last-child { border-bottom: 0; }
+.nm-after i { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid rgba(23,19,19,.18); font-style: normal; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.nm-after span { flex: 1; min-width: 0; }
+.nm-after b { display: block; font-size: 16px; font-weight: 500; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm-after small { display: block; font-size: 13.5px; color: var(--ink-2); }
+.nm-after em { flex: none; font-style: normal; font-size: 14.5px; color: var(--ink-2); }
+.nm-after .none { min-height: 0; padding: 8px 0 2px; font-size: 15px; color: var(--ink-2); border: 0; }
+.nm-day .demo-k { display: flex; justify-content: space-between; }
+.nm-clock { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 13.5px; }
+.nm-left { display: block; font-size: 32px; letter-spacing: -0.05em; font-weight: 600; line-height: 1.1; }
+.nm-leftk, .nm-done { display: block; font-size: 15px; color: var(--ink-2); }
+.nm-done { margin-top: 10px; }
+.nm-done[hidden] { display: none; }
+.nm-learned ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.nm-learned li { display: flex; align-items: baseline; gap: 12px; font-size: 15px; color: var(--ink-2); }
+.nm-learned b { flex: none; min-width: 58px; font-size: 22px; letter-spacing: -0.04em; font-weight: 600; color: var(--ink); }
+.nm-learned small { display: block; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); }
+.nm-last { display: block; margin-top: 10px; font-size: 15px; color: var(--ink-2); }
+.nm-events { list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); font-size: 15px; }
+.nm-events li { display: flex; gap: 12px; padding: 3px 0; }
+.nm-events em { font-style: normal; color: var(--ink-2); min-width: 72px; }
+@media (max-width: 860px) {
+  .nm { grid-template-columns: 1fr; }
+  .nm-title { margin-right: 84px; }
+  .nm-ra { width: 72px; height: 72px; right: 14px; top: 14px; }
+  .nm-acts .btn, .nm-q { height: 50px; }
+}
+
 /* the breakdown (Try it, site.js): what you said, each piece marked and named
    as Nu reads it, then the pieces sorted, the big one in steps, and the
    planner's pick in front */
@@ -448,7 +513,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .rest-ra { width: 140px; margin: 0 0 8px -10px; }
 
 /* ─── the tour (how it works) ─── */
-.tour { display: grid; gap: clamp(88px, 12vw, 150px); }
+.tour { display: grid; gap: clamp(64px, 8vw, 104px); }
 .tour .split .stage .phone { max-width: 280px; }
 .part-n { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: var(--sub); }
 /* how it works: each part's number and title centred over its column */
@@ -607,7 +672,7 @@ footer .c { margin-left: auto; opacity: .7; }
 .rv.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .rv { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; }
-  .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-steps li, .bd-phase, .bd-mess.typing::after { animation: none !important; }
+  .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-steps li, .bd-phase, .bd-mess.typing::after, .nm-note, .nm-changed, .nm-after li, .nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts { animation: none !important; }
 }
 
 /* ─── small screens: nothing to read is under 14px, running text is 16px
@@ -625,7 +690,9 @@ footer .c { margin-left: auto; opacity: .7; }
   .bd-phase b, .bd-phase span, .bd-steps .n, .bd-steps .m, .bd-steps small, .bd-need li, .suggest small, .suggest.big small,
   .suggest .yes, .suggest .no, .front small, .front em, .front .begin, .front .m small, .learn-task .v small, .badge small,
   .roadmap .t, .roadmap li em, .roadmap .fix, .path-title span, .path-card em, .path-steps .note, .path-steps li > em,
-  .part-n, .legal th, .legal .summary h2, .legal .toc h2, .pile span { font-size: 14px; }
+  .part-n, .legal th, .legal .summary h2, .legal .toc h2, .pile span, .nm-k, .nm-after i, .nm-after small, .nm-clock, .nm-learned small { font-size: 14px; }
+  .nm-when button { padding: 0 14px; font-size: 15px; }
+  .nm-facts li, .nm-after em, .nm-changed button { font-size: 15px; }
   .bd-mess { line-height: 2.5; }
   .bd-mess mark::before { font-size: 14px; letter-spacing: .02em; }
   .bd-steps .n { width: 22px; }

@@ -32,12 +32,19 @@
 /* on a phone the text sits over the water: the water deepens behind it */
 @media (max-width: 899px) {
   .saga-stage::after {
-    content: ""; position: absolute; inset: auto 0 0; height: 58%; pointer-events: none;
+    content: ""; position: absolute; inset: auto 0 0; height: var(--sg-scrim-h, 58%); pointer-events: none;
     background: linear-gradient(to top,
       color-mix(in srgb, var(--sg-scrim) 94%, transparent) 0%,
       color-mix(in srgb, var(--sg-scrim) 82%, transparent) 45%,
       transparent 100%);
   }
+}
+
+/* a phone: the passages a little smaller, so the water under them can sit lower */
+@media (max-width: 599px) {
+  .saga-card h2 { font-size: 30px; margin-bottom: 14px; }
+  .saga-card p { font-size: 18px; }
+  .saga-card .coda { font-size: 23px; }
 }
 
 /* a title for screen readers and search, not shown */
@@ -55,7 +62,14 @@
 .saga-card p + p:not(.coda) { margin-top: 16px; }
 .saga-step.saga-pause { min-height: 45vh; min-height: 45svh; }
 
-/* after the story: the bridge into the product */
+/* after the story: the bridge into the product. Its title and lines are centred, and so
+   are the three figures with their names (Kim, 28 September); the lists stay as lists. */
+.story-after h2, .story-after .story-p, .story-after .story-pull { text-align: center; margin-inline: auto; }
+.story-after .roles { width: fit-content; margin-inline: auto; }
+.story-after .trio .tile img { justify-self: center; }
+.story-after .trio .tile h3, .story-after .trio .tile > p { text-align: center; }
+.story-after .trio .tile .does { width: fit-content; margin-inline: auto; }
+
 .story-pull { margin: 8px 0 0; font-size: clamp(24px, 3.4vw, 34px); font-weight: 650; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink, #171313); max-width: 20em; }
 .roles { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 12px; max-width: 38em; }
 .roles li { position: relative; padding-left: 22px; font-size: clamp(17px, 1.7vw, 19px); line-height: 1.5; color: var(--ink-2, #4A4340); }

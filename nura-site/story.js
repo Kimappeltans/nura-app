@@ -77,7 +77,7 @@
   });
 
   // ---------- framing: keep the composition in view at any aspect ratio ----------
-  let vb = { x: 0, w: 1600 };
+  let vb = { x: 0, w: 1600 }, small = false;
   const waterG = q('#sg-waterg');
   const frame = () => {
     const hdr = document.querySelector('header');
@@ -94,11 +94,30 @@
       y0 = 645 - 0.74 * H; // the horizon low, so the text has the sky to itself
       cx = left + room / 2;
     } else {
-      // cards pass over the lower part: keep ~660 units across, scene in the upper part
-      H = Math.max(1000, (660 * sh) / sw);
-      y0 = 780 - 0.52 * H;
+      // The text is read over the water, so the water is only as high as the text needs:
+      // the horizon sits just above where the tallest passage starts, with room under it
+      // for the two rows of labels. The scene is a little bigger too (620 units across).
+      H = Math.max(1000, (620 * sh) / sw);
+      const vh = window.innerHeight, line = vh * 0.55;
+      let top = Infinity;                       // the highest a passage's text reaches where it's read
+      steps.forEach((st) => {
+        const cd = st.querySelector('.saga-card');
+        if (!cd) return;
+        const pb = parseFloat(getComputedStyle(st).paddingBottom) || 0;
+        top = Math.min(top, line + st.offsetHeight / 2 - pb - cd.offsetHeight);
+      });
+      const text = (Number.isFinite(top) ? top : vh * 0.62) - hdrH;   // in the stage's own pixels
+      const hz = Math.max(0.4 * sh, Math.min(0.62 * sh, text - (104 * sh) / H - 10));
+      // never lower than the pyramid's tip (232) with air above it: on a short or
+      // wide-ish window the top of the pyramid was cut off under the header
+      y0 = Math.min(645 - (hz / sh) * H, 190);
       cx = sw / 2;
+      // the water deepens behind the text only, not over what stands on it
+      stage.style.setProperty('--sg-scrim-h', Math.round(sh - text + 64) + 'px');
     }
+    small = sw < 900;
+    // the names under the figures: closer to them on a small screen, where the text follows soon after
+    svg.querySelectorAll('#sg-labels text:not(#sg-l-ra)').forEach((tx) => tx.setAttribute('y', small ? 738 : 780));
     const k = H / sh, W = sw * k;
     vb = { x: 790 - cx * k, w: W, y0, H };
     svg.setAttribute('viewBox', `${vb.x.toFixed(1)} ${y0.toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}`);
@@ -240,8 +259,13 @@
     saga.style.setProperty('--sg-mh', mix('#9A9EC0', '#8A806C', tone));
     saga.style.setProperty('--sg-scrim', waterBot);
 
-    // each passage is fully there while it's the one in the middle, and fades as the next arrives
-    cards.forEach((cd, i) => { if (cd) cd.style.opacity = (1 - ss(0.25, 0.7, Math.abs(s - i))).toFixed(3); });
+    // each passage is fully there while it's the one in the middle, and fades as the next arrives.
+    // On a small screen it's read over the water, so it goes before it climbs over what stands there.
+    cards.forEach((cd, i) => {
+      if (!cd) return;
+      const d = s - i;
+      cd.style.opacity = (1 - (small && d > 0 ? ss(0.12, 0.42, d) : ss(0.25, 0.7, Math.abs(d)))).toFixed(3);
+    });
 
     const day = D > 0.5;
     if (day !== lastDay) { saga.classList.toggle('is-day', day); lastDay = day; }

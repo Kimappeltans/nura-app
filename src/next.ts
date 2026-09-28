@@ -122,10 +122,10 @@ export function decide(task: Task, ctx: NextContext): PlannerDecision {
     else if (sameDay(task.due_at, now)) f.deadline = 30;
     else if (until <= 3 * DAY) f.deadline = 15;
     if (fact) facts.push([2, fact]);
-    // later this week: the day it's due, after the facts about today
+    // later this week: the day it's due, after the facts about today and before what Nura learned
     else if (until > 0 && until <= 6 * DAY) {
       const days = Math.round((new Date(task.due_at).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / DAY);
-      facts.push([7, days === 1 ? 'Due tomorrow' : `Due ${new Date(task.due_at).toLocaleDateString(undefined, { weekday: 'long' })}`]);
+      facts.push([4.5, days === 1 ? 'Due tomorrow' : `Due ${new Date(task.due_at).toLocaleDateString(undefined, { weekday: 'long' })}`]);
     }
   }
 
@@ -168,7 +168,12 @@ export function decide(task: Task, ctx: NextContext): PlannerDecision {
     facts.push([6, 'Your good hour']);
   }
 
-  if (predicted != null && task.est_minutes && predicted !== task.est_minutes) f.historical_duration = 0;
+  // what Nura learned about your pace, said as a fact: the card shows how long it
+  // will really take you, this says what you guessed
+  if (predicted != null && task.est_minutes && predicted !== task.est_minutes) {
+    f.historical_duration = 0;
+    facts.push([6, `You guessed ${task.est_minutes} min`]);
+  }
 
   // put off before: a little lower each time, never buried
   const off = (task.snooze_count ?? 0) + (ctx.putOffs?.get(task.id) ?? 0);

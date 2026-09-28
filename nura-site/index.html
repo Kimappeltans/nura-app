@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=33">
+<link rel="stylesheet" href="site.css?v=37">
 </head>
 <body>
 
@@ -80,13 +80,111 @@
   </div>
 </section>
 
+<!-- the decision: one move from what Nura learned about you, why this one, and the plan changing when the
+     day does or a week goes missing (site.js, with the app's own planner) -->
+<section class="day pad" id="next">
+  <div class="wrap">
+    <div class="head center rv">
+      <div>
+        <span class="num">01 · Your next move</span>
+        <h2>Your next move, <span class="mh block">from how you really work.</span></h2>
+        <p class="lead">Nura learns how long things take you and when you do your best work. It weighs that with your deadlines and your day, then puts one thing in front of you. When the day changes, or a whole week goes missing, the plan changes with you.</p>
+      </div>
+    </div>
+    <div class="nm-when rv" role="group" aria-label="Which day to see">
+      <button type="button" data-day="day" aria-pressed="true">An ordinary day</button>
+      <button type="button" data-day="back" aria-pressed="false">Back after a week away</button>
+    </div>
+    <div class="nm rv">
+      <div class="nm-move">
+        <img class="nm-ra" src="assets/ra-hello.webp" width="720" height="720" alt="">
+        <span class="nm-k">Your next move</span>
+        <b class="nm-title">Send the revised proposal to Maya</b>
+        <p class="nm-about">About 15 min</p>
+        <ul class="nm-facts" aria-label="Why this one"><li>Due at 5:00 PM</li><li>High priority</li><li>You guessed 12 min</li></ul>
+        <div class="nm-acts">
+          <button type="button" class="btn btn-coral" data-act="start">Start</button>
+          <button type="button" class="nm-q" data-act="notnow">Not now</button>
+          <button type="button" class="nm-q" data-act="changed" aria-expanded="false" aria-controls="nm-changed">Something changed</button>
+        </div>
+        <div class="nm-changed" id="nm-changed" hidden>
+          <button type="button" data-act="bigger">It's bigger than I thought</button>
+          <button type="button" data-act="waiting">I'm waiting on someone</button>
+          <button type="button" data-act="short">I only have 15 minutes</button>
+          <button type="button" data-act="done">Already done</button>
+        </div>
+        <p class="nm-note" role="status" aria-live="polite" hidden><img src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span><button type="button" class="link" data-act="undo">Undo</button></p>
+      </div>
+      <div class="nm-side">
+        <div class="nm-card nm-learned">
+          <div class="demo-k">Learned from you</div>
+          <ul>
+            <li><b>1.3×</b><span>Things take you this much longer than you guess</span></li>
+            <li><b>2 PM</b><span>Your best hour for longer work</span></li>
+          </ul>
+          <small>From your last 8 timed tasks</small>
+        </div>
+        <div class="nm-card">
+          <div class="demo-k">After that</div>
+          <ol class="nm-after">
+            <li><i>2</i><span><b>Review the Q3 numbers</b><small>Due tomorrow</small></span><em>40 min</em></li>
+            <li><i>3</i><span><b>Prepare the board slides</b></span><em>1 h 20 min</em></li>
+            <li><i>4</i><span><b>Book the dentist</b></span><em>15 min</em></li>
+          </ol>
+        </div>
+        <div class="nm-card nm-day">
+          <div class="demo-k">Your day <span class="nm-clock">2:10 PM</span></div>
+          <b class="nm-left">3 h 20 min</b>
+          <span class="nm-leftk">left today, around your events</span>
+          <ul class="nm-events"><li><em>3:00 PM</em>Team call</li></ul>
+          <span class="nm-done" hidden></span>
+        </div>
+      </div>
+    </div>
+    <ul class="points trio rv">
+      <li><i></i><div><b>Plans around your real constraints.</b> Timing, priorities, and what's waiting on what.</div></li>
+      <li><i></i><div><b>Finds a way around.</b> When a step is blocked, Nu offers another move.</div></li>
+      <li><i></i><div><b>You stay in control.</b> Nura suggests and reorders; nothing important happens without your yes.</div></li>
+    </ul>
+  </div>
+</section>
+
+<!-- learning you: the suggestion, and a Yes that really changes the estimate -->
+<section class="tint pad" id="learn">
+  <div class="wrap learn-stack">
+    <div class="head center rv">
+      <div>
+      <span class="num">02 · Learning</span>
+      <h2>It shows <span class="mh">its work.</span></h2>
+      <p class="lead">Nura notices your pace and where things stall, then suggests changes with the evidence attached. Say Yes or Not now, and it learns from that too.</p>
+      </div>
+    </div>
+    <div class="learn-demo rv">
+      <div class="learn-task">
+        <span class="glyph" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg></span>
+        <span class="t">Prepare slides for Monday</span>
+        <span class="v"><b id="learn-mins">45</b><small>min</small></span>
+      </div>
+      <div class="suggest big" id="learn-card">
+        <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+        <div>
+          <p>Things tend to run a bit longer than planned for you. Give “Prepare slides for Monday” 60 minutes instead of 45?</p>
+          <small>Across your last 8 timed tasks, the time spent was 1.3× the guess.</small>
+          <div class="act"><button type="button" class="yes">Yes</button><button type="button" class="no">Not now</button></div>
+        </div>
+      </div>
+      <p class="learn-after" role="status" aria-live="polite"></p>
+      <button type="button" class="learn-again link" hidden>Show it again</button>
+    </div>
+  </div>
+</section>
 
 <!-- how it works, live: the pills fall into a pile, sort themselves with the app's own parser, and the next move rises -->
 <section class="day pad" id="how">
   <div class="wrap">
     <div class="head center rv">
       <div>
-        <span class="num">01 · Try it</span>
+        <span class="num">03 · Try it</span>
         <h2>Say it the way <span class="mh block">it sits in your head.</span></h2>
         <p class="lead">Put it all down in one go, the big thing you've been avoiding too. Nu pulls out each task, breaks the project into steps, and picks where you start.</p>
       </div>
@@ -117,11 +215,6 @@
         <ol class="bd-list"></ol>
       </div>
     </div>
-    <ul class="points trio rv">
-      <li><i></i><div><b>Plans around your real constraints.</b> Timing, priorities, and what's waiting on what.</div></li>
-      <li><i></i><div><b>Finds a way around.</b> When a step is blocked, Nu offers another move.</div></li>
-      <li><i></i><div><b>You stay in control.</b> Nura suggests and reorders; nothing important happens without your yes.</div></li>
-    </ul>
   </div>
 </section>
 
@@ -132,7 +225,7 @@
       <div class="head center rv">
         <div>
           <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
-          <span class="num">02 · Recovery</span>
+          <span class="num">04 · Recovery</span>
           <h2>Recovery, <span class="mh">not guilt.</span></h2>
           <p class="lead">Gone for a week? Plan fell apart? Nura doesn't make you catch up. It picks one small thing from where you left off.</p>
         </div>
@@ -149,37 +242,6 @@
         <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
       </div>
       </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- learning you: the suggestion, and a Yes that really changes the estimate -->
-<section class="tint pad" id="learn">
-  <div class="wrap learn-stack">
-    <div class="head center rv">
-      <div>
-      <span class="num">03 · Learning</span>
-      <h2>It shows <span class="mh">its work.</span></h2>
-      <p class="lead">Nura notices your pace and where things stall, then suggests changes with the evidence attached. Say Yes or Not now, and it learns from that too.</p>
-      </div>
-    </div>
-    <div class="learn-demo rv">
-      <div class="learn-task">
-        <span class="glyph" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg></span>
-        <span class="t">Prepare slides for Monday</span>
-        <span class="v"><b id="learn-mins">45</b><small>min</small></span>
-      </div>
-      <div class="suggest big" id="learn-card">
-        <img src="assets/nu-listen.webp" width="720" height="720" alt="">
-        <div>
-          <p>Things tend to run a bit longer than planned for you. Give “Prepare slides for Monday” 60 minutes instead of 45?</p>
-          <small>Across your last 8 timed tasks, the time spent was 1.3× the guess.</small>
-          <div class="act"><button type="button" class="yes">Yes</button><button type="button" class="no">Not now</button></div>
-        </div>
-      </div>
-      <p class="learn-after" role="status" aria-live="polite"></p>
-      <button type="button" class="learn-again link" hidden>Show it again</button>
     </div>
   </div>
 </section>
@@ -225,7 +287,7 @@
   </div>
 </footer>
 
-<script src="assets/nura-parser.js?v=3"></script>
-<script src="site.js?v=29"></script>
+<script src="assets/nura-parser.js?v=5"></script>
+<script src="site.js?v=32"></script>
 </body>
 </html>
