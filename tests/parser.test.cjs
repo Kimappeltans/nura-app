@@ -113,4 +113,25 @@ test('parseTask with one argument reads against the real clock', () => {
   assert.ok(a.due_at > Date.now());
 });
 
+console.log('\nwhat was only said on the way to it');
+test('a greeting and "I want to" come off the title', () => {
+  is('Hello I want to finish my website', { title: 'Finish my website', due_at: null });
+  is('hello i want to finish my website', { title: 'Finish my website' });
+});
+test('"hi, I need to", with its date', () => is('Hi, I need to call the dentist tomorrow at 3', { title: 'Call the dentist', due_at: on(2026, 8, 27, 15), has_time: true }));
+test('"hey can you remind me to"', () => is('hey can you remind me to pay rent on friday', { title: 'Pay rent', due_at: on(2026, 9, 2) }));
+test('"so basically I have to"', () => is('so basically I have to send the invoice today', { title: 'Send the invoice', due_at: on(2026, 8, 26) }));
+test('"ugh ok so I need to"', () => is('ugh ok so I need to finish the website before friday', { title: 'Finish the website' }));
+test('"don’t forget to", "note to self", "I’ve got to"', () => {
+  is('don’t forget to water the plants', { title: 'Water the plants' });
+  is('note to self: renew passport', { title: 'Renew passport' });
+  is('I’ve got to book flights for mum', { title: 'Book flights for mum' });
+});
+test('words that only look like filler stay', () => {
+  is('remind John about the meeting', { title: 'Remind John about the meeting' });
+  is('plan the offsite', { title: 'Plan the offsite' });
+  is('help Sam move house', { title: 'Help Sam move house' });
+  is('hello', { title: 'Hello' });
+});
+
 console.log(`\n${passed} passed`);

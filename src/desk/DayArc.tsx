@@ -6,6 +6,7 @@ import { type as T } from '../theme';
 import { poseImage } from '../ui';
 import { decorative } from '../a11y';
 import { clockParts, CORAL } from './kit';
+import { ArcDots, ArcNext, useMarks, type ArcThings } from '../components/ArcMarks';
 
 /**
  * THE DAY'S ARC, on the desktop's Home: the sun's path from when your day
@@ -15,7 +16,13 @@ import { clockParts, CORAL } from './kit';
  * start; once it has ended, Ra sits down at the end. It lives in Home's Your
  * day card (Kim, 28 September: the desktop keeps the arc, like the phone).
  */
-export function DayArc({ now, done = [], height, count }: { now: Date; done?: number[]; height: number; /** "2 done" between the two ends, as on the phone */ count?: boolean }) {
+export function DayArc({ now, done = [], height, count, things }: {
+  now: Date; done?: number[]; height: number;
+  /** "2 done" between the two ends, as on the phone */
+  count?: boolean;
+  /** what's on the day: marks on the arc (src/arcMarks.ts), your next move named beside Ra */
+  things?: ArcThings;
+}) {
   const t = useTheme();
   const dark = t.key === 'nu';
   const start = useStore(s => s.dayStartMin);
@@ -49,12 +56,16 @@ export function DayArc({ now, done = [], height, count }: { now: Date; done?: nu
   const line = t.strokeStrong;
   const raSize = Math.round(Math.max(64, Math.min(112, H * 0.42)));
   const s = clockParts(start), e = clockParts(end);
-  const doneAt = done.map(ms => pOf(new Date(ms))).filter(x => x >= 0 && x <= p);
+  const doneAt = things ? [] : done.map(ms => pOf(new Date(ms))).filter(x => x >= 0 && x <= p);
+  const marks = useMarks(things, now.getTime(), start, end, x1 - x0);
+  const at = (u: number) => B(u) as [number, number];
   const spoken = phase === 'night' ? 'The day has ended' : phase === 'early' ? 'The day has not started yet' : `Now ${clockParts(minOf(now)).time}`;
 
   return (
     <View onLayout={ev => setW(ev.nativeEvent.layout.width)}>
-      <View style={{ height: H }} accessible accessibilityRole="image" accessibilityLabel={`${spoken}, ${done.length} done`}>
+      <View style={{ height: H }}>
+        {/* the picture is one image to a screen reader; the marks on it are buttons of their own */}
+        <View accessible accessibilityRole="image" accessibilityLabel={`${spoken}, ${done.length} done`} style={{ position: 'absolute', left: 0, top: 0, width: W, height: H }}>
         <Svg width={W} height={H} style={{ position: 'absolute', overflow: 'visible' }}>
           <Defs>
             <RadialGradient id="arcglow" cx="50%" cy="50%" r="50%">
@@ -82,6 +93,8 @@ export function DayArc({ now, done = [], height, count }: { now: Date; done?: nu
             return <Circle key={i} cx={dx} cy={dy} r={6} fill={CORAL} stroke={t.base} strokeWidth={2.5} />;
           })}
         </Svg>
+        </View>
+        {!!things && <ArcDots marks={marks} at={at} width={W} things={things} />}
         {phase === 'day' && (
           <Image {...decorative} source={poseImage('ra-icon')} resizeMode="contain"
             style={{ position: 'absolute', width: raSize, height: raSize, left: rx - raSize / 2, top: ry - raSize * 0.86 }} />
@@ -96,6 +109,7 @@ export function DayArc({ now, done = [], height, count }: { now: Date; done?: nu
           <Image {...decorative} source={poseImage('ra-rest')} resizeMode="contain"
             style={{ position: 'absolute', width: raSize, height: raSize, left: x1 - raSize * 0.7, top: hz - raSize * 0.86 }} />
         )}
+        {!!things && phase !== 'night' && <ArcNext marks={marks} at={at} width={W} ra={raSize} floor={hz} things={things} />}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
         <End time={s.time} ampm={s.ampm} label="Start" />

@@ -1,4 +1,8 @@
 import { localRead, localIsSure, readByModel } from './coach';
+import { stripFiller } from './assistant';
+
+// the filler rules live with the parser (src/assistant.ts), so every way in uses them
+export { stripFiller };
 import type { StateRead } from './learn/types';
 
 /**
@@ -45,22 +49,6 @@ export interface Understood {
 export const SURE = 0.85;
 /** Under: Nu asks rather than guessing. */
 export const UNSURE = 0.5;
-
-// "hello", "ok so", "hey Nu": said before the thing itself
-const GREETING = /^(?:hello|hi|hiya|hey|yo|ok(?:ay)?|so|um+|uh+|well|right|alright|nu|dear nu)\b[\s,.!:]*/i;
-// "I want to", "can you help me", "please": the ask, not the thing
-const ASK = /^(?:(?:i|we)\s+(?:really\s+|just\s+|still\s+)?(?:want|need|have|would like|'d like|wanna|gotta|got|ought|am going|'m going|plan|hope)\s+to|i'?d\s+(?:really\s+)?(?:like|love)\s+to|i'?m\s+(?:going|trying|planning|hoping)\s+to|i\s+(?:should|must|could)|(?:can|could|will|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+(?:to\s+)?)?|help\s+me\s+(?:to\s+)?|please|let'?s|my\s+goal\s+is\s+to|the\s+goal\s+is\s+to)\b[\s,]*/i;
-
-/** Your words without what was only said on the way to them. */
-export function stripFiller(input: string): string {
-  let s = input.trim().replace(/[‘’]/g, "'");
-  for (let i = 0; i < 6; i++) {
-    const next = s.replace(GREETING, '').replace(ASK, '').trim();
-    if (next === s) break;
-    s = next;
-  }
-  return s.replace(/[.!\s]+$/, '');
-}
 
 /** Verbs that start a goal, not a single action. */
 const GOAL_VERB = /^(finish|complete|launch|ship|build|create|make|design|redesign|redo|rebuild|renovate|organi[sz]e|plan|prepare(?:\s+for)?|get\s+ready(?:\s+for)?|set\s+up|start|write|learn|move|improve|update|overhaul|clean\s+up|declutter|study\s+for|apply\s+(?:for|to))\b/i;

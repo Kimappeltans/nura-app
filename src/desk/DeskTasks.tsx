@@ -121,7 +121,7 @@ export default function DeskTasks() {
   );
 
   const aside = (
-    <View style={{ gap: 20, ...(side ? { width: 340, marginTop: 96 } : { flexDirection: 'row', marginTop: 20 }) }}>
+    <View style={{ gap: 20, ...(side ? { width: 340, marginTop: 124 } : { flexDirection: 'row', marginTop: 20 }) }}>
       <DeskCard style={side ? {} : { flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
           <Label>{habits.length ? `Habits · ${habits.length}` : 'Habits'}</Label>
@@ -148,7 +148,7 @@ export default function DeskTasks() {
     <View style={{ flex: 1 }}>
       <Mica />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
+        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
           <DeskHeader title="Tasks">
             <View style={{
               marginLeft: 10, width: inner < 900 ? 320 : 280, maxWidth: '100%', height: 46, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
@@ -170,7 +170,7 @@ export default function DeskTasks() {
 
           <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
             {/* the water: Nu on the surface, everything held under it, as one list */}
-            <View style={{ flex: side ? 1 : undefined, minWidth: 0, marginTop: 96, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20 }}>
+            <View style={{ flex: side ? 1 : undefined, minWidth: 0, marginTop: 124, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20 }}>
               <LinearGradient pointerEvents="none" colors={k.sea} locations={[0, 0.4, 1]}
                 style={{ position: 'absolute', inset: 0, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }} />
               <View {...decorative} style={{ position: 'absolute', left: 0, right: 0, top: -27, height: 28 }}>

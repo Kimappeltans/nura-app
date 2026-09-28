@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { PinnedMode, useStore, useTheme } from '../../src/store';
 import { capture } from '../../src/db';
+import { stripFiller } from '../../src/assistant';
 import { createProject, type Note } from '../../src/projects';
 import { start, draftPlan, PlannerError, type PlanResult, type Question } from '../../src/planner';
 import { radius, type as T } from '../../src/theme';
@@ -112,7 +113,8 @@ function Screen() {
   };
 
   const send = async () => {
-    const g = goal.trim();
+    // the goal itself, without the greeting and the ask it came with
+    const g = stripFiller(goal) || goal.trim();
     if (!g) return;
     if ((await aiConsent()) !== 'yes') return setAsking(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -156,8 +158,8 @@ function Screen() {
 
   /** No planner: write the first move yourself. Still a project, still a path. */
   const byHand = () => {
-    const g = goal.trim();
-    setTitle(g.replace(/^(i need to|i have to|i want to|help me)\s+/i, '').replace(/^\w/, c => c.toUpperCase()).slice(0, 60));
+    const g = (stripFiller(goal) || goal.trim()).replace(/^\w/, c => c.toUpperCase());
+    setTitle(g.slice(0, 60));
     setDoneMeans('');
     setGuesses([]);
     setSteps([]);

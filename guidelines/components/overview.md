@@ -59,10 +59,26 @@ desktop. Not at night. Logic: `src/startHere.ts`; the cards:
 The sun's path from the start of the day (Settings → Day starts, 7:00 by
 default) to when it ends (the Day ends setting): solid while the day runs,
 dotted below the horizon either side.
-Ra rides it at the current time; coral dots mark where things got done;
-ticks under the horizon (`--sub`) are calendar events. Under it: 7:00 Start ·
-N done · 11:45 Day ends. The path is on Home only.
-After the day ends, Ra sits down at the horizon (ra-rest).
+Ra rides it at the current time. Under it: 7:00 Start · N done · 11:45 Day
+ends. The path is on Home only, on the phone and the desktop alike. After
+the day ends, Ra sits down at the horizon (ra-rest).
+
+**The marks on it** (Kim, 28 September; rules in `src/arcMarks.ts`, drawn by
+`src/components/ArcMarks.tsx`). The path keeps its shape: it is the sun's
+path, never a chart. What's on it:
+
+| Mark | What it is | Tapped |
+|---|---|---|
+| Coral dot | Something finished, where it was finished | The day in the Calendar |
+| Open ring | A task with a set time, still to come | Opens the task |
+| Small dark mark | A calendar event | The day in the Calendar |
+| A count | Marks within 20 px of each other, as one | The day in the Calendar |
+| Coral ring at Ra, and the one name | Your next move, pinned at now whether or not it has a time | Start |
+
+Only the next move is named, under the arc towards the middle of the day
+(one line on the phone; left out where there's no room). Everything else
+says what it is under the pointer on the desktop, and to a screen reader.
+No other titles on the arc: the Calendar does detail.
 
 ## Your Tasks: the water
 
@@ -181,9 +197,9 @@ Reference: the redesign preview of 27 September.
   soft fill. Under 1180 wide it's the icons only, so the room keeps the width.
 - **Header:** each room's name, what belongs beside it (the date, search,
   the calendar's arrows and Week / Month), and Tell Nu on the right as a
-  field with a mic. As you type, Nu shows what it read under the field (the
-  task, its day, time and length; several things; or a goal it will plan);
-  Enter puts it down. ⌘K goes to the field, N opens Tell Nu anywhere. In a
+  field with a mic. As you type, Nu shows what it read under the field, each
+  part named (Task, When, How long, Kind; several things; or a goal it will
+  plan); Enter adds it. ⌘K goes to the field, N opens Tell Nu anywhere. In a
   narrow room the name and Tell Nu keep the first row, the rest goes under.
 - **Home (Kim, 28 September): what Nura figured out, not a dashboard.** Tell
   Nu across the top ("Tell Nu what's going on…"), then, as on the phone,
@@ -199,10 +215,12 @@ Reference: the redesign preview of 27 September.
   at a time with Yes and Undo. **Getting started** (`src/desk/Guide.tsx`):
   three steps that tick themselves off when you've really done them (tell
   Nu what's going on, start your next move, tell Nu when the day changes).
-  With nothing held it is the main card and shows what you can say, each
-  line marked Example; tapping one puts it in Tell Nu to show how Nu reads
-  it, and nothing is added until Enter. With a move in front it is a small
-  card beside it. Done, or Hide, and it's gone. After the day's end: Nu resting, and what
+  With nothing held it is the main card, under the arc where the move will
+  be (the arc keeps its place in every state): the steps on one side, and on the other what you can say, each
+  example with how Nu reads it beside it (You say, Nu reads), read by the
+  app's own parser. The examples are only shown, never added. With a move
+  in front it is a small card beside it. Done, or Hide, and it's gone
+  (`?guide=again` on the web brings it back). After the day's end: Nu resting, and what
   tomorrow starts with. The clock, the counts and the week are the
   Calendar's now; the sun's glow still rises behind the room (Mica).
 - **Tasks:** Nu on the surface of the water, Today / This week / Someday as

@@ -42,7 +42,7 @@ const coach = load('coach.ts', {
   './supabase': { supabase }, './db': db, './ai': ai, './assistant': assistant,
   './planner': { getLanguage: async () => 'en', languageName: () => 'English' },
 });
-const { understandLocal, understand, stripFiller, SURE, UNSURE } = load('understand.ts', { './coach': coach });
+const { understandLocal, understand, stripFiller, SURE, UNSURE } = load('understand.ts', { './coach': coach, './assistant': assistant });
 
 let passed = 0;
 const tests = [];

@@ -89,7 +89,7 @@ export default function DeskCalendar() {
   const startH = Math.floor(dayStartMin / 60);
   const endH = Math.min(24, Math.ceil(Math.min(dayEndMin, 24 * 60) / 60));
   const hours = Array.from({ length: Math.max(1, endH - startH) }, (_, i) => startH + i);
-  const hh = Math.max(40, Math.floor((winH - 300) / hours.length));
+  const hh = Math.max(40, Math.floor((winH - 384) / hours.length));
   const nowH = now.getHours() + now.getMinutes() / 60;
 
   // the picked day: its events, its tasks, and what got done on it
@@ -108,7 +108,7 @@ export default function DeskCalendar() {
     <View style={{ flex: 1 }}>
       <Mica />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
+        <View style={{ flexGrow: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: pad, paddingBottom: 28 }}>
           <DeskHeader title="Calendar" day={sel.getTime()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 10 }}>
               <RoundButton label="‹" said={mode === 'week' ? 'Previous week' : 'Previous month'} onPress={() => step(-1)} />
@@ -126,7 +126,7 @@ export default function DeskCalendar() {
             </View>
           </DeskHeader>
 
-          <View style={{ minHeight: under ? undefined : winH - 124, flexDirection: under ? 'column' : 'row', gap: 20, alignItems: 'stretch' }}>
+          <View style={{ minHeight: under ? undefined : winH - 208, flexDirection: under ? 'column' : 'row', gap: 20, alignItems: 'stretch' }}>
             {mode === 'week' ? (
               <View style={[card, under ? {} : { flex: 1, minWidth: 0, alignSelf: 'flex-start' }]}>
                 <LinearGradient pointerEvents="none" colors={t.surface} style={{ position: 'absolute', inset: 0 }} />
@@ -212,7 +212,7 @@ export default function DeskCalendar() {
                   const cells: (Date | null)[] = [...Array(lead(month)).fill(null), ...Array.from({ length: daysIn(month) }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))];
                   while (cells.length % 7) cells.push(null);
                   const rows = cells.length / 7;
-                  const h = Math.max(88, Math.floor((winH - 160 - 120) / rows));
+                  const h = Math.max(88, Math.floor((winH - 244 - 120) / rows));
                   return (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                       {cells.map((d, i) => (

@@ -13,6 +13,7 @@ import { LabelGlyph } from '../components/LabelIcon';
 import { TodayStack } from '../components/TodayStack';
 import { byPlan, reasonFor } from '../next';
 import { DayPath } from '../components/DayPath';
+import { useArcThings } from '../components/ArcMarks';
 import { TaskSheet } from '../components/TaskSheet';
 import { TaskPeek } from '../components/TaskPeek';
 import { RoomBar } from '../components/RoomBar';
@@ -97,6 +98,14 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const watched = useMemo(() => [...today, ...inbox], [today, inbox]);   // for the slipping check-in
 
   const doneAt = wins.map(w => w.completed_at ?? 0).filter(at => at >= new Date().setHours(0, 0, 0, 0));
+  // what's on the day's path: what's done, what has a time, and the move in front, at now (src/arcMarks.ts)
+  const onArc = useArcThings(held_);
+  const arc = {
+    ...onArc,
+    onStart: (id: string) => { setPickedId(null); focusOn(id); },
+    onOpen: (id: string) => { const x = [...today, ...inbox].find(y => y.id === id); if (x) setPeek(x); },
+    onDay: () => onTab('day'),
+  };
   // the sunrise behind Home: the coral glow climbs and warms as things get done (full by five)
   const sunUp = Math.min(1, doneAt.length / 5);
   const hour = new Date().getHours();
@@ -234,7 +243,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
             </Text>
             <View style={{ flexDirection: 'row', gap: DESK_PAD, marginTop: 32, alignItems: 'flex-start' }}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} />
+                <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={pathH} things={arc} />
                 <HomeAsks taskCount={inbox.length + todayPicked.length} style={{ marginTop: 28 }} />
                 {/* what the planner proposes to change, one at a time (src/interventions.ts) */}
                 <View style={{ marginTop: 20 }}><Suggestions limit={1} /></View>
@@ -280,7 +289,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
           </Text>
         </View>
 
-        <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={compact ? 96 : 118}
+        <DayPath done={doneAt} events={agenda.map(e => e.startsAt)} height={compact ? 96 : 118} things={arc}
           style={{ marginHorizontal: 24, marginTop: compact ? 24 : 20 }} />
 
         {/* someone new: put it all down, let Ra pick one, begin five minutes */}

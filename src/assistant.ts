@@ -112,6 +112,9 @@ function findTime(s: string): TimeFound | null {
     // guessing wrong on a time is worse than being literal — 7 stays 7.
     // Unless the sentence says so: "tonight at 9" is 21:00.
     if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s)) h += 12;
+    // and a bare 1 to 6 is the afternoon: nobody plans the dentist for 3 in the
+    // morning. 7 to 11 stay as said ("gym at 7" is 07:00); "3am" is still 3am.
+    else if (!ap && !m[2] && h >= 1 && h <= 6 && !/\bmorning\b/i.test(s)) h += 12;
     if (h >= 0 && h <= 23) return { h, m: min };
   }
   if (/\b(tonight|this evening)\b/i.test(s)) return { h: 19, m: 0 };
@@ -140,6 +143,31 @@ export interface Draft {
   found: string[];
 }
 
+/* ------------------------------------------------------------------ *
+ *  What was only said on the way to the thing
+ * ------------------------------------------------------------------ */
+
+// "hello", "ok so", "ugh", "hey Nu", "and then": said before the thing itself
+const GREETING = /^(?:hello|hi|hiya|hey|yo|ok(?:ay)?|so|um+|uh+|ugh+|argh+|oh|hmm+|well|right|alright|anyways?|basically|actually|honestly|and|also|then|plus|nu|dear nu)\b[\s,.!:]*/i;
+// "I want to", "can you remind me to", "please", "note to self": the ask, not the thing
+const ASK = /^(?:(?:i|we)\s+(?:really\s+|just\s+|still\s+|also\s+)?(?:want|need|have|would like|'d like|wanna|gotta|got|ought|am going|'m going|plan|hope|wanted|was going|am supposed|'m supposed)\s+to|(?:i|we)(?:'ve|\s+have)\s+got\s+to|(?:i|we)\s+gotta|i'?d\s+(?:really\s+)?(?:like|love)\s+to|i'?m\s+(?:going|trying|planning|hoping)\s+to|i\s+(?:should|must|could)|(?:can|could|will|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+(?:to\s+)?)?|help\s+me\s+(?:to\s+)?|remind\s+me\s+(?:to|that\s+i\s+(?:need|have)\s+to)|(?:don'?t|do\s+not)\s+(?:let\s+me\s+)?forget\s+to|remember\s+to|make\s+sure\s+(?:i|to)|note\s+to\s+self|to\s*-?\s*do\s*:|task\s*:|please|let'?s|my\s+goal\s+is\s+to|the\s+goal\s+is\s+to|(?:it'?s\s+)?time\s+to)\b[\s,:]*/i;
+
+/**
+ * Your words without what was only said on the way to them: "Hello I want
+ * to finish my website" is "finish my website". Every reading starts here
+ * (parseTaskAt, understand, each piece of a run-on sentence), so no way of
+ * putting something down keeps the greeting in the title.
+ */
+export function stripFiller(input: string): string {
+  let s = input.trim().replace(/[‘’]/g, "'");
+  for (let i = 0; i < 8; i++) {
+    const next = s.replace(GREETING, '').replace(ASK, '').trim();
+    if (next === s) break;
+    s = next;
+  }
+  return s.replace(/[.!\s]+$/, '');
+}
+
 /** One argument on purpose: `lines.map(parseTask)` would hand the index in as a clock. */
 export function parseTask(input: string): Draft {
   return parseTaskAt(input, new Date());
@@ -147,7 +175,8 @@ export function parseTask(input: string): Draft {
 
 /** The parser against a given "now", so tests can pin the clock. */
 export function parseTaskAt(input: string, now: Date): Draft {
-  let s = ` ${input.trim()} `;
+  // the greeting and the ask come off first; words that are nothing but filler stay as they are
+  let s = ` ${stripFiller(input) || input.trim()} `;
   const found: string[] = [];
   // what the parser takes out leaves a marker, so the small words that only
   // introduced it ("by friday", "this tuesday", "on the 3rd") can go too
