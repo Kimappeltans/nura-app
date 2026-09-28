@@ -712,12 +712,16 @@ if (bd && window.NuraParser) {
     li.append(chips);
     if (p.phases) {
       const plan = el('div', 'bd-plan'), days = daysFor(p.phases, p.d.due_at);
+      // the first phase shows; the rest folds away behind one button, so the tasks under the project stay in sight
+      const shown = p.phases[0][1].length, fold = p.phases.length > 1 && p.steps.length > shown;
+      const rest = fold ? el('div', 'bd-rest') : null;
       let n = 0;
       p.phases.forEach(([name, steps], i) => {
+        const into = i && rest ? rest : plan, from = i && rest ? shown : 0;
         const head = el('div', 'bd-phase');
         head.append(el('b', '', name));
         if (days[i]) head.append(el('span', '', days[i]));
-        head.style.animationDelay = still ? '0s' : `${0.2 + n * 0.09}s`;
+        head.style.animationDelay = still ? '0s' : `${0.2 + (n - from) * 0.09}s`;
         const ol = el('ol', 'bd-steps');
         steps.forEach(([t, m, items, note]) => {
           const s = el('li', n ? '' : 'first'), top = el('div', 'st');
@@ -725,18 +729,38 @@ if (bd && window.NuraParser) {
           s.append(top);
           if (note) s.append(el('small', '', note));
           if (items) { const ul = el('ul', 'bd-need'); items.forEach(x => ul.append(el('li', '', x))); s.append(ul); }
-          s.style.animationDelay = still ? '0s' : `${0.25 + n * 0.09}s`;
+          s.style.animationDelay = still ? '0s' : `${0.25 + (n - from) * 0.09}s`;
           ol.append(s); n++;
         });
-        plan.append(head, ol);
+        into.append(head, ol);
       });
+      if (rest) {
+        const all = `Show all ${p.steps.length} steps`, few = `Show the first ${shown} only`;
+        const more = el('button', 'bd-more', all);
+        more.type = 'button';
+        rest.id = `bd-rest-${++folds}`;
+        rest.hidden = true;
+        more.setAttribute('aria-expanded', 'false');
+        more.setAttribute('aria-controls', rest.id);
+        more.style.animationDelay = still ? '0s' : `${0.25 + shown * 0.09}s`;
+        more.addEventListener('click', () => {
+          const open = rest.hidden;
+          rest.hidden = !open;
+          more.setAttribute('aria-expanded', String(open));
+          more.textContent = open ? few : all;
+          // folding it back up: keep the project in view rather than leaving you far down the page
+          if (!open && li.getBoundingClientRect().top < 80) li.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+        });
+        plan.append(rest, more);
+        p.shown = shown;
+      }
       li.append(plan);
     }
     p.li = li;
     return li;
   };
 
-  let run = 0;
+  let run = 0, folds = 0;
   const go = async (text, typed) => {
     const me = ++run;
     text = text.trim();
@@ -770,7 +794,7 @@ if (bd && window.NuraParser) {
       if (p.kind === 'feel') continue;
       if (me !== run) return;
       list.append(row(p));
-      await wait(p.steps ? 500 + p.steps.length * 90 : 380);
+      await wait(p.steps ? 500 + (p.shown ?? p.steps.length) * 90 : 380);
     }
     // where to start, in front
     await wait(400);
