@@ -17,7 +17,7 @@ import { Mica, Character } from '../ui';
 import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
-  DeskCard, DeskHeader, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, usePageKeys, useRoom,
+  DeskCard, DeskHeader, DeskRow, AddRow, FocusRing, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, usePageKeys, useRoom,
   COL_NAME, CORAL, sameDay, type Col,
 } from './kit';
 import { reasonFor } from '../next';
@@ -150,6 +150,7 @@ export default function DeskTasks() {
               marginLeft: 10, width: inner < 900 ? 320 : 280, maxWidth: '100%', height: 46, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
               backgroundColor: k.field, borderWidth: 1, borderColor: searching ? t.ink3 : t.stroke,
             }}>
+              <FocusRing on={searching} radius={10} />
               <View {...decorative}>
                 <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={t.ink3} strokeWidth={1.8} strokeLinecap="round">
                   <Circle cx={11} cy={11} r={6.5} /><Path d="m20 20-4.2-4.2" />
