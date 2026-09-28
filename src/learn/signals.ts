@@ -282,7 +282,12 @@ export function profileSummary(p: BehaviorProfile): string {
   if (p.earlyStopRate != null) out.push(`${pct(p.earlyStopRate)} of sessions stopped early.`);
   const off = p.putOffByLabel.filter(l => l.rate > 0).slice(0, 2);
   if (off.length) out.push(`Put off most: ${off.map(l => `${l.label} (${l.rate}/task, ${l.n} tasks)`).join(', ')}.`);
-  if (p.tooBigRate != null) out.push(`Project steps: ${pct(p.tooBigRate)} replanned as too big, ${pct(p.blockedRate ?? 0)} blocked.`);
+  // each only when it's known (and not turned off): a missing one is left out, never said as 0%
+  const steps = [
+    p.tooBigRate != null ? `${pct(p.tooBigRate)} replanned as too big` : null,
+    p.blockedRate != null ? `${pct(p.blockedRate)} blocked` : null,
+  ].filter(Boolean);
+  if (steps.length) out.push(`Project steps: ${steps.join(', ')}.`);
   out.push(`Last 7 days: ${p.captured7} captured, ${p.completed7} done. Something done on ${p.activeDays14} of the last 14 days.`);
   if (p.gapDays >= 3) out.push(`Back after ${p.gapDays} days away.`);
 

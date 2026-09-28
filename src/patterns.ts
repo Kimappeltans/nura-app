@@ -18,7 +18,9 @@ import type { BehaviorProfile } from './learn/types';
  *   capacity        all             minutes you really finish on a day
  *
  * "That's not me" (app/learned.tsx) turns one off: the row and its numbers
- * stay, and currentPatterns() hands it back at confidence 0.
+ * stay, and currentPatterns() hands it back at confidence 0. The switch is a
+ * row here too (kind `off`, scope the pattern's offId, value 1 or 0), so it
+ * syncs with the rest: off on your phone is off on your laptop.
  */
 
 type Row = Omit<PatternRow, 'id' | 'updated_at'>;
@@ -63,16 +65,33 @@ export const offId = (r: Pick<PatternRow, 'kind' | 'scope' | 'value'>) =>
   `${r.kind}.${r.kind === 'best_hour' ? r.value : r.scope}`;
 
 const OFF = 'learned.off.';
+/** A switch, kept as a pattern row so it syncs: scope is the offId, value 1 is off, 0 is back on. */
+export const OFF_KIND = 'off';
+const isSwitch = (r: Pick<PatternRow, 'kind'>) => r.kind === OFF_KIND;
 
-/** Everything turned off, by offId (flags: learned.off.<kind>.<scope>). On this device: flags don't sync. */
+/**
+ * Everything turned off, by offId. The switches are rows that sync; a switch
+ * made before they did was a flag on the one device (learned.off.<offId>),
+ * and still holds until a row says otherwise.
+ */
 export async function turnedOff(): Promise<Set<string>> {
-  const db = await getDb();
-  const rows = await db.getAllAsync<{ k: string }>(`SELECT k FROM app_state WHERE k LIKE ? AND v = '1'`, `${OFF}%`);
-  return new Set(rows.map(r => r.k.slice(OFF.length)));
+  const out = new Set<string>(), said = new Set<string>();
+  for (const r of await getPatterns().catch(() => [] as PatternRow[])) {
+    if (!isSwitch(r)) continue;
+    said.add(r.scope);
+    if (r.value === 1) out.add(r.scope);
+  }
+  try {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ k: string }>(`SELECT k FROM app_state WHERE k LIKE ? AND v = '1'`, `${OFF}%`);
+    for (const f of rows) { const id = f.k.slice(OFF.length); if (!said.has(id)) out.add(id); }
+  } catch { /* the flags are the older way: the rows are enough */ }
+  return out;
 }
 
 /** Turn a pattern off, or back on. Its row is left as it is, so the numbers keep adding up underneath. */
 export async function setOff(r: Pick<PatternRow, 'kind' | 'scope' | 'value'>, off: boolean) {
+  await savePatterns([{ kind: OFF_KIND, scope: offId(r), value: off ? 1 : 0, confidence: 1, sample_count: 0 }]);
   await setFlag(OFF + offId(r), off ? '1' : '0');
 }
 
@@ -93,6 +112,8 @@ export function profileWithout(p: BehaviorProfile, off: Set<string>): BehaviorPr
     estimateRatio: on('estimate_ratio') ? p.estimateRatio : null,
     estimateByLabel: p.estimateByLabel?.filter(l => on('estimate_ratio', l.label)),
     bestHours: p.bestHours.filter(h => on('best_hour', h)),
+    // an hour that isn't you isn't counted in the parts of the day either
+    byHour: p.byHour.map(b => (on('best_hour', b.key) ? b : { ...b, started: 0, completed: 0 })),
     putOffByLabel: p.putOffByLabel.filter(l => on('putoff_rate', l.label)),
     typicalSessionMin: on('session_length') ? p.typicalSessionMin : null,
     earlyStopRate: on('early_stop') ? p.earlyStopRate : null,
@@ -124,14 +145,21 @@ async function upToDate(now: number): Promise<PatternRow[]> {
   try {
     if (now - _last > 5 * 60_000) {
       _last = now;
-      const rows = patternsFrom(await getProfile());
-      const ids = new Set(rows.map(r => `${r.kind}:${r.scope}`));
-      const stale = (await getPatterns()).filter(r => !ids.has(r.id) && r.confidence > 0)
-        .map(r => ({ kind: r.kind, scope: r.scope, value: r.value, confidence: 0, sample_count: r.sample_count }));
-      await savePatterns([...rows, ...stale], now);
+      const profile = await getProfile();
+      // A device with no history of its own (a new phone, just signed in) has nothing to
+      // say about the rows that came with the account: it leaves them as they are. Marking
+      // them stale here would sync back and undo what Nura learned everywhere.
+      if (profile.days > 0) {
+        const rows = patternsFrom(profile);
+        const ids = new Set(rows.map(r => `${r.kind}:${r.scope}`));
+        const stale = (await getPatterns()).filter(r => !isSwitch(r) && !ids.has(r.id) && r.confidence > 0)
+          .map(r => ({ kind: r.kind, scope: r.scope, value: r.value, confidence: 0, sample_count: r.sample_count }));
+        await savePatterns([...rows, ...stale], now);
+      }
     }
   } catch { /* learning is a bonus: without it the planner still ranks */ }
-  return getPatterns().catch(() => []);
+  // the switches are read by turnedOff(): what comes back here is patterns only
+  return (await getPatterns().catch(() => [] as PatternRow[])).filter(r => !isSwitch(r));
 }
 
 /**

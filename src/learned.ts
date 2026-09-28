@@ -9,8 +9,10 @@ import { ENOUGH, TRUSTED, offId, storedPatterns } from './patterns';
  * pattern as one plain fact, what it rests on, and how far along it is.
  *
  *   learning   nothing yet, or too little to say
- *   noticing   a pattern, but not one the planner acts on (under TRUSTED)
- *   learned    the planner uses it
+ *   noticing   a pattern, but not one Nura acts on (under TRUSTED)
+ *   learned    Nura acts on it: the row says whether it shapes your plan
+ *              (what comes next, how long, what a day holds) or only what
+ *              Nura suggests
  *
  * learnedFrom() is the arithmetic and the words, on plain rows, so it can be
  * tested without a database; loadLearned() is the reads that feed it.
@@ -26,6 +28,19 @@ export const STAGE_NAME: Record<Stage, string> = {
   learning: 'Still learning',
   noticing: 'Starting to notice',
   learned: 'Learned',
+};
+
+/**
+ * What acts on a pattern once it's learned. The planner and the day plan read
+ * your pace, your good hours and what a day holds (src/next.ts, src/dayPlan.ts);
+ * the rest reaches only the suggestions and the summary the coach gets.
+ */
+export type Use = 'plan' | 'suggest';
+const PLANS = new Set(['estimate_ratio', 'best_hour', 'capacity']);
+export const useOf = (kind: string): Use => (PLANS.has(kind) ? 'plan' : 'suggest');
+export const USE_NAME: Record<Use, string> = {
+  plan: 'Learned, shapes your plan',
+  suggest: 'Learned, shapes suggestions',
 };
 
 /** How far along a pattern is, from how sure Nura is of it. */
@@ -49,6 +64,8 @@ export interface LearnedRow {
   /** the fact, or what Nura is still learning */
   title: string;
   stage: Stage;
+  /** what it shapes once it's learned */
+  use: Use;
   /** turned off with "That's not me": the numbers go on underneath */
   off: boolean;
   /** what it rests on: "From 8 timed tasks", "2 of 5 timed tasks so far" */
@@ -83,8 +100,6 @@ function minutesSaid(min: number): string {
   if (!h) return some(m, 'minute');
   return rest ? `${some(h, 'hour')} ${some(rest, 'minute')}` : some(h, 'hour');
 }
-
-const timesSaid = (n: number) => (n <= 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
 
 const SHARES = [[1, 10], [1, 5], [1, 4], [1, 3], [2, 5], [1, 2], [3, 5], [2, 3], [3, 4], [4, 5], [9, 10]] as const;
 
@@ -126,12 +141,12 @@ export function learnedFrom(input: {
   const n = (key: string) => seen[key] ?? 0;
 
   const fact = (r: Stored, title: string, one: string, many?: string): LearnedRow => ({
-    key: offId(r), title, stage: stageOf(r.confidence), off: off.has(offId(r)),
+    key: offId(r), title, stage: stageOf(r.confidence), use: useOf(r.kind), off: off.has(offId(r)),
     evidence: restsOn(n(offId(r)), one, many),
     pattern: { kind: r.kind, scope: r.scope, value: r.value },
   });
   const learning = (key: string, title: string, evidence: string | null = null): LearnedRow =>
-    ({ key, title, stage: 'learning', off: false, evidence, pattern: null });
+    ({ key, title, stage: 'learning', use: useOf(key), off: false, evidence, pattern: null });
   const of = (kind: string) => live.filter(r => r.kind === kind);
   const one = (kind: string) => of(kind).find(r => r.scope === 'all');
 
@@ -155,11 +170,12 @@ export function learnedFrom(input: {
   ];
 
   // Starting: the labels that get moved, the most moved first. Under once
-  // in two tasks there's nothing to say about a label.
+  // in two tasks there's nothing to say about a label. Which ones, never how
+  // often: a put-off is not shown as a number (src/next.ts).
   const moved = of('putoff_rate').filter(r => r.value >= 0.5 && labelById(r.scope))
     .sort((a, b) => b.value - a.value).slice(0, 3);
   const starting: LearnedRow[] = moved.length
-    ? moved.map(r => fact(r, `${labelById(r.scope)!.name} tasks get moved about ${timesSaid(Math.round(r.value))} each`, 'task'))
+    ? moved.map(r => fact(r, `${labelById(r.scope)!.name} tasks tend to get moved to later`, 'task'))
     : [learning('putoff_rate', 'What gets moved to later')];
 
   const big = one('too_big'), stuck = one('blocked');
@@ -193,9 +209,12 @@ export function learnedFrom(input: {
   };
 }
 
+/** How far along, in words: Off, or the stage, and once it's learned what it shapes. */
+export const stageSaid = (r: Pick<LearnedRow, 'stage' | 'use' | 'off'>) =>
+  r.off ? 'Off' : r.stage === 'learned' ? USE_NAME[r.use] : STAGE_NAME[r.stage];
+
 /** A row as it's read out: the fact, how far along (or Off), what it rests on. */
-export const rowSaid = (r: LearnedRow) =>
-  [r.title, r.off ? 'Off' : STAGE_NAME[r.stage], r.evidence].filter(Boolean).join(', ');
+export const rowSaid = (r: LearnedRow) => [r.title, stageSaid(r), r.evidence].filter(Boolean).join(', ');
 
 /* ---------------- the database side ---------------- */
 
