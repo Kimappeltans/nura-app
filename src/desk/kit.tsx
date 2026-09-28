@@ -17,6 +17,7 @@ import { poseImage } from '../ui';
 import { Image } from 'react-native';
 import { decorative, announce } from '../a11y';
 import { useDictation } from '../voice';
+import { SwipeRow, doneAction, deleteAction, moveAction } from '../components/SwipeRow';
 import { labelById } from '../labels';
 import { ScreenWidth } from '../screen';
 
@@ -38,6 +39,16 @@ export const day0 = (d: Date | number) => { const x = new Date(d); x.setHours(0,
 export const addDays = (d: Date | number, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 export const sameDay = (a: Date | number | null | undefined, b: Date | number | null | undefined) =>
   a != null && b != null && day0(a).getTime() === day0(b).getTime();
+
+/**
+ * The day a task sits on in a calendar, so every room agrees: done, the day it
+ * was done; put on Today, today (whatever day it's due); else its date.
+ */
+export function calendarDay(x: Task, today: number = Date.now()): number | null {
+  if (x.state === 'done') return x.completed_at ?? x.due_at;
+  if (x.state === 'today' || x.state === 'doing') return today;
+  return x.due_at;
+}
 
 /** "Today", "Tomorrow", a weekday this week, else "Oct 12". */
 export function rel(ms: number | null | undefined) {
@@ -333,7 +344,7 @@ export function TellNuField({ stacked, day }: { stacked?: boolean; day?: number 
         <TextInput ref={input} value={text} onChangeText={setText} onSubmitEditing={send}
           {...({ dataSet: { ownFocus: '1' } } as object)}
           onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-          placeholder={listening ? 'Listening…' : 'Tell Nu anything…'} placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
+          placeholder={listening ? 'Listening…' : stacked ? 'Tell Nu what’s going on…' : 'Tell Nu anything…'} placeholderTextColor={t.ink3} accessibilityLabel="Tell Nu anything"
           onKeyPress={e => { if ((e.nativeEvent as { key: string }).key === 'Escape') { setText(''); if (listening) dict.stop(); input.current?.blur(); } }}
           style={{ flex: 1, minWidth: 0, color: t.ink, fontSize: stacked ? 19 : 17, fontFamily: T.brand, outlineStyle: 'none' } as unknown as TextStyle} />
         {dict.state !== 'unavailable' && (
@@ -453,6 +464,25 @@ export function columns(inbox: Task[], todayPicked: Task[], order: (a: Task, b: 
   };
 }
 
+/** Which of the three a task is in (the same rule as columns()). */
+export function colOf(x: Task): Col {
+  const tonight = new Date().setHours(23, 59, 59, 999);
+  if (x.state === 'today' || x.state === 'doing' || (!!x.due_at && x.due_at <= tonight)) return 'today';
+  if (x.due_at && x.due_at <= tonight + 7 * DAY) return 'week';
+  return 'someday';
+}
+
+/** A task's swipes: right for Done, left for the other two places and Delete (src/components/SwipeRow.tsx). */
+export function taskSwipes(task: Task, col: Col | undefined, dark: boolean, act: { onDone?: () => void; onMove?: (c: Col) => void; onDelete?: () => void }) {
+  const left = act.onDone && task.state !== 'done' ? [doneAction(act.onDone)] : [];
+  const moves = col && act.onMove ? (['today', 'week', 'someday'] as Col[]).filter(c => c !== col) : [];
+  const right = [
+    ...moves.map((c, i) => moveAction(c, COL_NAME[c], () => act.onMove!(c), dark, i === 0)),
+    ...(act.onDelete && task.state !== 'done' ? [deleteAction(act.onDelete)] : []),
+  ];
+  return { left, right };
+}
+
 /** This week's last day, Sunday (a week on, when today is Sunday), at 9 with no time shown. */
 const weekLastDay = () => { const n = new Date().getDay(); return day0(addDays(Date.now(), n === 0 ? 7 : 7 - n)).setHours(9); };
 
@@ -542,18 +572,21 @@ export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHol
   const [checkHover, setCheckHover] = useState(false);
   const done = task.state === 'done';
   const showActs = (hover || selected) && ((!!col && !!onMove) || !!onDelete) && !done;
+  const swipes = taskSwipes(task, col, k.dark, { onDone, onMove, onDelete });
   // its time, when it has one today; else its day
   const due = !task.due_at || hideDue ? ''
     : task.has_time && sameDay(task.due_at, Date.now()) ? new Date(task.due_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase()
     : rel(task.due_at);
   return (
-    // not a button itself: its tick and its moves are buttons inside it (a button can't hold a button)
+    // swipe right for Done, left for the other two places and Delete (and on a trackpad, two fingers)
+    <SwipeRow left={swipes.left} right={swipes.right} style={{ marginHorizontal: -8, borderRadius: 10 }}>
+    {/* not a button itself: its tick and its moves are buttons inside it (a button can't hold a button) */}
     <Pressable onPress={onOpen} onLongPress={onHold} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
       accessibilityLabel={[task.title, meta, due, task.priority === 3 ? 'High priority' : null].filter(Boolean).join(', ')}
       {...({ onContextMenu: (e: { preventDefault: () => void }) => { if (onHold) { e.preventDefault(); onHold(); } } } as object)}
       style={{
         minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6, paddingHorizontal: 8,
-        marginHorizontal: -8, borderRadius: 10,
+        borderRadius: 10,
         backgroundColor: hover || selected ? k.wash : 'transparent',
         borderWidth: 1, borderColor: selected ? t.ra : 'transparent',
       }}>
@@ -587,6 +620,7 @@ export function DeskRow({ task, col, selected, hideDue, ink, meta, onOpen, onHol
         </View>
       )}
     </Pressable>
+    </SwipeRow>
   );
 }
 

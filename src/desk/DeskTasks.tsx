@@ -18,7 +18,7 @@ import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
   DeskCard, DeskHeader, DeskRow, AddRow, FocusRing, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, usePageKeys, useRoom,
-  COL_NAME, CORAL, sameDay, type Col,
+  COL_NAME, CORAL, sameDay, rel, type Col,
 } from './kit';
 import { reasonFor } from '../next';
 
@@ -104,7 +104,11 @@ export default function DeskTasks() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ color: k.raText, fontSize: 13, fontFamily: T.display }}>Nu would start with</Text>
             <Text numberOfLines={1} style={{ color: t.ink, fontSize: 17, fontFamily: T.display, letterSpacing: -0.3, marginTop: 1 }}>{idea.task.title}</Text>
-            {!!ideaWhy && <Text numberOfLines={1} style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand, marginTop: 2 }}>{ideaWhy}</Text>}
+            {!!(ideaWhy || idea.task.due_at) && (
+              <Text numberOfLines={1} style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand, marginTop: 2 }}>
+                {[idea.task.due_at ? `Due ${rel(idea.task.due_at)}` : null, ideaWhy].filter(Boolean).join(' · ')}
+              </Text>
+            )}
           </View>
           <LinkButton label="Add to Today" onPress={() => move(idea.task, 'today')} accessibilityLabel={`Add ${idea.task.title} to Today`} />
         </View>

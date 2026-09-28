@@ -8,7 +8,7 @@ import { raTheme, mixedTheme, utilityTheme, type Theme } from './theme';
 import { TRIALS, type Trial, type SheetTrial } from './themeTrials';
 import { line as rewardLine, rankFor, type Award, type Rank } from './reward';
 import { scheduleSync } from './sync';
-import { plannerState, currentDecision, getNextActions, ruleOf, type PlannerState } from './nextActions';
+import { plannerState, currentDecision, getNextActions, ruleOf, timeLeft, type PlannerState } from './nextActions';
 import type { PlannerDecision } from './next';
 import type { HabitView } from './habits';
 
@@ -59,6 +59,10 @@ interface State {
   nowDecision: PlannerDecision | null;
   /** every live task, ranked by the same planner: Ra's options, the order Home shows */
   decisions: PlannerDecision[];
+  /** minutes left in your day, less what your events still take (the planner's timeLeft) */
+  left: number;
+  /** when `left` was worked out, so a room can keep it current as the minutes pass */
+  leftAt: number;
   crumb: { crumb: db.Crumb; task: db.Task } | null;
   inbox: db.Task[];
   /** Tasks explicitly picked for today (state 'today'/'doing') — a separate
@@ -151,15 +155,15 @@ interface State {
 
 /** The planner's answer for the store: the one thing, why, and every live task ranked. */
 async function planned(given?: { projects?: ProjectSummary[] }): Promise<{
-  now: db.Task | null; nowRule: db.PickRule | null; nowDecision: PlannerDecision | null; decisions: PlannerDecision[];
+  now: db.Task | null; nowRule: db.PickRule | null; nowDecision: PlannerDecision | null; decisions: PlannerDecision[]; left: number; leftAt: number;
 }> {
   const s: PlannerState = await plannerState(given);
   const [d, decisions] = await Promise.all([currentDecision(s), getNextActions('all', [], s)]);
-  return { now: d?.task ?? null, nowRule: ruleOf(d, s.ctx.pinId), nowDecision: d, decisions };
+  return { now: d?.task ?? null, nowRule: ruleOf(d, s.ctx.pinId), nowDecision: d, decisions, left: timeLeft(s), leftAt: s.ctx.now };
 }
 
 export const useStore = create<State>((set, get) => ({
-  mode: 'nu', energy: 'steady', now: null, nowRule: null, nowDecision: null, decisions: [], crumb: null,
+  mode: 'nu', energy: 'steady', now: null, nowRule: null, nowDecision: null, decisions: [], left: 0, leftAt: 0, crumb: null,
   inbox: [], todayPicked: [], projects: [], moveIds: [], habits: [], wins: [], total: 0, light: 0, today: 0, momentum: 0, grid: [],
   onboarded: null, nextEvent: null, agenda: [], celebration: null, toast: null,
   profile: { name: '', tagline: '', pronouns: '', avatar: '' },

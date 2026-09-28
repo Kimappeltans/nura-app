@@ -1,46 +1,58 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useStore, useTheme } from '../store';
-import type { Task } from '../db';
+import { passOn, pickForToday, updateTask, type Task } from '../db';
 import { type as T } from '../theme';
 import { Mica, poseImage } from '../ui';
-import { DotMatrix } from '../components/DotMatrix';
 import { TaskPeek } from '../components/TaskPeek';
 import { TaskSheet } from '../components/TaskSheet';
+import { ActionSheet, type SheetAction } from '../components/ActionSheet';
 import { Suggestions } from '../components/Suggestions';
 import { HomeAsks } from '../components/HomeAsks';
-import { byPlan, reasonFor } from '../next';
+import { NuGlow } from '../components/NuGlow';
+import { byPlan, DEFAULT_MINUTES } from '../next';
 import { byPriority } from '../screens/Home';
 import type { Tab } from '../components/TabBar';
 import { useTaskActions } from '../useTaskActions';
-import { decorative } from '../a11y';
+import { announce, decorative } from '../a11y';
 import {
-  DeskCard, TellNuField, DeskRow, AddRow, Label, LinkButton, Empty, Key, columns, moveTo, addTo, deleteTask, useDeskTokens, useDeskState, useRoom,
-  day0, addDays, sameDay, WD, WDL, MO, CORAL, ON_CORAL,
+  DeskCard, TellNuField, Label, LinkButton, columns, deleteTask, useDeskTokens, useRoom,
+  day0, addDays, WDL, MO, CORAL, ON_CORAL,
 } from './kit';
-import { DayArc } from './DayArc';
-import { useNow, useRange } from './useRange';
+import { useNow } from './useRange';
 import { backToSession } from '../nav';
 
 /**
- * HOME, ON THE DESKTOP. The day at full size on the left: the time, how much
- * of the day is left, the sun's arc and what's been done. Beside it, Today
- * (or tomorrow, once the day is over) and Begin, the one way into Focus.
- * Under both, the next seven days; a day opens the Calendar on it.
+ * HOME, ON THE DESKTOP: what Nura figured out, not a dashboard (Kim, 28
+ * September). Tell Nu across the top, for whatever's going on. Under it the
+ * one thing at full size: your next move, how long it will really take you,
+ * the planner's facts for why this one, and Start, Not now or Something
+ * changed. Beside it, your day: the time you actually have left, what Today
+ * holds, and what Nu suggests changing (one tap, with Undo). Under the move,
+ * what comes after it. The clock, the counts and the week live in the
+ * Calendar now; the sun's glow still rises behind the room as things get
+ * done (Mica).
  */
 export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const t = useTheme();
   const k = useDeskTokens();
-  const { width: winW, height: winH } = useWindowDimensions();
-  const { pad } = useRoom();
+  const { pad, inner } = useRoom();
   const now = useNow();
-  const { inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, toRa, profile, dayStartMin, dayEndMin } = useStore();
+  const {
+    inbox, todayPicked, wins, decisions, now: pick0, nowDecision, focusOn, profile, projects,
+    dayStartMin, dayEndMin, left: leftThen, leftAt, refresh, showToast,
+  } = useStore();
+  // the time left as of the last refresh, less the minutes since (the clock moves every half minute)
+  const left = Math.max(0, leftThen - Math.max(0, (now.getTime() - leftAt) / 60_000));
   const session = useStore(s => s.session);
   const running = useStore(s => s.running);
   const { tick } = useTaskActions();
   const [peek, setPeek] = useState<Task | null>(null);
   const [held, setHeld] = useState<Task | null>(null);
+  const [changing, setChanging] = useState(false);
 
   const order = useMemo(() => byPlan(decisions, byPriority), [decisions]);
   const cols = useMemo(() => columns(inbox, todayPicked, order), [inbox, todayPicked, order]);
@@ -53,195 +65,282 @@ export default function DeskHome({ onTab }: { onTab: (t: Tab) => void }) {
   const accountName = (session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name) as string | undefined;
   const first = (profile.name || accountName || '').trim().split(' ')[0];
   const by = first ? `, ${first}` : '';
-  const startClock = `${Math.floor(dayStartMin / 60) % 12 || 12}:${String(dayStartMin % 60).padStart(2, '0')}`;
-  const [line1, line2] = (() => {
-    if (phase === 'night') return [`Your day is done${by}.`, 'Anything now is extra.'];
-    if (phase === 'early') return [`Morning${by}.`, `Your day starts at ${startClock}.`];
-    const hi = now.getHours();
-    const g = hi < 12 ? 'Morning' : hi < 17 ? 'Afternoon' : 'Evening';
-    return [`${g}${by}.`, ''];
-  })();
+  const hi = now.getHours();
+  const greeting = phase === 'night' ? `Your day is done${by}.` : `${hi < 12 ? 'Good morning' : hi < 17 ? 'Good afternoon' : 'Good evening'}${by}.`;
 
-  // what the right-hand card holds: today, or once the day is over, the next one
-  const focusDay = phase === 'night' && m >= dayStartMin ? addDays(day0(now), 1) : day0(now);
-  const isToday = sameDay(focusDay, now);
-  const todayStart = day0(now).getTime();
-  const doneToday = useMemo(() => wins.filter(w => (w.completed_at ?? 0) >= todayStart), [wins, todayStart]);
-  const focus = useMemo(() => {
-    if (isToday) return cols.today;
-    return [...cols.today, ...cols.week].filter(x => sameDay(x.due_at, focusDay));
-  }, [cols, isToday, focusDay]);
-  const later = cols.week.filter(x => !focus.includes(x));
+  // the one thing: what you put first on Today (or chose), else the planner's first of everything
+  const front = pick0 ?? decisions[0]?.task ?? null;
+  const frontD = front ? (nowDecision?.taskId === front.id ? nowDecision : decisions.find(d => d.taskId === front.id) ?? null) : null;
+  const minutes = frontD?.suggestedMinutes ?? front?.est_minutes ?? null;
+  // the facts that say most first: a day, a priority, a project; "fits before" last
+  const telling = (fs: string[]) => [...fs.filter(f => !f.startsWith('Fits')), ...fs.filter(f => f.startsWith('Fits'))];
+  const facts = telling(frontD?.facts ?? []).slice(0, 3);
+  const move = front ? projects.find(p => p.current?.task_id === front.id) ?? null : null;
+  // after it: the rest of Today first, then everything else, each in the planner's order
+  const onToday = new Set(cols.today.map(x => x.id));
+  const queue = decisions.filter(d => d.taskId !== front?.id);
+  const after = [...queue.filter(d => onToday.has(d.taskId)), ...queue.filter(d => !onToday.has(d.taskId))].slice(0, 3);
+  const more = Math.max(0, queue.length - after.length);
 
-  // the one in front: today's, else the one the planner would start with from everything else
-  const today0 = pick0 ?? cols.today[0] ?? null;
-  const pick = today0 ?? decisions.find(d => d.task.state !== 'done')?.task ?? null;
-  const suggested = !today0 && !!pick;
-  const fact = pick ? reasonFor(decisions, pick.id, nowDecision) : null;
+  // your day: the time you really have, and what Today holds
+  const minsOf = (x: Task) => decisions.find(d => d.taskId === x.id)?.suggestedMinutes ?? x.est_minutes ?? DEFAULT_MINUTES;
+  const todayMins = cols.today.reduce((a, x) => a + minsOf(x), 0);
+  const doneToday = wins.filter(w => (w.completed_at ?? 0) >= day0(now).getTime()).length;
+  const sunUp = Math.min(1, doneToday / 5);
 
-  // the next seven days, with what's on each
-  const from = day0(now).getTime();
-  const { tasks: dated, events } = useRange(from, from + 7 * 86400_000);
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = addDays(from, i);
-    const ts = dated.filter(x => sameDay(x.due_at, d) && x.state !== 'done');
-    const extra = i === 0 ? cols.today.filter(x => !ts.some(y => y.id === x.id)) : [];
-    const es = events.filter(e => sameDay(e.startsAt, d));
-    return { d, items: [...es.map(e => ({ id: `e${e.id}`, title: e.title, event: true })), ...[...extra, ...ts].map(x => ({ id: x.id, title: x.title, event: false }))] };
-  });
-  const openDay = (d: Date) => {
-    useDeskState.setState({ calMode: 'week', calOff: 0, calDay: d.getTime() });
-    onTab('day');
+  // Not now: out of the running for today, and the next one comes up
+  const notNow = async () => {
+    if (!front) return;
+    await passOn(front.id);
+    await refresh();
+    announce('Not now. The next one is up.');
   };
+  const tomorrow = async (x: Task) => {
+    const was = { due_at: x.due_at, has_time: x.has_time, state: x.state };
+    if (x.state === 'today' || x.state === 'doing') await pickForToday(x.id, false);
+    await updateTask(x.id, { due_at: addDays(day0(Date.now()), 1).setHours(9), has_time: 0 });
+    await refresh();
+    showToast(`Moved to tomorrow: ${x.title}`, async () => {
+      await updateTask(x.id, { due_at: was.due_at, has_time: was.has_time });
+      if (was.state === 'today' || was.state === 'doing') await pickForToday(x.id, true);
+      await refresh();
+    });
+  };
+  const openMove = () => move && router.push({ pathname: '/project/[id]', params: { id: move.project.id } });
+  const changed: SheetAction[] = front ? [
+    move
+      ? { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu finds a smaller way in', onPress: openMove }
+      : { key: 'bigger', glyph: '↘', label: 'It’s bigger than I thought', sub: 'Nu plans it as steps', onPress: () => router.push({ pathname: '/project/new', params: { goal: front.title, auto: '1' } }) },
+    move
+      ? { key: 'stuck', glyph: '⤳', label: 'I’m stuck or waiting on someone', sub: 'Nu finds a way around', onPress: openMove }
+      : { key: 'stuck', glyph: '⤳', label: 'I’m stuck or waiting on someone', sub: 'Out of the way until tomorrow', onPress: () => tomorrow(front) },
+    { key: 'tomorrow', glyph: '→', label: 'Not today', sub: 'Moves it to tomorrow', onPress: () => tomorrow(front) },
+    { key: 'done', glyph: '✓', label: 'Already done', onPress: () => tick(front.id) },
+    { key: 'drop', glyph: '×', label: 'Not needed any more', tone: 'quiet', onPress: () => deleteTask(front) },
+  ] : [];
 
-  const head = Math.round(Math.max(36, Math.min(56, winW * 0.034, winH * 0.06)));
-  // the arc takes whatever height the card has left, so the whole room fits the window
-  const [arcBox, setArcBox] = useState(0);
-  const arcH = Math.max(90, arcBox - 62);
-  const sunUp = Math.min(1, doneToday.length / 5);
-  const row = (x: Task, col?: 'today' | 'week') => (
-    <DeskRow key={x.id} task={x} col={col} hideDue={!col || (col === 'today' && !x.has_time && sameDay(x.due_at, Date.now()))} onOpen={() => setPeek(x)} onHold={() => setHeld(x)}
-      onDone={() => tick(x.id)} onMove={c => moveTo(x, c)} onDelete={x.state !== 'done' ? () => deleteTask(x) : undefined} />
-  );
-  // no header: Home is one screen, the next seven days included; a short window scrolls
-  const PAD = 28;
+  // the move and your day side by side when there's room; one column when not
+  const side = inner >= 900;
 
   return (
     <View style={{ flex: 1 }}>
       <Mica sunProgress={sunUp} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ height: Math.max(640, winH), width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: pad, paddingVertical: PAD, gap: 20 }}>
-            {/* Tell Nu, across the top: the first place to put something down */}
-            <View style={{ zIndex: 10 }}><TellNuField stacked /></View>
-            <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: 20 }}>
-              {/* the day, at full size */}
-              <DeskCard style={{ flex: 7, minWidth: 0, paddingTop: 26, paddingHorizontal: 38, paddingBottom: 20, overflow: 'hidden' }}>
-                <Text accessibilityRole="header" style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand, marginBottom: 14 }}>
-                  {WDL[now.getDay()]}, {MO[now.getMonth()]} {now.getDate()}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16 }}>
-                  <DotMatrix text={`${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`} dot={8} color={t.ink}
-                    label={now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} />
-                  <Text {...decorative} style={{ color: t.ink3, fontSize: 18, fontFamily: T.brand }}>{now.getHours() < 12 ? 'am' : 'pm'}</Text>
-                </View>
-                <Text accessibilityRole="header" style={{ color: t.ink, fontSize: head, lineHeight: Math.round(head * 1.08), letterSpacing: -2, fontFamily: T.display }}>
-                  {line1}{!!line2 && <Text style={{ color: t.mute ?? t.ink3 }}>{'\n'}{line2}</Text>}
-                </Text>
-                {/* the arc fills what's left, and never holds the card open itself */}
-                <View style={{ flex: 1, minHeight: 150 }} onLayout={e => setArcBox(Math.round(e.nativeEvent.layout.height - 24))}>
-                  {arcBox > 0 && (
-                    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
-                      <DayArc now={now} height={arcH} done={doneToday.map(w => w.completed_at ?? 0)} />
+        <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: pad, paddingTop: 28, paddingBottom: 36, gap: 22 }}>
+          {/* Tell Nu, across the top: whatever's going on, in any order */}
+          <View style={{ zIndex: 10 }}><TellNuField stacked /></View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 14, rowGap: 4 }}>
+            <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, letterSpacing: -1, fontFamily: T.display }}>{greeting}</Text>
+            <Text style={{ color: t.ink3, fontSize: 16, fontFamily: T.brand }}>
+              {WDL[now.getDay()]}, {MO[now.getMonth()]} {now.getDate()}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: side ? 'row' : 'column', gap: 20, alignItems: side ? 'flex-start' : 'stretch' }}>
+            <View style={{ flex: side ? 3 : undefined, minWidth: 0, gap: 20 }}>
+              {/* the one thing, at full size */}
+              {phase === 'night' ? (
+                <Resting first={decisions[0]?.task ?? null} />
+              ) : !front ? (
+                <Start />
+              ) : (
+                <DeskCard style={{ paddingTop: 26, paddingHorizontal: 30, paddingBottom: 26, overflow: 'hidden' }}>
+                  {/* Ra, the one thing you're doing, with the sun's glow behind */}
+                  <View {...decorative} pointerEvents="none" style={{ position: 'absolute', right: -80, top: -90, width: 320, height: 320 }}>
+                    <Svg width={320} height={320}>
+                      <Defs>
+                        <RadialGradient id="raGlow" cx="50%" cy="50%" r="50%">
+                          <Stop offset="0" stopColor="#FFB067" stopOpacity={0.42} />
+                          <Stop offset="0.45" stopColor="#FF8A5C" stopOpacity={0.16} />
+                          <Stop offset="1" stopColor="#FF6B35" stopOpacity={0} />
+                        </RadialGradient>
+                      </Defs>
+                      <Circle cx={160} cy={160} r={160} fill="url(#raGlow)" />
+                    </Svg>
+                  </View>
+                  <Image {...decorative} source={poseImage('ra-hello')} resizeMode="contain"
+                    style={{ position: 'absolute', right: 24, top: 20, width: 92, height: 92 }} />
+
+                  <Text style={{ color: k.raText, fontSize: 13, letterSpacing: 1.4, fontFamily: T.display, textTransform: 'uppercase' }}>Your next move</Text>
+                  <Text accessibilityRole="header" numberOfLines={3}
+                    style={{ color: t.ink, fontSize: 36, lineHeight: 41, letterSpacing: -1.4, fontFamily: T.display, marginTop: 10, marginRight: 116 }}>
+                    {front.title}
+                  </Text>
+                  {!!(minutes || move) && (
+                    <Text style={{ color: t.ink2, fontSize: 17, fontFamily: T.brand, marginTop: 8 }}>
+                      {[minutes ? `About ${fmtMins(minutes)}` : null, move ? move.project.title : null].filter(Boolean).join(' · ')}
+                    </Text>
+                  )}
+                  {facts.length > 0 && (
+                    <View accessible accessibilityLabel={`Why this one: ${facts.join(', ')}`} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+                      {facts.map(f => (
+                        <View key={f} style={{ borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: k.wash }}>
+                          <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{f}</Text>
+                        </View>
+                      ))}
                     </View>
                   )}
-                </View>
-                <View style={{ flexDirection: 'row', marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: t.stroke }}>
-                  <Stat n={doneToday.length} label="done today" />
-                  <Stat n={cols.week.length} label="this week" />
-                  <Stat n={cols.someday.length} label="someday" />
-                </View>
-              </DeskCard>
-
-              <View style={{ flex: 5, minWidth: 0, gap: 16 }}>
-                {/* a short window, or a long day: Today scrolls on its own; Begin and the week stay in view */}
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, gap: 16 }} showsVerticalScrollIndicator={false}>
-                {/* today, or tomorrow once the day is over */}
-                <DeskCard style={{ flexGrow: 1, paddingBottom: 8 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, minHeight: 24 }}>
-                    <Label>{phase !== 'night' ? 'Today' : isToday ? `Up next · ${WDL[focusDay.getDay()]}` : `Tomorrow · ${WDL[focusDay.getDay()]}`}</Label>
-                    <Text style={{ color: t.ink3, fontSize: 14.5, fontFamily: T.brand }}>{MO[focusDay.getMonth()].slice(0, 3)} {focusDay.getDate()}</Text>
-                  </View>
-                  <View>
-                    {focus.map(x => row(x, isToday ? 'today' : undefined))}
-                    {isToday && doneToday.map(x => row(x))}
-                    {!focus.length && !(isToday && doneToday.length) && <Empty>Nothing planned for {isToday ? 'today' : 'tomorrow'} yet.</Empty>}
-                    <AddRow placeholder={isToday ? 'Add for today…' : 'Add for tomorrow…'}
-                      onAdd={v => addTo(v, isToday ? 'today' : { day: focusDay.getTime() })} />
-                    {later.length > 0 && (
-                      <>
-                        <Label color={t.mute ?? t.ink3} style={{ marginTop: 18, marginBottom: 2 }}>Later this week</Label>
-                        {later.map(x => row(x, 'week'))}
-                      </>
-                    )}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 24 }}>
+                    {running && running.id === front.id
+                      ? <StartButton text="Back to it" label={`Back to ${front.title}`} onPress={() => backToSession(running)} />
+                      : <StartButton text="Start" label={`Start ${front.title}`} onPress={() => focusOn(front.id)} />}
+                    <QuietButton label="Not now" onPress={notNow} />
+                    <QuietButton label="Something changed" onPress={() => setChanging(true)} />
                   </View>
                 </DeskCard>
+              )}
 
-                {/* what Nu asks, or what the planner proposes to change: one at a time, only when there is one */}
-                <HomeAsks taskCount={inbox.length + todayPicked.length} />
-                <Suggestions limit={1} />
-                </ScrollView>
-
-                {phase !== 'night' ? (
-                  <DeskCard style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 12, paddingVertical: 16, paddingHorizontal: 22 }}>
-                    <View style={{ flexGrow: 1, flexBasis: 180, minWidth: 0 }}>
-                      <Text style={{ color: suggested ? k.raText : t.ink3, fontSize: 13.5, fontFamily: T.display, marginBottom: 2 }}>
-                        {!pick ? 'Ready for one thing?' : suggested ? 'Nu would start with' : 'Up next'}
-                      </Text>
-                      {!!pick && (
-                        <Text numberOfLines={2} style={{ color: t.ink, fontSize: 19, lineHeight: 24, fontFamily: T.display, letterSpacing: -0.3 }}>{pick.title}</Text>
-                      )}
-                      {!!fact && <Text numberOfLines={2} style={{ color: t.ink2, fontSize: 14, lineHeight: 19, fontFamily: T.brand, marginTop: 3 }}>{fact}</Text>}
-                      {!pick && <Text style={{ color: t.ink2, fontSize: 14.5, lineHeight: 20, fontFamily: T.brand }}>Tell Nu what's on your mind, and Nu picks where to start.</Text>}
-                    </View>
-                    {running && pick && running.id === pick.id
-                      ? <BeginButton text="Back to it" label={`Back to ${pick.title}`} onPress={() => backToSession(running)} />
-                      : <BeginButton label={pick ? `Begin ${pick.title}` : 'Begin'} onPress={() => (pick ? focusOn(pick.id) : toRa())} />}
-                  </DeskCard>
-                ) : (
-                  <DeskCard style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingVertical: 14, paddingHorizontal: 22 }}>
-                    <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 110, height: 86 }} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{ color: t.ink, fontSize: 19, fontFamily: T.display, marginBottom: 3 }}>Nu is resting.</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 23, fontFamily: T.brand }}>Something on your mind? Press </Text>
-                        <Key k="N" />
-                        <Text style={{ color: t.ink2, fontSize: 15.5, lineHeight: 23, fontFamily: T.brand }}> and tell Nu before you sleep.</Text>
-                      </View>
-                    </View>
-                  </DeskCard>
-                )}
-              </View>
+              {/* what comes after it, in the planner's order */}
+              {phase !== 'night' && after.length > 0 && (
+                <DeskCard style={{ paddingVertical: 18, paddingHorizontal: 24 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Label>After that</Label>
+                    <LinkButton label={more ? `All tasks · ${more} more ›` : 'All tasks ›'} accessibilityLabel="All tasks" onPress={() => onTab('tasks')} />
+                  </View>
+                  {after.map((d, i) => (
+                    <AfterRow key={d.taskId} n={i + 2} task={d.task} minutes={d.suggestedMinutes ?? d.task.est_minutes}
+                      fact={onToday.has(d.taskId) ? ['On Today', ...d.facts.filter(f => !f.startsWith('Fits'))].slice(0, 2).join(' · ') : d.facts.find(f => !f.startsWith('Fits')) ?? null}
+                      onPress={() => setPeek(d.task)} onHold={() => setHeld(d.task)} />
+                  ))}
+                </DeskCard>
+              )}
             </View>
 
-            {/* the next seven days, always in view */}
-            <DeskCard style={{ paddingVertical: 16, paddingHorizontal: 20 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <Label>Next 7 days</Label>
-                <LinkButton label="Open calendar →" accessibilityLabel="Open calendar" onPress={() => onTab('day')} />
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {days.map(({ d, items }, i) => (
-                  <DayCell key={i} d={d} today={i === 0} items={items} onPress={() => openDay(d)} />
-                ))}
-              </View>
-            </DeskCard>
+            {/* your day: the time you have, what Today holds, and what Nu would change */}
+            <View style={{ flex: side ? 2 : undefined, minWidth: 0, gap: 16 }}>
+              <DeskCard style={{ paddingVertical: 20, paddingHorizontal: 24 }}>
+                <Label>Your day</Label>
+                <Text style={{ color: t.ink, fontSize: 32, letterSpacing: -1, fontFamily: T.display, marginTop: 10 }}>
+                  {phase === 'day' ? fmtMins(left) : phase === 'early' ? clockOf(dayStartMin) : 'Done'}
+                </Text>
+                <Text style={{ color: t.ink3, fontSize: 15, fontFamily: T.brand }}>
+                  {phase === 'day' ? 'left today, around your events' : phase === 'early' ? 'is when your day starts' : 'Anything now is extra.'}
+                </Text>
+                {phase === 'day' && left > 0 && todayMins > 0 && (
+                  <View {...decorative} style={{ height: 6, borderRadius: 3, backgroundColor: k.wash, marginTop: 14, overflow: 'hidden' }}>
+                    <LinearGradient colors={['#FF6B35', '#FFA05C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={{ height: 6, width: `${Math.min(100, Math.round((todayMins / left) * 100))}%`, borderRadius: 3 }} />
+                  </View>
+                )}
+                <View style={{ marginTop: 14, gap: 4 }}>
+                  <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>
+                    {cols.today.length
+                      ? `Today holds ${cols.today.length === 1 ? '1 thing' : `${cols.today.length} things`}, about ${fmtMins(todayMins)}.`
+                      : 'Nothing on Today yet.'}
+                  </Text>
+                  {doneToday > 0 && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{doneToday} done today.</Text>}
+                </View>
+              </DeskCard>
+              {/* what Nu asks, or what the planner proposes to change: one tap, with Undo */}
+              <HomeAsks taskCount={inbox.length + todayPicked.length} />
+              <Suggestions limit={2} />
+            </View>
+          </View>
         </View>
       </ScrollView>
 
       <TaskPeek task={peek} onClose={() => setPeek(null)} onMore={x => setTimeout(() => setHeld(x), 350)} />
       <TaskSheet task={held} onClose={() => setHeld(null)} />
+      <ActionSheet visible={changing} title={front ? `What changed about “${front.title}”?` : ''} actions={changed}
+        dismissLabel="Nothing, keep it" onDismiss={() => setChanging(false)} />
     </View>
   );
 }
 
-function Stat({ n, label }: { n: number; label: string }) {
+/** "25 min", "1 h 5 min", "2 h". */
+function fmtMins(n: number) {
+  const m = Math.max(0, Math.round(n));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+function clockOf(min: number) {
+  return `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, '0')}`;
+}
+
+/** Nothing held yet: say what's going on, and Nu sorts it and picks where to start. */
+function Start() {
+  const t = useTheme();
+  const k = useDeskTokens();
+  const TRY = ['finish the site, call the dentist tue 3pm, send Sarah the deck', 'launch my website', 'pay rent friday 10 min'];
+  return (
+    <DeskCard style={{ paddingVertical: 28, paddingHorizontal: 30, flexDirection: 'row', gap: 24, alignItems: 'center' }}>
+      <View {...decorative}><NuGlow size={110}><Image source={poseImage('nu-listen')} resizeMode="contain" style={{ width: 110, height: 110 }} /></NuGlow></View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 30, letterSpacing: -1, fontFamily: T.display }}>What’s going on?</Text>
+        <Text style={{ color: t.ink2, fontSize: 16.5, lineHeight: 24, fontFamily: T.brand, marginTop: 8 }}>
+          Tell Nu everything on your mind, in any order. Nu turns it into tasks, plans the big ones, and picks where you start.
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+          {TRY.map(x => (
+            <Pressable key={x} onPress={() => useStore.setState({ telling: true, tellDraft: x })} accessibilityRole="button" accessibilityLabel={`Try: ${x}`}
+              style={(s) => {
+                const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+                return { borderRadius: 999, borderWidth: 1, borderColor: t.strokeStrong, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: pressed || hovered ? k.wash : 'transparent' };
+              }}>
+              <Text style={{ color: t.ink2, fontSize: 14, fontFamily: T.brand }}>{x}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </DeskCard>
+  );
+}
+
+/** After your day's end: Nu resting, and what tomorrow starts with. */
+function Resting({ first }: { first: Task | null }) {
   const t = useTheme();
   return (
-    <View style={{ flex: 1 }} accessible accessibilityLabel={`${n} ${label}`}>
-      <Text style={{ color: t.ink, fontSize: 30, letterSpacing: -0.6, fontFamily: T.display }}>{n}</Text>
-      <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand }}>{label}</Text>
-    </View>
+    <DeskCard style={{ paddingVertical: 24, paddingHorizontal: 28, flexDirection: 'row', gap: 22, alignItems: 'center' }}>
+      <Image {...decorative} source={poseImage('nu-rest')} resizeMode="contain" style={{ width: 120, height: 94 }} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ color: t.ink, fontSize: 24, letterSpacing: -0.6, fontFamily: T.display }}>Nu is resting.</Text>
+        <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23, fontFamily: T.brand, marginTop: 4 }}>
+          {first ? `Tomorrow starts with “${first.title}”.` : 'Something on your mind? Tell Nu before you sleep.'}
+        </Text>
+      </View>
+    </DeskCard>
   );
 }
 
-/** Begin: the one coral thing on Home, with the sun's glow under it. */
-function BeginButton({ label, onPress, text = 'Begin' }: { label: string; onPress: () => void; text?: string }) {
+/** Next in line: its place, its name, the planner's first fact, and how long. */
+function AfterRow({ n, task, minutes, fact, onPress, onHold }: {
+  n: number; task: Task; minutes: number | null; fact: string | null; onPress: () => void; onHold: () => void;
+}) {
+  const t = useTheme();
+  const k = useDeskTokens();
+  return (
+    <Pressable onPress={onPress} onLongPress={onHold}
+      {...({ onContextMenu: (e: { preventDefault: () => void }) => { e.preventDefault(); onHold(); } } as object)}
+      accessibilityRole="button" accessibilityLabel={[task.title, fact, minutes ? fmtMins(minutes) : null].filter(Boolean).join(', ')}
+      style={(s) => {
+        const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+        return {
+          minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 8, marginHorizontal: -8, borderRadius: 10,
+          backgroundColor: pressed || hovered ? k.wash : 'transparent',
+        };
+      }}>
+      <View {...decorative} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: t.strokeStrong, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.display }}>{n}</Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: t.ink, fontSize: 16.5, fontFamily: T.brand, letterSpacing: -0.2 }}>{task.title}</Text>
+        {!!fact && <Text numberOfLines={1} style={{ color: t.ink3, fontSize: 13.5, fontFamily: T.brand, marginTop: 1 }}>{fact}</Text>}
+      </View>
+      {!!minutes && <Text style={{ color: t.ink2, fontSize: 15, fontFamily: T.brand }}>{fmtMins(minutes)}</Text>}
+    </Pressable>
+  );
+}
+
+/** Start: the one coral thing on Home, with the sun's glow under it. */
+function StartButton({ label, onPress, text }: { label: string; onPress: () => void; text: string }) {
   const [hover, setHover] = useState(false);
   return (
     <Pressable onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
       accessibilityRole="button" accessibilityLabel={label}
       style={({ pressed }) => ({
-        height: 50, paddingHorizontal: 30, borderRadius: 25, justifyContent: 'center', overflow: 'hidden',
+        height: 52, paddingHorizontal: 34, borderRadius: 26, justifyContent: 'center', overflow: 'hidden',
         shadowColor: CORAL, shadowOpacity: 0.28, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
         transform: [{ scale: pressed ? 0.97 : 1 }], opacity: hover ? 0.94 : 1,
       })}>
@@ -251,36 +350,29 @@ function BeginButton({ label, onPress, text = 'Begin' }: { label: string; onPres
   );
 }
 
-function DayCell({ d, today, items, onPress }: {
-  d: Date; today: boolean; items: { id: string; title: string; event: boolean }[]; onPress: () => void;
-}) {
+function QuietButton({ label, onPress }: { label: string; onPress: () => void }) {
   const t = useTheme();
   const k = useDeskTokens();
-  const [hover, setHover] = useState(false);
   return (
-    <Pressable onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
-      accessibilityRole="button"
-      accessibilityLabel={`${today ? 'Today' : WDL[d.getDay()]} ${d.getDate()}, ${items.length ? `${items.length} planned` : 'free'}`}
-      style={{
-        flex: 1, minWidth: 0, minHeight: 100, borderRadius: 14, borderWidth: 1, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, gap: 4,
-        borderColor: today ? t.ra : hover ? t.strokeStrong : t.stroke, backgroundColor: hover ? k.pick : k.wash,
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      style={(s) => {
+        const { pressed, hovered } = s as { pressed: boolean; hovered?: boolean };
+        return { height: 52, paddingHorizontal: 22, borderRadius: 26, justifyContent: 'center', borderWidth: 1, borderColor: t.strokeStrong, backgroundColor: pressed || hovered ? k.wash : 'transparent' };
       }}>
-      <Text style={{ color: today ? k.raText : t.ink3, fontSize: 12, letterSpacing: 1.2, fontFamily: T.display, textTransform: 'uppercase' }}>{today ? 'Today' : WD[d.getDay()]}</Text>
-      <Text style={{ color: t.ink, fontSize: 24, letterSpacing: -0.4, fontFamily: T.display, marginBottom: 2 }}>{d.getDate()}</Text>
-      {items.slice(0, 2).map(x => <Chip key={x.id} title={x.title} event={x.event} />)}
-      {items.length > 2 && <Text style={{ color: t.ink3, fontSize: 14, fontFamily: T.brand }}>+{items.length - 2} more</Text>}
-      {!items.length && <Text style={{ color: t.mute ?? t.ink3, fontSize: 14, fontFamily: T.brand, marginTop: 'auto' }}>Free</Text>}
+      <Text style={{ color: t.ink, fontSize: 16, fontFamily: T.brand }}>{label}</Text>
     </Pressable>
   );
 }
 
-/** A task (coral) or a calendar event (ink) on a day. */
-export function Chip({ title, event }: { title: string; event?: boolean }) {
+/** A task (coral) or a calendar event (ink) on a day; a done task ticked, struck through and quiet. */
+export function Chip({ title, event, done }: { title: string; event?: boolean; done?: boolean }) {
   const t = useTheme();
   const k = useDeskTokens();
   return (
-    <View style={{ borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: event ? k.pick : t.raWash }}>
-      <Text numberOfLines={1} style={{ color: event ? t.ink : k.raText, fontSize: 13.5, fontFamily: T.brand }}>{title}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: event ? k.pick : done ? k.wash : t.raWash }}>
+      {done && <Text {...decorative} style={{ color: t.ink3, fontSize: 12, fontFamily: T.display }}>✓</Text>}
+      <Text numberOfLines={1} accessibilityLabel={done ? `${title}, done` : undefined}
+        style={{ flexShrink: 1, color: event ? t.ink : done ? t.ink3 : k.raText, fontSize: 13.5, fontFamily: T.brand, textDecorationLine: done ? 'line-through' : 'none' }}>{title}</Text>
     </View>
   );
 }

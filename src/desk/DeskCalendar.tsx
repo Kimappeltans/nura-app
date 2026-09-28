@@ -12,7 +12,7 @@ import { useTaskActions } from '../useTaskActions';
 import { announce, decorative } from '../a11y';
 import {
   DeskCard, DeskHeader, DeskRow, AddRow, LinkButton, Empty, useDeskTokens, useDeskState, useRoom, addTo, deleteTask,
-  day0, addDays, sameDay, rel, WD, WDL, MO, CORAL, ON_CORAL, DAY,
+  day0, addDays, sameDay, calendarDay, rel, WD, WDL, MO, CORAL, ON_CORAL, DAY,
 } from './kit';
 import { Chip } from './DeskHome';
 import { useNow, useRange } from './useRange';
@@ -64,9 +64,10 @@ export default function DeskCalendar() {
     new Date(sel.getFullYear(), sel.getMonth() + 1, 1).getTime());
   const { tasks, events } = useRange(from, to);
 
+  // where each task sits (kit's calendarDay): on Today means today, done means the day it was done
   const tasksOn = (d: Date) => {
-    const ts = tasks.filter(x => sameDay(x.due_at, d));
-    if (sameDay(d, t0)) ts.push(...todayPicked.filter(x => !x.due_at && !x.parent_id));
+    const ts = tasks.filter(x => sameDay(calendarDay(x, t0.getTime()), d));
+    if (sameDay(d, t0)) ts.push(...todayPicked.filter(x => !x.parent_id && !ts.some(y => y.id === x.id)));
     return ts;
   };
   const eventsOn = (d: Date) => events.filter(e => sameDay(e.startsAt, d));
@@ -149,9 +150,9 @@ export default function DeskCalendar() {
                   <Text style={{ width: 50, color: t.ink3, fontSize: 12.5, fontFamily: T.brand, textAlign: 'right', paddingTop: 12, paddingRight: 8 }}>all-day</Text>
                   {week.map(d => (
                     <View key={d.getTime()} style={{ flex: 1, minWidth: 0, minHeight: 46, padding: 5, gap: 3, borderLeftWidth: 1, borderLeftColor: t.stroke }}>
-                      {tasksOn(d).filter(x => !x.has_time).map(x => (
+                      {tasksOn(d).filter(x => !x.has_time || x.state === 'done').map(x => (
                         <Pressable key={x.id} onPress={() => setPeek(x)} accessibilityRole="button" accessibilityLabel={x.title}>
-                          <Chip title={x.title} />
+                          <Chip title={x.title} done={x.state === 'done'} />
                         </Pressable>
                       ))}
                     </View>
@@ -170,7 +171,7 @@ export default function DeskCalendar() {
                     const today = sameDay(d, t0);
                     const blocks: { id: string; title: string; start: number; end: number; task?: Task; ev?: UpcomingEvent }[] = [
                       ...eventsOn(d).map(e => ({ id: `e${e.id}`, title: e.title, start: e.startsAt, end: e.endsAt, ev: e })),
-                      ...tasksOn(d).filter(x => !!x.has_time && x.due_at).map(x => ({ id: x.id, title: x.title, start: x.due_at!, end: x.due_at! + (x.est_minutes ?? 30) * 60_000, task: x })),
+                      ...tasksOn(d).filter(x => !!x.has_time && x.due_at && x.state !== 'done').map(x => ({ id: x.id, title: x.title, start: x.due_at!, end: x.due_at! + (x.est_minutes ?? 30) * 60_000, task: x })),
                     ];
                     const y = (ms: number) => { const dd = new Date(ms); return (dd.getHours() + dd.getMinutes() / 60 - startH) * hh; };
                     return (
@@ -216,7 +217,7 @@ export default function DeskCalendar() {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                       {cells.map((d, i) => (
                         <MonthCell key={i} d={d} h={h} today={!!d && sameDay(d, t0)} on={!!d && sameDay(d, sel)}
-                          items={d ? [...eventsOn(d).map(e => ({ id: `e${e.id}`, title: e.title, event: true })), ...tasksOn(d).map(x => ({ id: x.id, title: x.title, event: false }))] : []}
+                          items={d ? [...eventsOn(d).map(e => ({ id: `e${e.id}`, title: e.title, event: true })), ...tasksOn(d).map(x => ({ id: x.id, title: x.title, event: false, done: x.state === 'done' }))] : []}
                           onPress={() => d && pickDay(d)} />
                       ))}
                     </View>
@@ -280,7 +281,7 @@ function RoundButton({ label, said, onPress }: { label: string; said: string; on
 }
 
 function MonthCell({ d, h, today, on, items, onPress }: {
-  d: Date | null; h: number; today: boolean; on: boolean; items: { id: string; title: string; event: boolean }[]; onPress: () => void;
+  d: Date | null; h: number; today: boolean; on: boolean; items: { id: string; title: string; event: boolean; done?: boolean }[]; onPress: () => void;
 }) {
   const t = useTheme();
   const k = useDeskTokens();
@@ -295,7 +296,7 @@ function MonthCell({ d, h, today, on, items, onPress }: {
       <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: -2, marginLeft: -2, backgroundColor: today ? t.ra : 'transparent' }}>
         <Text style={{ color: today ? ON_CORAL : t.ink2, fontSize: 15, fontFamily: today ? T.display : T.brand }}>{d.getDate()}</Text>
       </View>
-      {items.slice(0, 3).map(x => <Chip key={x.id} title={x.title} event={x.event} />)}
+      {items.slice(0, 3).map(x => <Chip key={x.id} title={x.title} event={x.event} done={x.done} />)}
       {items.length > 3 && <Text style={{ color: t.ink3, fontSize: 13, fontFamily: T.brand }}>+{items.length - 3} more</Text>}
     </Pressable>
   );

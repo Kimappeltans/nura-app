@@ -21,6 +21,8 @@ import { HomeAsks } from '../components/HomeAsks';
 import { Suggestions } from '../components/Suggestions';
 import type { Tab } from '../components/TabBar';
 import { HeldRow } from '../components/HeldRow';
+import { colOf, moveTo, deleteTask } from '../desk/kit';
+import { useTaskActions } from '../useTaskActions';
 import { ROOM_MAX, useDesk, useScreen } from '../screen';
 import { decorative } from '../a11y';
 
@@ -60,6 +62,7 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
   const head = compact ? 30 : 34;
   const t = useTheme();
   const { inbox, todayPicked, projects, now, nowDecision, decisions, focusOn, toRa, wins, profile, agenda, dayEndMin } = useStore();
+  const { tick } = useTaskActions();
   const [held, setHeld] = useState<Task | null>(null);     // the actions (long press)
   const [peek, setPeek] = useState<Task | null>(null);     // the task sheet (tap)
 
@@ -213,7 +216,8 @@ export default function Home({ onTab }: { onTab: (t: Tab) => void }) {
     const more = still.slice(2, 2 + STILL_MAX);
     const half = Math.ceil(more.length / 2);
     const row = (x: Task) => (
-      <HeldRow key={x.id} task={x} meta={projectOf.get(x.id)?.project.title} onPress={() => setPeek(x)} onHold={() => setHeld(x)} />
+      <HeldRow key={x.id} task={x} meta={projectOf.get(x.id)?.project.title} onPress={() => setPeek(x)} onHold={() => setHeld(x)}
+        col={colOf(x)} onDone={() => tick(x.id)} onMove={c => moveTo(x, c)} onDelete={() => deleteTask(x)} />
     );
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: t.base }} edges={['top']}>

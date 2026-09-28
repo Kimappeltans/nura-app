@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=25">
+<link rel="stylesheet" href="site.css?v=33">
 </head>
 <body>
 
@@ -41,52 +41,45 @@
       <a class="link" href="how-it-works.html">See how it works ›</a>
     </div>
   </div>
-  <div class="hx-stage">
-    <div class="hx-sun" aria-hidden="true"></div>
-    <svg class="hx-line" aria-hidden="true"></svg>
-    <figure class="phone live" role="img" aria-label="Nura's Home: the day's path from 7:00 to 11:00, and the three things Nu is holding: Prepare slides for Monday, Review the Q3 numbers, and in front, Draft the proposal outline, 25 minutes, with Begin.">
-      <!-- the app's Home, drawn: the page's line is its day path, and the day's things land in its stack (site.js) -->
-      <div class="scr" aria-hidden="true">
-        <div class="sb"><span>8:45</span><span class="sbi"><i class="sig"></i><i class="bat"></i></span></div>
-        <div class="tp"><i class="wordmark"></i><span class="av"><img src="assets/ra-small.webp" alt=""></span></div>
-        <p class="hi">Good evening.<span class="n" data-today>3 things today.</span></p>
-        <div class="day"><i class="hz"></i><i class="s"></i><i class="e"></i>
-          <div class="ends"><span><b>7:00</b>Start</span><span class="r"><b>11:00</b>Day ends</span></div>
+  <!-- the stage stays put while the sun crosses it (site.js pins it on a desktop tall enough) -->
+  <div class="hx-run">
+    <div class="hx-stage">
+      <div class="hx-sun" aria-hidden="true"></div>
+      <svg class="hx-line" aria-hidden="true"></svg>
+      <figure class="phone live" role="img" aria-label="Nura's Home: the day's path from 7:00 to 11:00, and the three things Nu is holding: Prepare slides for Monday, Review the Q3 numbers, and in front, Draft the proposal outline, 25 minutes, with Begin.">
+        <!-- the app's Home, drawn: the page's line is its day path, and the day's things land in its stack (site.js) -->
+        <div class="scr" aria-hidden="true">
+          <div class="sb"><span>8:45</span><span class="sbi"><i class="sig"></i><i class="bat"></i></span></div>
+          <div class="tp"><i class="wordmark"></i><span class="av"><img src="assets/ra-small.webp" alt=""></span></div>
+          <p class="hi">Good evening.<span class="n" data-today>3 things today.</span></p>
+          <div class="day"><i class="hz"></i><i class="s"></i><i class="e"></i>
+            <div class="ends"><span><b>7:00</b>Start</span><span class="r"><b>11:00</b>Day ends</span></div>
+          </div>
+          <p class="hold">NU IS HOLDING · <span data-held>3</span></p>
+          <div class="stack">
+            <div class="row lil" data-slot><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span><b>Prepare slides for Monday</b><span class="v">45<small>min</small></span></div>
+            <div class="row pnk" data-slot><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span><b>Review the Q3 numbers</b><span class="v">4:00<small>PM</small></span></div>
+            <div class="front" data-slot><img class="nu" src="assets/nu-wave.webp" alt=""><small><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>Nu found this one</small><b>Draft the proposal outline</b><em>Fits before 9:30 PM · High priority</em><div class="row2"><span class="begin">Begin</span><span class="m">25<small>min</small></span></div></div>
+          </div>
+          <div class="tb"><span class="pill"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-5h-5v5H4z"/></svg>Home</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 9.5h8M8 14.5h8"/></svg>Your Tasks</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="3.5"/><path d="M8 3.5v4M16 3.5v4M8 12.5h8M8 16h5"/></svg>Calendar</span></span><span class="plus">+</span></div>
         </div>
-        <p class="hold">NU IS HOLDING · <span data-held>3</span></p>
-        <div class="stack">
-          <div class="row lil" data-slot><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span><b>Prepare slides for Monday</b><span class="v">45<small>min</small></span></div>
-          <div class="row pnk" data-slot><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span><b>Review the Q3 numbers</b><span class="v">4:00<small>PM</small></span></div>
-          <div class="front" data-slot><img class="nu" src="assets/nu-small.webp" alt=""><small><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>Nu found this one</small><b>Draft the proposal outline</b><em>Fits before 9:30 PM · High priority</em><div class="row2"><span class="begin">Begin</span><span class="m">25<small>min</small></span></div></div>
-        </div>
-        <div class="tb"><span class="pill"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-5h-5v5H4z"/></svg>Home</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 9.5h8M8 14.5h8"/></svg>Your Tasks</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="3.5"/><path d="M8 3.5v4M16 3.5v4M8 12.5h8M8 16h5"/></svg>Calendar</span></span><span class="plus">+</span></div>
+      </figure>
+      <div class="hx-chip c1" aria-hidden="true">
+        <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
+        <span><b>Prepare slides for Monday</b><small>Nu is holding</small></span><span class="t">45<em>min</em></span>
       </div>
-    </figure>
-    <div class="hx-chip c1" aria-hidden="true">
-      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
-      <span><b>Prepare slides for Monday</b><small>Nu is holding</small></span><span class="t">45<em>min</em></span>
-    </div>
-    <div class="hx-chip c2" aria-hidden="true">
-      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span>
-      <span><b>Review the Q3 numbers</b><small>Before Friday's check-in</small></span><span class="t">4:00<em>PM</em></span>
-    </div>
-    <div class="hx-chip c3" aria-hidden="true">
-      <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
-      <span><b>Draft the proposal outline</b><small>Nu found this one · fits before 9:30 PM</small></span><span class="t">25<em>min</em></span>
+      <div class="hx-chip c2" aria-hidden="true">
+        <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span>
+        <span><b>Review the Q3 numbers</b><small>Before Friday's check-in</small></span><span class="t">4:00<em>PM</em></span>
+      </div>
+      <div class="hx-chip c3" aria-hidden="true">
+        <span class="dot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>
+        <span><b>Draft the proposal outline</b><small>Nu found this one · fits before 9:30 PM</small></span><span class="t">25<em>min</em></span>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- three plain facts -->
-<section class="day strip" aria-label="In short">
-  <div class="wrap">
-    <ul>
-      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span>Learns how long things take you.</span></li>
-      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 17c3-6 6-9 9-9s6 3 9 9"/><circle cx="12" cy="8" r="1.5" fill="currentColor"/></svg><span>No streaks. Nothing turns red.</span></li>
-      <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span><b>The AI sees only what it needs,</b> and only if you say yes.</span></li>
-    </ul>
-  </div>
-</section>
 
 <!-- how it works, live: the pills fall into a pile, sort themselves with the app's own parser, and the next move rises -->
 <section class="day pad" id="how">
@@ -95,43 +88,57 @@
       <div>
         <span class="num">01 · Try it</span>
         <h2>Say it the way <span class="mh block">it sits in your head.</span></h2>
-        <p class="lead">Type a thought, a deadline, a half-plan. Nu turns it into tasks with a time and a place in your day.</p>
+        <p class="lead">Put it all down in one go, the big thing you've been avoiding too. Nu pulls out each task, breaks the project into steps, and picks where you start.</p>
       </div>
     </div>
-    <div class="demo rv">
-      <div class="demo-in">
+    <!-- the breakdown: what you said, Nu reading it piece by piece, then the pieces sorted, planned
+         and one picked, all by the app's own parser and planner (assets/nura-parser.js, site.js) -->
+    <div class="bd rv">
+      <div class="bd-say">
         <div class="demo-k">You say it</div>
-        <div class="pile" aria-hidden="true"></div>
+        <p class="bd-mess" aria-live="polite">ugh ok so I need to finish the website before friday, call the dentist, send Sarah the deck and I'm completely overwhelmed</p>
         <form class="demo-form">
-          <label class="sr" for="mess">Something on your mind</label>
-          <input id="mess" autocomplete="off" maxlength="80" placeholder="send contract to legal by fri">
+          <label class="sr" for="mess">What's going on?</label>
+          <input id="mess" autocomplete="off" maxlength="240" placeholder="Everything on your mind, in any order">
           <button type="submit">Tell Nu</button>
         </form>
-        <div class="demo-tries"><span>Or try</span><button type="button">budget review thursday 3pm</button><button type="button">invoice Studio North 15 min</button><button type="button">dentist next tue 30 min</button></div>
+        <div class="demo-tries"><span>Or try</span><button type="button">taxes due next week, book flights for mum's birthday, reply to Dana 10 min</button><button type="button">plan the team offsite, fix the bike, groceries tomorrow</button></div>
       </div>
-      <div class="demo-out">
+      <div class="bd-sort" aria-live="polite">
         <div class="demo-k">Nu sorts it</div>
-        <div class="front demo-front" hidden>
-          <small>Nu found this one</small>
-          <b class="df-title"></b>
-          <em class="df-fact"></em>
-          <div class="row"><span class="begin">Begin</span><span class="m df-min"></span></div>
+        <p class="bd-wait" hidden><img src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span></p>
+        <p class="bd-reply" hidden></p>
+        <div class="front bd-front" hidden>
+          <small>Start with</small>
+          <b class="bf-title"></b>
+          <em class="bf-fact"></em>
+          <div class="row"><span class="begin">Begin</span><span class="m bf-min"></span></div>
         </div>
-        <ul class="demo-list" aria-live="polite"></ul>
+        <ol class="bd-list"></ol>
       </div>
     </div>
+    <ul class="points trio rv">
+      <li><i></i><div><b>Plans around your real constraints.</b> Timing, priorities, and what's waiting on what.</div></li>
+      <li><i></i><div><b>Finds a way around.</b> When a step is blocked, Nu offers another move.</div></li>
+      <li><i></i><div><b>You stay in control.</b> Nura suggests and reorders; nothing important happens without your yes.</div></li>
+    </ul>
   </div>
 </section>
 
 <!-- recovery, not guilt -->
 <section class="day pad" id="bad-week">
   <div class="wrap">
-    <div class="panel split flip side">
+    <div class="panel">
+      <div class="head center rv">
+        <div>
+          <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
+          <span class="num">02 · Recovery</span>
+          <h2>Recovery, <span class="mh">not guilt.</span></h2>
+          <p class="lead">Gone for a week? Plan fell apart? Nura doesn't make you catch up. It picks one small thing from where you left off.</p>
+        </div>
+      </div>
+      <div class="split flip side under">
       <div class="rv">
-        <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
-        <span class="num">02 · Recovery</span>
-        <h2>Recovery, <span class="mh">not guilt.</span></h2>
-        <p class="lead">Gone for a week? Plan fell apart? Nura doesn't make you catch up. It picks one small thing from where you left off.</p>
         <ul class="points">
           <li><i></i><div><b>Welcome back.</b> No catching up. Just one small thing, right where you left off.</div></li>
           <li><i></i><div><b>Reminders that get quieter.</b> They soften, then stop for the day.</div></li>
@@ -141,52 +148,21 @@
       <div class="stage rv">
         <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
       </div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- the hidden intelligence: the whole project, one full-width path, and the one move rising from it -->
-<section class="day pad" id="whole">
-  <div class="wrap">
-    <div class="head">
-      <div class="rv">
-        <span class="num">03 · Projects</span>
-        <h2>Big project, <span class="mh block">one move at a time.</span></h2>
-        <p class="lead">Drop in the thing you've been avoiding. Nura breaks it into steps, works out where to start, and finds a way around when something's blocked.</p>
-      </div>
-      <ul class="points rv">
-        <li><i></i><div><b>Plans around your real constraints.</b> Timing, priorities, and what's waiting on what.</div></li>
-        <li><i></i><div><b>You stay in control.</b> Nura suggests and reorders; nothing important happens without your yes.</div></li>
-      </ul>
-    </div>
-    <div class="path rv" role="img" aria-label="An example project, Launch the new pricing page: two steps done, Send the tiers to finance is the move now, then use last quarter's figures for now because the final numbers aren't in, and later publish the page.">
-      <div class="path-title"><span>Project</span>Launch the new pricing page</div>
-      <ol class="path-steps" aria-hidden="true">
-        <li class="done"><i></i><b>Pull last year's numbers</b><em>Monday</em></li>
-        <li class="done"><i></i><b>Draft the three tiers</b><em>Tuesday</em></li>
-        <li class="now"><i></i><b>Send the tiers to finance</b><em>Now</em>
-          <div class="front path-card">
-            <small>Launch the new pricing page</small>
-            <b>Send the tiers to finance</b>
-            <em>Fits before 11:00 AM</em>
-            <div class="row"><span class="begin">Begin</span><span class="m">10<small>min</small></span></div>
-          </div>
-          <img class="mover path-ra" src="assets/ra-point-still.webp" data-clip="assets/ra-point.webp" width="360" height="324" alt="">
-        </li>
-        <li class="around"><i></i><b>Use last quarter's figures for now</b><em>Then</em><span class="note"><b>Blocked:</b> “Final numbers aren't in yet.” Nu found a way around.</span></li>
-        <li><i></i><b>Publish the page</b><em>Later</em></li>
-      </ol>
-    </div>
-  </div>
-</section>
 
 <!-- learning you: the suggestion, and a Yes that really changes the estimate -->
 <section class="tint pad" id="learn">
-  <div class="wrap split learn-split">
-    <div class="rv">
-      <span class="num">04 · Learning</span>
+  <div class="wrap learn-stack">
+    <div class="head center rv">
+      <div>
+      <span class="num">03 · Learning</span>
       <h2>It shows <span class="mh">its work.</span></h2>
       <p class="lead">Nura notices your pace and where things stall, then suggests changes with the evidence attached. Say Yes or Not now, and it learns from that too.</p>
+      </div>
     </div>
     <div class="learn-demo rv">
       <div class="learn-task">
@@ -249,7 +225,7 @@
   </div>
 </footer>
 
-<script src="assets/nura-parser.js?v=2"></script>
-<script src="site.js?v=23"></script>
+<script src="assets/nura-parser.js?v=3"></script>
+<script src="site.js?v=29"></script>
 </body>
 </html>
