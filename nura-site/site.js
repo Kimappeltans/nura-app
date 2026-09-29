@@ -247,13 +247,13 @@ if (signup) {
       });
       if (!r.ok) throw new Error(r.status);
       signup.hidden = true;
-      state.className = 'form-state ok'; state.textContent = "Thanks. We'll write when the iPhone app is out.";
+      state.className = 'form-state ok'; state.textContent = "Thanks. We'll write to you about the beta.";
     } catch {
       btn.disabled = false;
       state.textContent = "That didn't go through. Please try again in a moment.";
     }
   });
-  // "Get early access" anywhere on the page: scroll to the form, then the cursor in the field
+  // "Request an invite" anywhere on the page: scroll to the form, then the cursor in the field
   document.querySelectorAll('a[href$="#early-access"]').forEach(a => a.addEventListener('click', () => {
     setTimeout(() => signup.querySelector('input[type="email"]').focus({ preventScroll: true }), 700);
   }));

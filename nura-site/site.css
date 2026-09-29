@@ -667,12 +667,6 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* under the one action: what it costs and what happens next */
 .cta-note { margin: 14px 0 0; font-size: 16px; color: var(--sub); }
 /* the iPhone app comes second to the web app: a quiet line and the email form, under a hairline */
-.iphone { width: 100%; max-width: 560px; margin: 48px auto 0; padding-top: 32px; border-top: 1px solid rgba(59,18,4,.14); }
-.iphone > p { font-size: 16px; color: var(--sub); text-wrap: pretty; }
-.iphone > p b { color: var(--text); font-weight: 600; }
-.iphone .signup { margin-top: 16px; }
-.btn-quiet { background: var(--tile-2); color: var(--ink); border: 1px solid var(--line); }
-.btn-quiet:hover { border-color: var(--sub); }
 /* the maker, at the end of the story */
 .story-p.maker { margin-top: 48px; font-size: 17px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
