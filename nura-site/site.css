@@ -210,13 +210,9 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
   linear-gradient(var(--ink), var(--ink)) 54% 100% / 19% 78% no-repeat, linear-gradient(var(--ink), var(--ink)) 100% 100% / 19% 100% no-repeat; }
 .scr .bat { position: relative; width: calc(24 * var(--u)); height: calc(12 * var(--u)); border-radius: calc(3.5 * var(--u));
   border: 1px solid rgba(23,19,19,.35); background: linear-gradient(90deg, var(--ink) 72%, transparent 72%) content-box; padding: 1.5px; }
-.scr .tp { display: flex; align-items: center; justify-content: space-between; padding: calc(10 * var(--u)) calc(22 * var(--u)) 0 calc(24 * var(--u)); }
+.scr .tp { display: flex; align-items: center; min-height: calc(44 * var(--u)); padding: calc(10 * var(--u)) calc(22 * var(--u)) 0 calc(24 * var(--u)); }
 .scr .wordmark { width: calc(72 * var(--u)); height: calc(21 * var(--u)); }
-.scr .av { display: grid; place-items: center; width: calc(44 * var(--u)); height: calc(44 * var(--u)); border-radius: 50%;
-  background: #FFFFFF; border: 1px solid rgba(23,19,19,.07); }
-.scr .av img { width: 58%; }
-.scr .hi { margin: calc(18 * var(--u)) calc(24 * var(--u)) 0; font-size: calc(32 * var(--u)); line-height: 1.04; font-weight: 600; letter-spacing: -0.055em; }
-.scr .hi .n { display: block; color: var(--mute); }
+.scr .hi { margin: calc(18 * var(--u)) calc(24 * var(--u)) 0; font-size: calc(32 * var(--u)); line-height: 1.04; font-weight: 600; letter-spacing: -0.055em; text-align: center; }
 /* the day: the page's line crosses the horizon at Start and Day ends */
 .scr .day { position: relative; height: calc(148 * var(--u)); margin: 0 calc(23 * var(--u)); }
 .scr .day .hz { position: absolute; left: 0; right: 0; top: calc(92 * var(--u)); height: 1px; background: rgba(23,19,19,.16); }
@@ -251,15 +247,19 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .scr .front .begin { width: calc(60 * var(--u)); height: calc(60 * var(--u)); font-size: calc(14 * var(--u)); }
 .scr .front .m { font-size: calc(48 * var(--u)); line-height: .82; }
 .scr .front .m small { display: inline; font-size: calc(12 * var(--u)); }
-.scr .tb { position: absolute; left: calc(16 * var(--u)); right: calc(16 * var(--u)); bottom: calc(26 * var(--u)); display: flex; align-items: center; gap: calc(10 * var(--u)); }
-.scr .pill { flex: 1; display: flex; height: calc(58 * var(--u)); padding: calc(4 * var(--u)); border-radius: 999px; border: 1px solid rgba(23,19,19,.12); background: var(--layer); }
-.scr .pill span { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(2 * var(--u));
-  border-radius: 999px; font-size: calc(10 * var(--u)); color: var(--ink-2); letter-spacing: 0; }
-.scr .pill span.on { background: #FBE3D2; color: var(--ink); }
-.scr .pill svg { width: calc(18 * var(--u)); height: calc(18 * var(--u)); }
-.scr .pill span.on svg { color: var(--coral-deep); }
-.scr .plus { display: grid; place-items: center; flex: none; width: calc(58 * var(--u)); height: calc(58 * var(--u)); border-radius: 50%;
-  background: var(--ink-nu); color: #FFFFFF; font-size: calc(28 * var(--u)); font-weight: 300; }
+/* the tab bar (TabBar in the app): Home, Tasks, Tell Nu raised in the middle, Calendar, You */
+.scr .tb { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-start;
+  padding: 0 calc(8 * var(--u)) calc(30 * var(--u)); border-top: 1px solid rgba(23,19,19,.1); background: var(--cream); }
+.scr .tb > span { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: calc(4 * var(--u));
+  padding-top: calc(10 * var(--u)); font-size: calc(10.5 * var(--u)); letter-spacing: 0; color: var(--ink-3); }
+.scr .tb > span.on { color: var(--ink); }
+.scr .tb > span.on::before { content: ''; position: absolute; top: calc(3 * var(--u)); width: calc(4 * var(--u)); height: calc(4 * var(--u)); border-radius: 50%; background: var(--coral); }
+.scr .tb > span.mid { padding-top: 0; }
+.scr .tb svg, .scr .tb .you { width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+.scr .tb .you img { display: block; width: 100%; }
+.scr .tb .plus { display: grid; place-items: center; box-sizing: border-box; width: calc(60 * var(--u)); height: calc(60 * var(--u)); margin-top: calc(-22 * var(--u));
+  border-radius: 50%; border: calc(4 * var(--u)) solid var(--cream); background: var(--ink-nu); color: #FFFFFF; box-shadow: 0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(27,24,48,.25); }
+.scr .tb .plus svg { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
 @media (max-width: 900px) {
   .hx-chip { display: none; }
   .hx-stage.fan .phone:nth-of-type(1), .hx-stage.fan .phone:nth-of-type(3) { display: none; }
@@ -481,8 +481,8 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 }
 
 /* the breakdown (Try it, site.js): what you said, each piece marked and named
-   as Nu reads it, then the pieces sorted, the big one in steps, and the
-   planner's pick in front */
+   as Nu reads it, then each one as a task, the planner's pick in front, and
+   a big one planned with Nu as a path when you ask */
 .bd { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
 .bd-say, .bd-sort { border-radius: var(--r-lg); padding: 24px 26px; }
 .bd-mess { margin: 6px 0 0; min-height: 170px; font-size: clamp(19px, 1.9vw, 24px); line-height: 2.05; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
@@ -515,34 +515,29 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .bd-list > li.picked .chips-row span { border-color: rgba(23,19,19,.06); }
 .bd-list b { font-size: 15.5px; font-weight: 500; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 /* whatever someone types, a long word breaks rather than widening the card */
-.bd-front b, .bd-steps .t { overflow-wrap: anywhere; }
+.bd-front b, .bd-path .t { overflow-wrap: anywhere; }
 .bd-list .chips-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .bd-list .chips-row span { padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(23,19,19,.1); font-size: 12px; color: var(--ink-2); background: #fff; }
 .bd-list .chips-row span.proj { border-color: transparent; background: rgba(255,107,53,.12); color: var(--coral-deep); font-weight: 600; }
 .bd-say { position: sticky; top: 88px; }
-.bd-plan { margin: 6px 0 2px; padding-left: 14px; border-left: 2px solid rgba(255,107,53,.4); display: grid; gap: 4px; }
-.bd-phase { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; animation: rise .4s var(--ease-pop) both; }
-.bd-phase:first-child { margin-top: 2px; }
-.bd-rest { display: grid; gap: 4px; }
-.bd-rest[hidden] { display: none; }
-.bd-rest .bd-phase:first-child { margin-top: 12px; }
+.bd-path { margin: 6px 0 2px; display: grid; gap: 6px; }
+.bd-path-k { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.bd-path ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bd-path li { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(23,19,19,.1); background: #fff;
+  font-size: 14px; color: var(--ink-2); animation: rise .4s var(--ease-pop) both; }
+.bd-path li[hidden] { display: none; }
+.bd-path li.now { border-color: rgba(255,107,53,.45); background: #FFF8F2; }
+.bd-path .n { flex: none; width: 30px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.bd-path li.now .n { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--coral-deep); }
+.bd-path .t { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.bd-path li.now .t > span { color: var(--ink); font-weight: 600; }
+.bd-path .t small { font-size: 12.5px; color: var(--sub); }
+.bd-path .m { flex: none; font-size: 12.5px; color: var(--sub); }
 .bd-more { justify-self: start; height: 40px; margin: 8px 0 4px; padding: 0 16px; border-radius: 20px; border: 1px solid rgba(23,19,19,.18); background: #fff;
   font: 500 14px var(--font); letter-spacing: -0.01em; color: var(--ink); cursor: pointer; animation: rise .4s var(--ease-pop) both; }
 .bd-more:hover { background: rgba(23,19,19,.05); border-color: rgba(23,19,19,.3); }
 .bd-list > li { scroll-margin-top: 96px; }
-.bd-phase b { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--coral-deep); }
-.bd-phase span { font-size: 12px; color: var(--sub); }
-.bd-steps { list-style: none; margin: 0; padding: 0; display: grid; }
-.bd-steps > li { display: grid; gap: 5px; padding: 7px 0; font-size: 14px; color: var(--ink-2); animation: rise .4s var(--ease-pop) both; }
-.bd-steps .st { display: flex; align-items: baseline; gap: 10px; }
-.bd-steps .n { flex: none; width: 18px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
-.bd-steps .t { flex: 1; min-width: 0; }
-.bd-steps .m { flex: none; font-size: 12.5px; color: var(--sub); }
-.bd-steps > li.first .t { color: var(--ink); font-weight: 600; }
-.bd-steps small { margin-left: 28px; font-size: 12px; color: var(--sub); }
-.bd-need { list-style: none; margin: 0 0 2px 28px; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
-.bd-need li { display: flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border-radius: 8px; background: #FBF6F1; font-size: 12.5px; color: var(--ink-2); }
-.bd-need li::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 3px; border: 1.5px solid rgba(23,19,19,.3); }
+.bd-path { scroll-margin-top: 96px; }
 @media (max-width: 860px) { .bd { grid-template-columns: minmax(0, 1fr); } .bd-mess { min-height: 0; } .bd-say { position: static; } }
 
 /* ─── recovery: a quiet panel ─── */
@@ -717,7 +712,7 @@ html:not(.js) .rv { animation: rv-show .6s ease 2.5s forwards; }
 @keyframes rv-show { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .rv { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; }
-  .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-steps li, .bd-phase, .bd-mess.typing::after, .nm-note, .nm-changed, .nm-after li, .nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts, .bd-wait img { animation: none !important; }
+  .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-path li, .bd-more, .bd-mess.typing::after, .nm-note, .nm-changed, .nm-after li, .nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts, .bd-wait img { animation: none !important; }
   /* and anything else that moves: over at once */
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .tile:hover, .btn:active { transform: none; }
@@ -732,10 +727,10 @@ html:not(.js) .rv { animation: rv-show .6s ease 2.5s forwards; }
   .points li, .tile p, .roadmap li, .suggest p, .path-steps li, .bd-list b, .demo-list li b,
   .learn-after, .form-state, .answers, .legal .toc li, .bd-wait, .bd-reply, .demo-form button, .suggest.big button,
   .bd .demo-form input, .learn-task .t { font-size: 16px; }
-  .split.side .points li, .split.side .suggest p, .bd-steps > li, footer .wrap, .legal table, .legal .summary > p,
+  .split.side .points li, .split.side .suggest p, .bd-path li, footer .wrap, .legal table, .legal .summary > p,
   .prose .updated, button.link, .btn-sm { font-size: 15px; }
   .num, .kicker, .eyebrow, .demo-k, .demo-tries, .demo-tries button, .bd-list .chips-row span, .demo-list .chips-row span,
-  .bd-phase b, .bd-phase span, .bd-steps .n, .bd-steps .m, .bd-steps small, .bd-need li, .suggest small, .suggest.big small,
+  .bd-path-k, .bd-path .n, .bd-path li.now .n, .bd-path .m, .bd-path .t small, .suggest small, .suggest.big small,
   .suggest .yes, .suggest .no, .front small, .front em, .front .begin, .front .m small, .learn-task .v small,
   .roadmap .t, .roadmap li em, .roadmap .fix, .path-title span, .path-card em, .path-steps .note, .path-steps li > em,
   .part-n, .legal th, .legal .summary h2, .legal .toc h2, .pile span, .nm-k, .nm-after i, .nm-after small, .nm-clock, .nm-learned small { font-size: 14px; }
@@ -743,8 +738,7 @@ html:not(.js) .rv { animation: rv-show .6s ease 2.5s forwards; }
   .nm-facts li, .nm-after em, .nm-changed button { font-size: 15px; }
   .bd-mess { line-height: 2.5; }
   .bd-mess mark::before { font-size: 14px; letter-spacing: .02em; }
-  .bd-steps .n { width: 22px; }
+  .bd-path .n { width: 36px; }
   .bd-more { height: 44px; border-radius: 22px; font-size: 15px; }
-  .bd-steps small, .bd-need { margin-left: 32px; }
   .front .begin { width: 58px; height: 58px; }
 }

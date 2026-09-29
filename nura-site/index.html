@@ -27,7 +27,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="fonts/InterTight-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/InterTight-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=46">
+<link rel="stylesheet" href="site.css?v=48">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -123,8 +123,8 @@
         <!-- the app's Home, drawn: the page's line is its day path, and the day's things land in its stack (site.js) -->
         <div class="scr" aria-hidden="true">
           <div class="sb"><span>8:45</span><span class="sbi"><i class="sig"></i><i class="bat"></i></span></div>
-          <div class="tp"><i class="wordmark"></i><span class="av"><img src="assets/ra-small.webp" alt=""></span></div>
-          <p class="hi">Good evening.<span class="n" data-today>3 things today.</span></p>
+          <div class="tp"><i class="wordmark"></i></div>
+          <p class="hi">Good evening.</p>
           <div class="day"><i class="hz"></i><i class="s"></i><i class="e"></i>
             <div class="ends"><span><b>7:00</b>Start</span><span class="r"><b>11:00</b>Day ends</span></div>
           </div>
@@ -134,7 +134,7 @@
             <div class="row pnk" data-slot><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg></span><b>Review the Q3 numbers</b><span class="v">4:00<small>PM</small></span></div>
             <div class="front" data-slot><img class="nu" src="assets/nu-wave.webp" alt=""><small><span class="g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/></svg></span>Nu found this one</small><b>Draft the proposal outline</b><em>Fits before 9:30 PM · High priority</em><div class="row2"><span class="begin">Begin</span><span class="m">25<small>min</small></span></div></div>
           </div>
-          <div class="tb"><span class="pill"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5.5v-5h-5v5H4z"/></svg>Home</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 9.5h8M8 14.5h8"/></svg>Your Tasks</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="3.5"/><path d="M8 3.5v4M16 3.5v4M8 12.5h8M8 16h5"/></svg>Calendar</span></span><span class="plus">+</span></div>
+          <div class="tb"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2v7.3a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M9.5 20v-5.5h5V20"/></svg>Home</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>Tasks</span><span class="mid"><i class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i></span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M8 4v4M16 4v4"/><rect x="4" y="5" width="16" height="15" rx="4"/><path d="M8 12h3M8 15h5"/></svg>Calendar</span><span><i class="you"><img src="assets/ra-small.webp" alt=""></i>You</span></div>
         </div>
       </figure>
       <div class="hx-chip c1" aria-hidden="true">
@@ -262,8 +262,9 @@
         <p class="lead">Put it all down in one go. Nu pulls out each task, reads when and how long from your words, and picks where you start. The big thing you've been avoiding, Nu plans with you, step by step.</p>
       </div>
     </div>
-    <!-- the breakdown: what you said, Nu reading it piece by piece, then the pieces sorted, planned
-         and one picked, all by the app's own parser and planner (assets/nura-parser.js, site.js) -->
+    <!-- the breakdown: what you said, Nu reading it piece by piece, then each piece put down as a task
+         and one picked, all by the app's own parser and planner (assets/nura-parser.js, site.js);
+         a big thing is planned with Nu as a step of its own -->
     <div class="bd rv">
       <div class="bd-say">
         <div class="demo-k">You say it</div>
@@ -273,7 +274,7 @@
           <input id="mess" autocomplete="off" maxlength="240" placeholder="Everything on your mind, in any order">
           <button type="submit">Tell Nu</button>
         </form>
-        <div class="demo-tries"><span>Or try</span><button type="button">taxes due next week, book flights for mum's birthday, reply to Dana 10 min</button><button type="button">plan the team offsite, fix the bike, groceries tomorrow</button></div>
+        <div class="demo-tries"><span>Or try</span><button type="button">sort out my taxes by next week, book flights for mum's birthday, reply to Dana 10 min</button><button type="button">plan the team offsite, fix the bike, groceries tomorrow</button></div>
       </div>
       <div class="bd-sort" aria-live="polite">
         <div class="demo-k">Nu sorts it</div>
@@ -312,7 +313,7 @@
         </ul>
       </div>
       <div class="stage rv">
-        <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month of circles, a coral sun in each day something got done, and today's flow below."></picture></figure>
+        <figure class="phone"><picture><source type="image/avif" srcset="assets/app-calendar.avif"><img src="assets/app-calendar.webp" width="780" height="1696" loading="lazy" alt="The Calendar: a month where each day something got done glows as a small sun, quiet days just their number, and today's flow below."></picture></figure>
       </div>
       </div>
     </div>
@@ -359,6 +360,6 @@
 </footer>
 
 <script src="assets/nura-parser.js?v=6"></script>
-<script src="site.js?v=38"></script>
+<script src="site.js?v=40"></script>
 </body>
 </html>

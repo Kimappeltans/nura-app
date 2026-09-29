@@ -98,8 +98,7 @@ if (live && line) {
   const sun = line.querySelector('.sun');
   const chips = [...stage.querySelectorAll('.hx-chip')];
   const slots = [...live.querySelectorAll('[data-slot]')];
-  const today = live.querySelector('[data-today]'), held = live.querySelector('[data-held]');
-  const SAY = ['Nothing on yet.', '1 thing today.', '2 things today.', '3 things today.'];
+  const held = live.querySelector('[data-held]');
   // where on the line each thing comes up: two on the way in, the one Nu found once the sun is past noon
   const AT = [0.2, 0.34, 0.66];
 
@@ -183,7 +182,7 @@ if (live && line) {
 
   let count = 0, busy = false;
   const landed = AT.map(() => false), queue = [];
-  const say = () => { today.textContent = SAY[count]; held.textContent = count; };
+  const say = () => { held.textContent = count; };
   const put = i => { slots[i].classList.add('in'); count++; say(); };
   const next = () => {
     const i = queue.shift();
@@ -473,11 +472,14 @@ if (nm && window.NuraParser) {
 }
 
 // The breakdown (Try it): what you said, Nu reading it piece by piece (each
-// thing marked and named in your own sentence, the rest fading), then the
-// pieces sorted with a day and a length, the big one broken into steps, and
-// where to start in front. The words are read by the app's own parser and
-// the pick is the app's own planner (assets/nura-parser.js). The first time
-// it's on screen it plays with a mess of its own; then it's yours to try.
+// thing marked and named in your own sentence, the rest fading), then each
+// thing as a task with what you said about it (a day, a label, a length),
+// and the planner's pick in front. As in the app, putting it all down never
+// makes a project on the spot: a big thing is a task you can plan with Nu,
+// as a step of its own, and the plan is a path, the move now and the rest
+// later. The words are read by the app's own parser and the pick is the
+// app's own planner (assets/nura-parser.js). The first time it's on screen
+// it plays with a mess of its own; then it's yours to try.
 const bd = document.querySelector('.bd');
 if (bd && window.NuraParser) {
   const P = window.NuraParser;
@@ -491,186 +493,129 @@ if (bd && window.NuraParser) {
   const OPEN = /^(?:(?:ugh|ok|okay|so|um|well|right|hmm|oh|argh)[,.!]?\s+)+/i;
   const LEAD = /^(?:(?:and|also|then|plus)\s+)?(?:i\s+(?:really\s+)?(?:need|have|want|got)\s+to|i\s+must|i\s+should|i\s+gotta|need\s+to|have\s+to|remember\s+to|don'?t\s+forget\s+to)\s+/i;
   const tidy = s => s.trim().replace(OPEN, '').replace(LEAD, '').trim();
-  // A big thing, thought through: its phases, every step it really takes, and
-  // the things to have at hand, by name. (In the app Nu plans yours with you;
-  // these are worked examples.) A step: [title, minutes, what to gather, a note].
-  const PLANS = [
+  // The path Nu offers when you plan a big thing with it: every step, in
+  // order, plain, the way the app's planner lays one out (in the app Nu
+  // writes yours; these are worked examples). A step: [title, minutes, and
+  // for the ones that gather things, the first move that names them].
+  const PATHS = [
     [/web ?site|\bsite\b|landing page|portfolio/i, [
-      ['Decide what it is', [
-        ['List what’s left on the site', 15],
-        ['Write who it’s for and the one thing they should do', 15],
-        ['Sketch the pages and the menu', 20, ['Home', 'About', 'Work or services', 'Contact']],
-      ]],
-      ['Write and gather', [
-        ['Write the homepage copy', 45],
-        ['Write the about and contact pages', 40],
-        ['Gather the pictures', 25, ['Your logo', 'A photo of you', '3 to 5 pictures of your work', 'Two lines from happy customers']],
-      ]],
-      ['Build', [
-        ['Build the pages', 90, null, 'Waits on the copy'],
-        ['Add the contact form and test it', 20],
-        ['Check every page on a phone', 20],
-        ['Fix what’s slow or broken', 30, ['Big images', 'Dead links', 'Typos']],
-      ]],
-      ['Get it ready to go live', [
-        ['Connect the domain', 20, ['Domain login', 'Hosting login']],
-        ['Write the page titles and descriptions for search', 20],
-        ['Add the privacy page and the cookie notice', 20],
-        ['Ask a friend to read it through', 10],
-      ]],
-      ['Launch', [
-        ['Fix what they found', 30],
-        ['Publish it', 15],
-        ['Tell people it’s live', 15, ['Email', 'Your profiles', 'Your email signature']],
-      ]],
+      ['List what’s left on the site', 15, 'Open the site and note each page that isn’t done.'],
+      ['Write the homepage copy', 45],
+      ['Write the about and contact pages', 40],
+      ['Gather the pictures', 25, 'Find your logo, a photo of you and 3 to 5 pictures of your work.'],
+      ['Build the pages', 90],
+      ['Add the contact form and test it', 20],
+      ['Check every page on a phone', 20],
+      ['Connect the domain', 20, 'Find your domain login and your hosting login.'],
+      ['Add the privacy page', 20],
+      ['Ask a friend to read it through', 10],
+      ['Fix what they found', 30],
+      ['Publish it', 15],
+      ['Tell people it’s live', 15],
     ]],
     [/\btax/i, [
-      ['Gather your paperwork', [
-        ['Find last year’s return', 10],
-        ['Collect your income forms', 20, ['W-2 from each employer', '1099-NEC or 1099-K for freelance work', '1099-INT and 1099-DIV from your banks', '1099-G if you had unemployment', '1099-R or SSA-1099 for retirement income']],
-        ['Collect what you can deduct', 25, ['1098 for mortgage interest', '1098-T for tuition', '1098-E for student loan interest', 'Charity receipts', 'Medical bills', 'Childcare costs and the provider’s tax ID']],
-        ['Collect your health cover forms', 10, ['1095-A if you bought cover on the marketplace', 'HSA statements (1099-SA, 5498-SA)']],
-        ['Get your details together', 10, ['Social Security numbers, yours and your dependents’', 'Bank routing and account number', 'Last year’s AGI', 'Your IP PIN, if you have one']],
-      ]],
-      ['Prepare the return', [
-        ['Choose how you’ll file', 10, ['IRS Free File', 'Tax software', 'A preparer']],
-        ['Enter your income', 30, null, 'Waits on the income forms'],
-        ['Enter deductions and credits', 30],
-        ['Add your state return', 20],
-        ['Check it against last year’s', 15],
-      ]],
-      ['File and keep', [
-        ['File the return', 15],
-        ['Pay what you owe, or set up the refund', 10],
-        ['Save a copy with all the forms', 5],
-      ]],
+      ['Find last year’s return', 10, 'Look in your email or your files for last year’s return.'],
+      ['Collect your income forms', 20, 'Find the W-2 from each employer and any 1099s.'],
+      ['Collect what you can deduct', 25, 'Find your 1098s, charity receipts and medical bills.'],
+      ['Get your details together', 10, 'Note Social Security numbers, your bank details and last year’s AGI.'],
+      ['Choose how you’ll file', 10],
+      ['Enter your income', 30],
+      ['Enter deductions and credits', 30],
+      ['Add your state return', 20],
+      ['Check it against last year’s', 15],
+      ['File the return', 15],
+      ['Pay what you owe or set up the refund', 10],
+      ['Save a copy with all the forms', 5],
     ]],
     [/offsite|retreat|workshop|conference/i, [
-      ['Decide', [
-        ['Agree what the offsite is for', 15],
-        ['Set the budget', 15, ['Place', 'Travel', 'Food', 'Activities']],
-        ['Pick two possible dates', 10],
-        ['Ask who can come', 10],
-      ]],
-      ['Book', [
-        ['Shortlist three places', 30],
-        ['Book the place', 20, null, 'Waits on the dates'],
-        ['Book travel and rooms', 40],
-        ['Order the food', 20, ['Headcount', 'Dietary needs']],
-      ]],
-      ['Plan the days', [
-        ['Draft the agenda', 30],
-        ['Line up who runs each session', 20],
-        ['Pack what the room needs', 15, ['Screen or projector', 'Whiteboard and pens', 'Adapters', 'Name tags']],
-      ]],
-      ['Send it round', [
-        ['Send everyone the plan', 15, ['Dates and times', 'The address', 'What to bring']],
-        ['Confirm numbers a week before', 10],
-      ]],
+      ['Agree what the offsite is for', 15],
+      ['Set the budget', 15],
+      ['Pick two possible dates', 10],
+      ['Ask who can come', 10],
+      ['Shortlist three places', 30],
+      ['Book the place', 20],
+      ['Book travel and rooms', 40],
+      ['Order the food', 20, 'Get the headcount and any dietary needs.'],
+      ['Draft the agenda', 30],
+      ['Line up who runs each session', 20],
+      ['Send everyone the plan', 15, 'Write down the dates, the address and what to bring.'],
+      ['Confirm numbers a week before', 10],
     ]],
     [/\bmov(e|ing)\b|new (house|flat|apartment)/i, [
-      ['Decide and book', [
-        ['Pick the moving day', 10],
-        ['Get three quotes from movers', 30],
-        ['Book the movers or a van', 15],
-      ]],
-      ['Sort and pack', [
-        ['Sort what to keep, give away and bin', 60],
-        ['Get the packing things', 20, ['Boxes', 'Tape', 'Bubble wrap', 'Marker pens']],
-        ['Pack room by room', 120],
-        ['Pack a first night box', 15, ['Bedding', 'Chargers', 'Kettle and mugs', 'Toiletries']],
-      ]],
-      ['Paperwork', [
-        ['Change your address', 25, ['Post office', 'Bank', 'Employer', 'Insurance', 'Driving licence']],
-        ['Move the utilities', 25, ['Electricity and gas', 'Water', 'Internet']],
-      ]],
-      ['The day', [
-        ['Walk through the old place', 20],
-        ['Hand back the keys', 10],
-      ]],
+      ['Pick the moving day', 10],
+      ['Get three quotes from movers', 30],
+      ['Book the movers or a van', 15],
+      ['Sort what to keep, give away and bin', 60],
+      ['Get boxes, tape and marker pens', 20],
+      ['Pack room by room', 120],
+      ['Pack a first night box', 15, 'Put in bedding, chargers, a kettle and toiletries.'],
+      ['Change your address', 25, 'Start with the bank, your employer and the post office.'],
+      ['Move the utilities', 25, 'Call about electricity, gas, water and internet.'],
+      ['Walk through the old place', 20],
+      ['Hand back the keys', 10],
     ]],
     [/presentation|slides|\bdeck\b|\btalk\b|pitch/i, [
-      ['Shape it', [
-        ['Write who’s in the room and what they need', 10],
-        ['Write the one thing they should remember', 10],
-        ['Outline it in five headings', 15],
-      ]],
-      ['Build it', [
-        ['Gather what goes in it', 25, ['The numbers', 'Pictures or screenshots', 'One story or example']],
-        ['Draft the slides', 60],
-        ['Cut it to the time you have', 20],
-      ]],
-      ['Rehearse', [
-        ['Run through it out loud', 20],
-        ['Check the room and the screen', 10, ['Adapter', 'Clicker', 'A copy on a stick']],
-        ['Send the deck round', 5],
-      ]],
+      ['Note who’s in the room', 10],
+      ['Write the one thing to remember', 10],
+      ['Outline it in five headings', 15],
+      ['Gather the numbers and pictures', 25],
+      ['Draft the slides', 60],
+      ['Cut it to the time you have', 20],
+      ['Run through it out loud', 20],
+      ['Check the room and the screen', 10, 'Bring an adapter, a clicker and a copy on a stick.'],
+      ['Send the deck round', 5],
     ]],
     [/party|wedding|birthday|dinner|shower/i, [
-      ['Decide', [
-        ['Pick the date and the place', 15],
-        ['Write the guest list', 20],
-        ['Set the budget', 10],
-      ]],
-      ['Book and invite', [
-        ['Book the place', 20],
-        ['Send the invitations', 20, ['Date and time', 'Address', 'Reply by']],
-        ['Order the food and the cake', 20, ['Headcount', 'Dietary needs']],
-      ]],
-      ['Get ready', [
-        ['Plan the music', 15],
-        ['Buy what’s needed', 30, ['Drinks', 'Decorations', 'Candles', 'Plates and cups']],
-        ['Confirm numbers', 10],
-      ]],
-      ['The day', [
-        ['Set up the room', 40],
-        ['Clear up after', 30],
-      ]],
+      ['Pick the date and the place', 15],
+      ['Write the guest list', 20],
+      ['Set the budget', 10],
+      ['Book the place', 20],
+      ['Send the invitations', 20, 'Put in the date, the address and a day to reply by.'],
+      ['Order the food and the cake', 20],
+      ['Plan the music', 15],
+      ['Buy drinks and decorations', 30],
+      ['Confirm numbers', 10],
+      ['Set up the room', 40],
+      ['Clear up after', 30],
     ]],
   ];
   // anything else: the same thinking, in general words
   const ANY = [
-    ['Get clear', [
-      ['Write down what done looks like', 10],
-      ['List everything it needs', 15, ['People to ask', 'Things to find or buy', 'Logins and files']],
-      ['Put the list in order', 10],
-    ]],
-    ['Do it', [
-      ['Do the first piece', 25],
-      ['Get what’s missing', 20],
-      ['Do the next piece', 45],
-    ]],
-    ['Finish', [
-      ['Check it against what done looks like', 10],
-      ['Hand it over or send it', 10],
-    ]],
+    ['Write down what done looks like', 10],
+    ['Note everything it needs', 15, 'Write down the people to ask, the things to find and any logins.'],
+    ['Put the pieces in order', 10],
+    ['Do the first piece', 25],
+    ['Get what’s missing', 20],
+    ['Do the next piece', 45],
+    ['Check it against what done looks like', 10],
+    ['Hand it over or send it', 10],
   ];
-  const planOf = t => (PLANS.find(([re]) => re.test(t)) ?? [0, ANY])[1];
-  const span = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+  const pathOf = t => (PATHS.find(([re]) => re.test(t)) ?? [0, ANY])[1];
   const dayWord = ms => {
     const d = new Date(ms), t = new Date(), t1 = new Date(); t1.setDate(t.getDate() + 1);
     return d.toDateString() === t.toDateString() ? 'Today' : d.toDateString() === t1.toDateString() ? 'Tomorrow' : d.toLocaleDateString([], { weekday: 'long' });
   };
   const clock = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // how you sound, when the words say so
+  const FELT = ['overwhelmed', 'busy', 'low', 'calm'];
 
   // 1. how Nu reads it: the pieces, what each one is, and how you sound
   const read = text => {
     const u = P.understand(text);
+    const load = u.read && u.read.load;
     const parts = u.items && u.items.length ? u.items : [text];
     const pieces = parts.map(raw => {
       const words = tidy(raw) || raw.trim();
       const v = P.understand(words);
-      if (v.type === 'note') return { raw, words: raw.trim(), kind: 'feel', tag: 'Feeling' };
+      if (v.type === 'note') return { raw, words: raw.trim(), kind: 'feel', tag: FELT.includes(v.read && v.read.load) ? 'Feeling' : '' };
       const d = P.parseTask(words);
-      // the parser's project, or a thing that's always several steps ("taxes", "the offsite")
-      const project = v.type === 'project' || (/\btax(es)?\b|\boffsite\b|\bweb ?site\b/i.test(words) && d.title.split(/\s+/).length <= 5);
-      const est = d.est_minutes || null;
-      const when = d.due_at ? (project ? `By ${dayWord(d.due_at)}` : dayWord(d.due_at) + (d.has_time ? ` ${clock(d.due_at)}` : '')) : null;
-      const phases = project ? planOf(words) : null;
-      return { raw, words, d, est, kind: project ? 'project' : 'task', when,
-        tag: [project ? 'Project' : 'Task', when].filter(Boolean).join(' · '), phases, steps: phases ? phases.flatMap(([, xs]) => xs) : null };
+      // the parser's own call: a goal is a project, anything else a task
+      const project = v.type === 'project';
+      const when = d.due_at ? dayWord(d.due_at) + (d.has_time ? ` ${clock(d.due_at)}` : '') : null;
+      return { raw, words, d, est: d.est_minutes || null, kind: project ? 'project' : 'task', when,
+        tag: [project ? 'Project' : 'Task', when].filter(Boolean).join(' · ') };
     });
-    return { load: u.read && u.read.load, pieces };
+    return { load, pieces };
   };
   // each piece marked where it sits in what you said; the words around it fade
   const markUp = (text, pieces) => {
@@ -690,89 +635,69 @@ if (bd && window.NuraParser) {
     if (at < text.length) mess.append(el('span', 'f', text.slice(at)));
     return marks;
   };
-  // 3. where to start: the app's planner, over the tasks and each project's first step
-  const pick = pieces => {
-    const now = Date.now(), tasks = [], moves = new Map();
-    pieces.forEach((p, n) => {
-      if (p.kind === 'feel') return;
-      const [title, est] = p.steps ? p.steps[0] : [p.d.title, p.est];
-      const id = `t${n}`;
-      tasks.push({ id, title, state: 'inbox', created_at: now - n * 1000, due_at: p.d.due_at ?? null, has_time: !p.steps && p.d.has_time ? 1 : 0,
-        est_minutes: est, priority: p.d.priority || 0, snooze_count: 0, parent_id: null, piece: p });
-      if (p.steps) moves.set(id, { project: p.d.title, touchedAt: now, blocked: false });
-    });
+  // 3. where to start: the app's planner, over the tasks as they were put down
+  const pick = things => {
+    const now = Date.now();
+    const tasks = things.map((p, n) => ({ id: `t${n}`, title: p.d.title, state: 'inbox', created_at: now - n * 1000,
+      due_at: p.d.due_at ?? null, has_time: p.d.has_time ? 1 : 0, est_minutes: p.est, priority: p.d.priority || 0,
+      snooze_count: 0, parent_id: null, piece: p }));
     const today = new Date(now).toDateString();
     const anchors = tasks.filter(t => t.has_time && t.due_at && new Date(t.due_at).toDateString() === today).map(t => t.due_at);
-    return P.rankActions(tasks, { now, dayEndMin: 23 * 60, energy: 'steady', anchors, moves })[0] ?? null;
+    return P.rankActions(tasks, { now, dayEndMin: 23 * 60, energy: 'steady', anchors })[0] ?? null;
   };
-  // the phases across the days you have: today to the day it's due
-  const daysFor = (phases, due) => {
-    if (!due) return [];
-    const t0 = new Date().setHours(12, 0, 0, 0), n = Math.max(0, Math.round((new Date(due).setHours(12, 0, 0, 0) - t0) / 86400000));
-    return phases.map((_, i) => dayWord(t0 + Math.round(i * n / Math.max(1, phases.length - 1)) * 86400000));
+  // Plan it with Nu: its own step, after it's put down. The path, as the app
+  // shows it: the move now at the top, every later step one tap away.
+  const planIt = (p, button) => {
+    const steps = pathOf(p.words), box = el('div', 'bd-path'), ol = el('ol');
+    ol.id = `bd-path-${++paths}`;
+    box.append(el('p', 'bd-path-k', 'The move now, then later if needed'));
+    steps.forEach(([t, m, first], i) => {
+      const s = el('li', i ? '' : 'now'), body = el('span', 't');
+      body.append(el('span', '', t));
+      if (first) body.append(el('small', '', first));
+      s.append(el('span', 'n', i ? String(i + 1).padStart(2, '0') : 'Now'), body, el('span', 'm', `${m} min`));
+      s.hidden = i > 0;
+      s.style.animationDelay = still ? '0s' : `${Math.min(i, 8) * 0.05}s`;
+      ol.append(s);
+    });
+    const all = 'See the whole plan', one = 'Just the move now';
+    const more = el('button', 'bd-more', all);
+    more.type = 'button';
+    more.setAttribute('aria-expanded', 'false');
+    more.setAttribute('aria-controls', ol.id);
+    more.addEventListener('click', () => {
+      const open = more.getAttribute('aria-expanded') !== 'true';
+      [...ol.children].forEach((s, i) => { s.hidden = !open && i > 0; });
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? one : all;
+      // folding it back up: keep the task in view rather than leaving you far down the page
+      if (!open && box.getBoundingClientRect().top < 80) box.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+    });
+    box.append(ol, more);
+    button.replaceWith(box);
+    refocus(more);
   };
   const row = p => {
     const li = el('li');
     li.append(el('b', '', p.d.title));
     const chips = el('div', 'chips-row');
-    if (p.steps) chips.append(el('span', 'proj', 'Project'));
+    if (p.kind === 'project') chips.append(el('span', 'proj', 'Project'));
     if (p.when) chips.append(el('span', '', p.when));
-    if (p.steps) chips.append(el('span', '', `${p.steps.length} steps`), el('span', '', `about ${span(Math.round(p.steps.reduce((a, x) => a + x[1], 0) / 15) * 15)}`));
-    if (p.est) chips.append(el('span', '', `${p.est} min`));
     const label = p.d.label && P.labelById(p.d.label);
     if (label) chips.append(el('span', '', label.name));
+    if (p.est) chips.append(el('span', '', `${p.est} min`));
     li.append(chips);
-    if (p.phases) {
-      const plan = el('div', 'bd-plan'), days = daysFor(p.phases, p.d.due_at);
-      // the first phase shows; the rest folds away behind one button, so the tasks under the project stay in sight
-      const shown = p.phases[0][1].length, fold = p.phases.length > 1 && p.steps.length > shown;
-      const rest = fold ? el('div', 'bd-rest') : null;
-      let n = 0;
-      p.phases.forEach(([name, steps], i) => {
-        const into = i && rest ? rest : plan, from = i && rest ? shown : 0;
-        const head = el('div', 'bd-phase');
-        head.append(el('b', '', name));
-        if (days[i]) head.append(el('span', '', days[i]));
-        head.style.animationDelay = still ? '0s' : `${0.2 + (n - from) * 0.09}s`;
-        const ol = el('ol', 'bd-steps');
-        steps.forEach(([t, m, items, note]) => {
-          const s = el('li', n ? '' : 'first'), top = el('div', 'st');
-          top.append(el('span', 'n', String(n + 1)), el('span', 't', t), el('span', 'm', span(m)));
-          s.append(top);
-          if (note) s.append(el('small', '', note));
-          if (items) { const ul = el('ul', 'bd-need'); items.forEach(x => ul.append(el('li', '', x))); s.append(ul); }
-          s.style.animationDelay = still ? '0s' : `${0.25 + (n - from) * 0.09}s`;
-          ol.append(s); n++;
-        });
-        into.append(head, ol);
-      });
-      if (rest) {
-        const all = `Show all ${p.steps.length} steps`, few = `Show the first ${shown} only`;
-        const more = el('button', 'bd-more', all);
-        more.type = 'button';
-        rest.id = `bd-rest-${++folds}`;
-        rest.hidden = true;
-        more.setAttribute('aria-expanded', 'false');
-        more.setAttribute('aria-controls', rest.id);
-        more.style.animationDelay = still ? '0s' : `${0.25 + shown * 0.09}s`;
-        more.addEventListener('click', () => {
-          const open = rest.hidden;
-          rest.hidden = !open;
-          more.setAttribute('aria-expanded', String(open));
-          more.textContent = open ? few : all;
-          // folding it back up: keep the project in view rather than leaving you far down the page
-          if (!open && li.getBoundingClientRect().top < 80) li.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
-        });
-        plan.append(rest, more);
-        p.shown = shown;
-      }
-      li.append(plan);
+    if (p.kind === 'project') {
+      const b = el('button', 'bd-more', 'Plan it with Nu');
+      b.type = 'button';
+      b.addEventListener('click', () => planIt(p, b));
+      li.append(b);
     }
     p.li = li;
     return li;
   };
 
-  let run = 0, folds = 0;
+  let run = 0, paths = 0;
   const go = async (text, typed) => {
     text = text.trim();
     if (!text) return;
@@ -795,25 +720,26 @@ if (bd && window.NuraParser) {
     await wait(250);
     mess.classList.add('read');
     for (const m of marks) { if (me !== run) return; m.classList.add('on'); await wait(430); }
-    // sorted: a day and a length each, the big one broken into steps
     hold(null);
-    // only a feeling, nothing to do yet: no "here's where to start" over an empty space
-    const none = pieces.every(p => p.kind === 'feel');
-    if (none || load === 'overwhelmed' || load === 'busy' || pieces.some(p => p.kind === 'feel')) {
+    // nothing to do in it yet: one question, not a "start with" over an empty space
+    const things = pieces.filter(p => p.kind !== 'feel');
+    if (!things.length) {
       reply.innerHTML = '';
-      reply.append(el('b', '', 'Nu: '), document.createTextNode(none ? 'That’s a lot. What’s one thing on your mind?' : load === 'busy' ? 'A full one. Here’s the order.' : 'That’s a lot. Here’s where to start.'));
+      reply.append(el('b', '', 'Nu: '), document.createTextNode(['overwhelmed', 'busy', 'low'].includes(load) ? 'That’s a lot. What’s one thing on your mind?' : 'What’s one thing on your mind?'));
       reply.hidden = false;
-      await wait(450);
+      return;
     }
-    for (const p of pieces) {
-      if (p.kind === 'feel') continue;
+    // each thing put down as a task, with what you said about it
+    for (const p of things) {
       if (me !== run) return;
       list.append(row(p));
-      await wait(p.steps ? 500 + (p.shown ?? p.steps.length) * 90 : 380);
+      await wait(380);
     }
+    // a goal said on its own goes to planning, so there's no pick yet
+    if (things.length === 1 && things[0].kind === 'project') return;
     // where to start, in front
     await wait(400);
-    const d = pick(pieces);
+    const d = pick(things);
     if (!d || me !== run) return;
     front.querySelector('.bf-title').textContent = d.task.title;
     front.querySelector('.bf-fact').textContent = d.facts.slice(0, 2).join(' · ');
@@ -823,7 +749,7 @@ if (bd && window.NuraParser) {
     front.hidden = false;
     front.style.animation = 'none'; void front.offsetWidth; front.style.animation = '';
     const p = d.task.piece;
-    if (p && !p.steps && p.li) p.li.classList.add('picked');
+    if (p && p.li && p.kind !== 'project') p.li.classList.add('picked');
   };
 
   // on view, once: its own mess, typed out and sorted
