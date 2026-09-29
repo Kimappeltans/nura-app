@@ -20,6 +20,7 @@ import DeskHome from '../src/desk/DeskHome';
 import DeskTasks from '../src/desk/DeskTasks';
 import DeskCalendar from '../src/desk/DeskCalendar';
 import { STAGE, useDesk } from '../src/screen';
+import { useFirstVisit } from '../src/firstVisit';
 
 /**
  * The app past onboarding is three rooms in the same dark water, with a tab
@@ -35,8 +36,15 @@ export default function Index() {
   const setTab = (k: Tab) => useStore.setState({ tab: k });
   const desk = useDesk();
   useFocusEffect(useCallback(() => { refresh(); }, []));
+  const firstVisit = useFirstVisit();
 
-  if (onboarded === null || authLoading) return <Loading />;
+  if (onboarded === null || authLoading) {
+    // web, the browser's first visit: nothing here to wait for, so the
+    // opening starts while the database opens (src/firstVisit.ts). The same
+    // <Onboarding /> as below, so it carries on where it is once it has.
+    if (firstVisit && !session) return <Onboarding />;
+    return <Loading />;
+  }
   if (!onboarded) return <Onboarding />;
   // an account is required: signed out, the sign-in screen is all there is
   // (signing in brings the session, and this screen, back by itself)

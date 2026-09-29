@@ -4,6 +4,7 @@ import { award as rollAward, type RewardReason, type Award } from './reward';
 import { guessLabel, type LabelId } from './labels';
 import { guessActivity, activityById, type ActivityId } from './activities';
 import { habitViews, todayToggle, HABIT_ON, HABIT_PAUSED, HABIT_LET_GO, LOG_TAKEN_BACK, type HabitView } from './habits';
+import { firstVisit } from './firstVisit';
 
 /**
  * Local-first. Nothing leaves the device.
@@ -125,6 +126,9 @@ function claimTab(): Promise<void> {
 }
 
 async function openDb() {
+  // web: whether this is the browser's first visit is read before the
+  // database makes its folder (src/firstVisit.ts); settled in a moment
+  await firstVisit;
   await claimTab();
   const db = await SQLite.openDatabaseAsync('nura.db');
   await db.execAsync(`
