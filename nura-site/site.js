@@ -75,6 +75,18 @@ if (!still) {
 }
 
 
+// The phone in the hero keeps the visitor's own time: its clock, and the
+// greeting, worded as the app's Home words it.
+const hiNow = document.querySelector('[data-hi]'), clock = document.querySelector('[data-clock]');
+if (hiNow || clock) {
+  const tick = () => {
+    const d = new Date(), h = d.getHours();
+    if (hiNow) hiNow.textContent = (h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + '.';
+    if (clock) clock.textContent = `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+  tick(); setInterval(tick, 20000);
+}
+
 // The hero: one line across the page and through the phone, where it is the
 // day's path. The sun rides it as you scroll, and as it passes, each of the
 // day's things comes up just above the line beside it, then lands in the
