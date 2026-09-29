@@ -5,9 +5,6 @@ import { AppState, LogBox, Platform, Pressable, Text, View, useWindowDimensions 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { isAuthPKCECodeVerifierMissingError, type Session } from '@supabase/supabase-js';
-import {
-  useFonts, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold,
-} from '@expo-google-fonts/inter-tight';
 import { getDb, migrate, dropCrumb, onOpenElsewhere, takeOverTab, getBlockers, getFlag, setFlag } from '../src/db';
 import {
   initNotifications,
@@ -24,6 +21,7 @@ import { CaptureSheet } from '../src/components/CaptureSheet';
 import { keepNameFrom, LINK_ELSEWHERE, LINK_EXPIRED } from '../src/useAuthActions';
 import { COLUMN, isDesk, isWide } from '../src/screen';
 import { type as T } from '../src/theme';
+import { useAppFonts } from '../src/fonts';
 
 // An unsigned simulator build has no keychain access, so expo-notifications
 // can't read its saved push registration and says so on every launch. It
@@ -184,7 +182,8 @@ export default function Root() {
   const mode = useStore(s => s.mode);
   const roomsLight = useRoomsLight();
   const onboarded = useStore(s => s.onboarded);
-  const [fontsLoaded, fontError] = useFonts({ InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold });
+  // the phone waits for Inter Tight; the web page brings it itself (src/fonts.ts)
+  const [fontsLoaded, fontError] = useAppFonts();
   const running = useRef<string | null>(null);
   const [elsewhere, setElsewhere] = useState(false);
   const elsewhereNow = useRef(false);
