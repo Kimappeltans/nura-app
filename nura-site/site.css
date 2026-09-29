@@ -92,7 +92,8 @@ header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
 .menu-btn { display: none; }
 @media (max-width: 800px) {
   .bar { gap: 10px; }
-  .bar .btn { margin-left: auto; }
+  .bar .btn { margin-left: auto; white-space: nowrap; }
+  .bar .wordmark { flex: none; }
   .menu-btn { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%;
     border: 1px solid rgba(23,19,19,.14); background: #FFFFFF; color: var(--ink); cursor: pointer; }
   .menu-btn svg path { transition: transform .25s var(--ease-pop), opacity .2s; transform-origin: 12px 12px; }
@@ -104,6 +105,10 @@ header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
   header.open .bar nav { display: flex; }
   .bar nav a { display: flex; align-items: center; min-height: 54px; border-bottom: 1px solid rgba(23,19,19,.07); }
   .bar nav a:last-child { border-bottom: 0; }
+}
+/* the narrowest phones: the button gives up some padding before its words wrap */
+@media (max-width: 340px) {
+  .bar .btn { padding-inline: 14px; font-size: 14px; }
 }
 
 /* over the sky hero the header is clear until the page moves */

@@ -10,7 +10,7 @@ import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
 import { Primary, Ghost, Mica, Character } from '../ui';
-import { useAuthActions, useConfirmWait, useSignupsOpen } from '../useAuthActions';
+import { useAuthActions, useConfirmWait, useSignupsOpen, type EmailKind } from '../useAuthActions';
 import { openLink } from '../links';
 import { announce } from '../a11y';
 import { useWide } from '../screen';
@@ -47,6 +47,20 @@ export function Legal({ style }: { style?: object }) {
       {' '}and{' '}
       <Text accessibilityRole="link" onPress={() => openLink('privacy')} style={link}>Privacy Policy</Text>.
     </Text>
+  );
+}
+
+/** The code from an email we sent ("Check your email"), digits only. */
+export function CodeField({ value, onChange, onSubmit, style, onFocus, onBlur }: {
+  value: string; onChange: (code: string) => void; onSubmit: () => void; style: object;
+  onFocus?: () => void; onBlur?: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <TextInput value={value} onChangeText={v => onChange(v.replace(/\D/g, ''))} onSubmitEditing={onSubmit}
+      placeholder="Code from the email" placeholderTextColor={t.ink3} accessibilityLabel="Code from the email"
+      keyboardType="number-pad" inputMode="numeric" textContentType="oneTimeCode" autoComplete="one-time-code"
+      maxLength={10} returnKeyType="go" onFocus={onFocus} onBlur={onBlur} style={[style, { letterSpacing: value ? 4 : 0 }]} />
   );
 }
 
@@ -109,8 +123,9 @@ export default function Auth(
   const [confirm, setConfirm] = useState('');
   const [creating, setCreating] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
-  /** made, waiting on the link in the email: "Check your email" */
-  const [pending, setPending] = useState<{ email: string; password: string } | null>(null);
+  /** an email went (a new account, a new password, a sign-in link): "Check your email", with its code */
+  const [pending, setPending] = useState<{ email: string; password: string; kind: EmailKind } | null>(null);
+  const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const session = useStore(s => s.session);
 
@@ -126,31 +141,40 @@ export default function Auth(
   const onFieldFocus = (id: string) => () => setFocused(id);
   const onFieldBlur = () => setFocused(null);
 
-  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, resend } = useAuthActions(onClose, { beforeRedirect });
+  const { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, withCode, resend } = useAuthActions(onClose, { beforeRedirect });
   useEffect(() => { announce(formError); }, [formError]);
 
-  // the link opened: signed in, so on (onboarding carries on; at the gate
-  // app/index.tsx swaps this screen for the app by itself)
+  // the link opened or the code went in: signed in, so on (onboarding
+  // carries on; at the gate app/index.tsx swaps this screen for the app by
+  // itself). A new password's goes to /reset instead (app/_layout.tsx).
   const went = useRef(false);
   useConfirmWait(pending);
   useEffect(() => {
-    if (!pending || !session || went.current) return;
+    if (!pending || !session || went.current || pending.kind === 'recovery') return;
     went.current = true;
     onClose();
   }, [pending, session]);
 
+  const waitFor = (kind: EmailKind, pw = '') => {
+    setSent(false); setCode('');
+    setPending({ email: email.trim(), password: pw, kind });
+  };
   const submit = async () => {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onClose();
     if (r === 'check-email') {
-      setSent(false);
-      setPending({ email: email.trim(), password });
+      waitFor('signup', password);
       beforeRedirect?.();   // in onboarding, a reload picks up from here
     }
   };
   const again = async () => {
-    if (pending && await resend(pending.email)) setSent(true);
+    if (!pending) return;
+    const ok = pending.kind === 'signup' ? await resend(pending.email)
+      : pending.kind === 'recovery' ? await resetPassword(pending.email)
+        : await withEmailLink(pending.email);
+    if (ok) setSent(true);
   };
+  const checkCode = () => { if (pending) withCode(pending.kind, pending.email, code); };
   const otherEmail = () => {
     setPending(null); setEmail(''); setFormError(null); setCreating(signupsOpen !== false); setMode('email');
   };
@@ -221,12 +245,15 @@ export default function Auth(
                   {pending.email}
                 </Text>
                 <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, textAlign: 'center', marginBottom: 8 }}>
-                  Open the link in the email to finish.
+                  Enter the code from the email, or open its link.
                 </Text>
+                <CodeField value={code} onChange={setCode} onSubmit={checkCode}
+                  onFocus={onFieldFocus('code')} onBlur={onFieldBlur} style={{ ...fieldStyle('code'), textAlign: 'center' }} />
                 {!!formError && (
                   <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 13.5, lineHeight: 18, textAlign: 'center' }}>{formError}</Text>
                 )}
-                <Ghost label={busy === 'resend' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
+                <Primary label={busy === 'code' ? 'Checking…' : 'Continue'} tone="ra" onPress={checkCode} disabled={busy === 'code'} />
+                <Ghost label={busy === 'resend' || busy === 'reset' || busy === 'email' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
                 <Pressable onPress={otherEmail} hitSlop={10} accessibilityRole="button">
                   <Text style={{ color: t.ink3, fontSize: 14, textAlign: 'center', marginTop: 4 }}>Use a different email</Text>
                 </Pressable>
@@ -313,10 +340,10 @@ export default function Auth(
                     password gets set in the first place. */}
                 {!creating && (
                   <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', columnGap: 18, rowGap: 8 }}>
-                    <Pressable onPress={() => resetPassword(email)} hitSlop={10} accessibilityRole="button">
+                    <Pressable onPress={async () => { if (await resetPassword(email)) waitFor('recovery'); }} hitSlop={10} accessibilityRole="button">
                       <Text style={{ color: t.ink3, fontSize: 13.5 }}>{busy === 'reset' ? 'Sending…' : 'Forgot your password?'}</Text>
                     </Pressable>
-                    <Pressable onPress={() => withEmailLink(email)} hitSlop={10} accessibilityRole="button">
+                    <Pressable onPress={async () => { if (await withEmailLink(email)) waitFor('email'); }} hitSlop={10} accessibilityRole="button">
                       <Text style={{ color: t.ink3, fontSize: 13.5 }}>{busy === 'email' ? 'Sending…' : 'Email me a sign-in link'}</Text>
                     </Pressable>
                   </View>
