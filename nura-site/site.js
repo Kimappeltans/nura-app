@@ -1,5 +1,8 @@
 // Nura — the site: the header hairline, sections easing in, the moving characters, the demos.
 
+// the script is running: sections wait to ease in (site.css shows them anyway if it never does)
+document.documentElement.classList.add('js');
+
 // the header gets its hairline once the page moves
 const header = document.querySelector('header');
 const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
@@ -42,7 +45,9 @@ const refocus = to => {
 const seen = new IntersectionObserver(es => es.forEach(e => {
   if (e.isIntersecting) { e.target.classList.add('in'); seen.unobserve(e.target); }
 }), { rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.rv').forEach(el => still ? el.classList.add('in') : seen.observe(el));
+// (a script that arrived late finds them already shown by site.css: they stay shown)
+const late = performance.now() > 2400;
+document.querySelectorAll('.rv').forEach(el => still || late ? el.classList.add('in') : seen.observe(el));
 
 // The moving characters: real clips, cut out. Each <img data-clip> shows its
 // still until it's on screen. A loop (data-loop) starts once and keeps going;
@@ -246,8 +251,12 @@ if (live && line) {
 const signup = document.querySelector('form.signup');
 if (signup) {
   const state = document.querySelector('.form-state'), btn = signup.querySelector('button');
+  let sending = false;
+  // (the browser checks the address before this runs: type="email" and required)
   signup.addEventListener('submit', async e => {
     e.preventDefault();
+    if (sending) return;                                   // one at a time, however often it's pressed
+    sending = true;
     btn.disabled = true; state.className = 'form-state'; state.textContent = 'Sending…';
     try {
       const r = await fetch(signup.getAttribute('action') || '/', {
@@ -261,6 +270,8 @@ if (signup) {
     } catch {
       btn.disabled = false;
       state.textContent = "That didn't go through. Please try again in a moment.";
+    } finally {
+      sending = false;
     }
   });
   // "Get early access" anywhere on the page: scroll to the form, then the cursor in the field
@@ -287,10 +298,11 @@ if (learn) {
     };
     requestAnimationFrame(step);
   };
+  let hiding = 0;
   const close = line => {
     card.classList.add('gone'); after.textContent = line; again.hidden = false;
     again.focus({ preventScroll: true });
-    setTimeout(() => { card.hidden = true; }, 450);
+    hiding = setTimeout(() => { card.hidden = true; }, 450);
   };
   card.querySelector('.yes').addEventListener('click', () => {
     row.classList.add('bumped'); count(45, 60);
@@ -298,7 +310,7 @@ if (learn) {
   });
   card.querySelector('.no').addEventListener('click', () => close('Not now. This one rests for a week.'));
   again.addEventListener('click', () => {
-    run++; card.hidden = false; row.classList.remove('bumped'); mins.textContent = '45'; after.textContent = ''; again.hidden = true;
+    run++; clearTimeout(hiding); card.hidden = false; row.classList.remove('bumped'); mins.textContent = '45'; after.textContent = ''; again.hidden = true;
     requestAnimationFrame(() => card.classList.remove('gone'));
     card.querySelector('.yes').focus({ preventScroll: true });
   });
@@ -775,9 +787,10 @@ if (bd && window.NuraParser) {
 
   let run = 0, folds = 0;
   const go = async (text, typed) => {
-    const me = ++run;
     text = text.trim();
     if (!text) return;
+    const me = ++run;
+    started = true;                                        // a try of your own is never replaced by the example
     const { load, pieces } = read(text);
     list.textContent = ''; front.hidden = true; reply.hidden = true;
     mess.classList.remove('read');
@@ -797,9 +810,11 @@ if (bd && window.NuraParser) {
     for (const m of marks) { if (me !== run) return; m.classList.add('on'); await wait(430); }
     // sorted: a day and a length each, the big one broken into steps
     hold(null);
-    if (load === 'overwhelmed' || load === 'busy' || pieces.some(p => p.kind === 'feel')) {
+    // only a feeling, nothing to do yet: no "here's where to start" over an empty space
+    const none = pieces.every(p => p.kind === 'feel');
+    if (none || load === 'overwhelmed' || load === 'busy' || pieces.some(p => p.kind === 'feel')) {
       reply.innerHTML = '';
-      reply.append(el('b', '', 'Nu: '), document.createTextNode(load === 'busy' ? 'A full one. Here’s the order.' : 'That’s a lot. Here’s where to start.'));
+      reply.append(el('b', '', 'Nu: '), document.createTextNode(none ? 'That’s a lot. What’s one thing on your mind?' : load === 'busy' ? 'A full one. Here’s the order.' : 'That’s a lot. Here’s where to start.'));
       reply.hidden = false;
       await wait(450);
     }
@@ -836,7 +851,10 @@ if (bd && window.NuraParser) {
   bd.querySelector('.demo-form').addEventListener('submit', e => {
     e.preventDefault();
     const input = bd.querySelector('#mess');
+    if (!input.value.trim()) { input.value = ''; input.focus(); return; }
     go(input.value, false); input.value = '';
+    // on a phone the keyboard would cover what Nu sorts
+    if (matchMedia('(max-width: 860px)').matches) input.blur();
   });
   bd.querySelectorAll('.demo-tries button').forEach(b => b.addEventListener('click', () => go(b.textContent, true)));
 }
