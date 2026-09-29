@@ -330,13 +330,13 @@ if (nm && window.NuraParser) {
   const GONE = { a: at(-3, 17), b: at(-2, 9), e: at(-1, 9) };
   const fresh = (mode = 'day') => ({
     mode, tasks: seed().map(t => (mode === 'back' && GONE[t.id] ? { ...t, due_at: GONE[t.id] } : t)),
-    passed: [], done: 0, short: false, moves: {}, going: null, touched: false,
+    passed: [], done: 0, moves: {}, going: null, touched: false,
   });
   let S = fresh();
   const past = [];                                          // what Undo goes back to
   const keep = () => { past.push(JSON.stringify(S)); if (past.length > 20) past.shift(); };
   const rank = () => P.rankActions(S.tasks, {
-    now: NOW, dayEndMin: 18 * 60, energy: 'steady', anchors: [CALL, ...(S.short ? [NOW + 15 * 60_000] : [])],
+    now: NOW, dayEndMin: 18 * 60, energy: 'steady', anchors: [CALL],
     passedIds: S.passed, moves: new Map(Object.entries(S.moves)), patterns: LEARNED,
   });
   // The app's comeback (src/learn/suggest.ts): after days away, before anything else
@@ -392,8 +392,7 @@ if (nm && window.NuraParser) {
       after.append(li);
     });
     if (ranked.length < 2) after.append(el('li', 'none', d ? 'Nothing after this one.' : 'Nothing held.'));
-    $('.nm-left').textContent = S.short ? '15 min' : mins(LEFT);
-    $('.nm-leftk').textContent = S.short ? 'before you have to go' : 'left today, around your events';
+    $('.nm-left').textContent = mins(LEFT);
     const done = $('.nm-done');
     done.hidden = !S.done && S.mode !== 'back';
     done.textContent = [S.mode === 'back' ? 'Last here 6 days ago' : null, S.done ? `${S.done} done today` : null].filter(Boolean).join(' · ');
@@ -422,10 +421,10 @@ if (nm && window.NuraParser) {
       const [[name, m], ...rest] = t.smaller, id = `${t.id}+`;
       S.moves[id] = { project: t.project, touchedAt: NOW, blocked: false };
       S.tasks[S.tasks.indexOf(t)] = { ...t, id, title: name, est_minutes: m, rest, smaller: null };
-      say(`Nu found a smaller way in: ${m} minutes to begin.`);
+      say(`Nu planned it as steps. The first one: ${m} minutes.`);
     },
-    waiting: t => { keep(); Object.assign(t, { due_at: at(1, 9), has_time: 0, snoozed_until: at(1, 7) }); say('Moved to tomorrow while you wait. Here’s what you can do now.'); },
-    short: () => { keep(); S.short = true; say('15 minutes it is. What fits comes first.'); },
+    waiting: t => { keep(); Object.assign(t, { due_at: at(1, 9), has_time: 0, snoozed_until: at(1, 7) }); say('Out of the way until tomorrow. Here’s what you can do now.'); },
+    tomorrow: t => { keep(); Object.assign(t, { due_at: at(1, 9), has_time: 0, snoozed_until: at(1, 7) }); say(`Moved to tomorrow: ${t.title}.`); },
     done: t => { keep(); finish(t); say('Done. That one is gone.'); },
     undo: () => { const was = past.pop(); if (was) S = JSON.parse(was); say(null); },
     reset: () => { S = fresh(S.mode); past.length = 0; say(S.mode === 'back' ? WELCOME : null, false); },
@@ -476,9 +475,6 @@ if (bd && window.NuraParser) {
   const OPEN = /^(?:(?:ugh|ok|okay|so|um|well|right|hmm|oh|argh)[,.!]?\s+)+/i;
   const LEAD = /^(?:(?:and|also|then|plus)\s+)?(?:i\s+(?:really\s+)?(?:need|have|want|got)\s+to|i\s+must|i\s+should|i\s+gotta|need\s+to|have\s+to|remember\s+to|don'?t\s+forget\s+to)\s+/i;
   const tidy = s => s.trim().replace(OPEN, '').replace(LEAD, '').trim();
-  // a length when none was said: what things like it usually take
-  const guess = t => /\b(call|ring|phone)\b/i.test(t) ? 10 : /\b(send|email|text|reply|message|pay)\b/i.test(t) ? 5
-    : /\b(book|buy|order|groceries|shop)\b/i.test(t) ? 20 : /\b(fix|clean|tidy|gym)\b/i.test(t) ? 30 : 15;
   // A big thing, thought through: its phases, every step it really takes, and
   // the things to have at hand, by name. (In the app Nu plans yours with you;
   // these are worked examples.) A step: [title, minutes, what to gather, a note].
@@ -652,10 +648,10 @@ if (bd && window.NuraParser) {
       const d = P.parseTask(words);
       // the parser's project, or a thing that's always several steps ("taxes", "the offsite")
       const project = v.type === 'project' || (/\btax(es)?\b|\boffsite\b|\bweb ?site\b/i.test(words) && d.title.split(/\s+/).length <= 5);
-      const est = d.est_minutes || (project ? null : guess(d.title));
+      const est = d.est_minutes || null;
       const when = d.due_at ? (project ? `By ${dayWord(d.due_at)}` : dayWord(d.due_at) + (d.has_time ? ` ${clock(d.due_at)}` : '')) : null;
       const phases = project ? planOf(words) : null;
-      return { raw, words, d, est, guessed: !d.est_minutes, kind: project ? 'project' : 'task', when,
+      return { raw, words, d, est, kind: project ? 'project' : 'task', when,
         tag: [project ? 'Project' : 'Task', when].filter(Boolean).join(' · '), phases, steps: phases ? phases.flatMap(([, xs]) => xs) : null };
     });
     return { load: u.read && u.read.load, pieces };
@@ -706,7 +702,7 @@ if (bd && window.NuraParser) {
     if (p.steps) chips.append(el('span', 'proj', 'Project'));
     if (p.when) chips.append(el('span', '', p.when));
     if (p.steps) chips.append(el('span', '', `${p.steps.length} steps`), el('span', '', `about ${span(Math.round(p.steps.reduce((a, x) => a + x[1], 0) / 15) * 15)}`));
-    if (p.est) chips.append(el('span', '', `${p.guessed ? 'about ' : ''}${p.est} min`));
+    if (p.est) chips.append(el('span', '', `${p.est} min`));
     const label = p.d.label && P.labelById(p.d.label);
     if (label) chips.append(el('span', '', label.name));
     li.append(chips);
