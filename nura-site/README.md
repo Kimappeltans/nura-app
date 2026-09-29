@@ -12,6 +12,8 @@ about.html          the story behind Nura: Nun, the Benben, Heliopolis, Ra, then
 privacy.html        the Privacy Policy
 terms.html          the Terms of Service
 support.html        contact, and answers to the common questions
+404.html            what Netlify shows for an address that doesn't exist (root paths only)
+robots.txt, sitemap.xml  for search engines: the six pages, as https://risewithnura.com/<page>.html
 site.css / site.js  shared by every page; bump ?v= in the pages after a change
 story.css / story.js  the story on about.html: one pinned scene drawn by scroll
 
@@ -21,7 +23,18 @@ assets/benben-rise.webp    the Benben rising out of the water, between Nu and Ra
 assets/nu.png, ra.png      Nu and Ra cut out with alpha — independent assets
 assets/*-full.png          full-resolution cut-outs, for print or larger renders
 assets/wordmark.png        the wordmark, white on alpha, for CSS masking
+assets/share.jpg           the link preview (og:image), 1200 x 630: headline, Home, Ra
+assets/apple-touch-icon.png  the app icon at 180 px, from ../assets/brand/icon-nura.png
 ```
+
+## Each page's head
+
+Every page carries a canonical address (with `.html`, as the links between
+pages use; the home page is `https://risewithnura.com/`), Open Graph and
+Twitter tags pointing at `assets/share.jpg`, and a description of its own.
+The home page has JSON-LD for Nura (the app, the organisation, the site);
+support.html has a FAQPage block that repeats the questions and answers word
+for word, so change both together. Add a new page to `sitemap.xml` too.
 
 ## The screenshots
 
