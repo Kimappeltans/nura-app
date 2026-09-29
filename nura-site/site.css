@@ -41,6 +41,8 @@ body { margin: 0; background: #FFFFFF; color: var(--ink); font: 500 16px/1.5 var
 img { display: block; max-width: 100%; height: auto; }
 a { color: inherit; }
 section { position: relative; background-color: var(--bg); color: var(--text); overflow-x: clip; }
+/* a link to a part of the page lands below the sticky header, not under it */
+[id] { scroll-margin-top: 72px; }
 .wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); }
 /* the room above and under a section: two of these sit between one section and the next */
 .pad { padding-block: clamp(32px, 3.6vw, 52px); }
@@ -93,7 +95,10 @@ header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
 @media (max-width: 800px) {
   .bar { gap: 10px; }
   .bar .btn { margin-left: auto; }
-  .menu-btn { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  /* the logo is a full size target; the menu button comes before the pages
+     it opens (site.js), but still sits at the end of the bar */
+  .bar > a:first-child { display: flex; align-items: center; min-height: 44px; }
+  .menu-btn { order: 1; display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%;
     border: 1px solid rgba(23,19,19,.14); background: #FFFFFF; color: var(--ink); cursor: pointer; }
   .menu-btn svg path { transition: transform .25s var(--ease-pop), opacity .2s; transform-origin: 12px 12px; }
   header.open .menu-btn .a { transform: translateY(4px) rotate(45deg); }
@@ -350,7 +355,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .suggest.big p { font-size: clamp(16px, 1.6vw, 18px); letter-spacing: -0.015em; }
 .suggest.big small { font-size: 13.5px; }
 .suggest.big .act { margin-top: 18px; gap: 18px; }
-.suggest.big button { font: 600 15px var(--font); cursor: pointer; background: none; border: 0; }
+.suggest.big button { min-height: 44px; font: 600 15px var(--font); cursor: pointer; background: none; border: 0; }
 .suggest.big .yes { padding: 10px 24px; border: 0; background: var(--coral); color: var(--on-coral); }
 .suggest.big .yes:hover { background: var(--ink); color: #fff; }
 .suggest.big .no { color: var(--sub); padding: 9px 4px; }
@@ -402,7 +407,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .nm-when button { height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: transparent; font: 500 15.5px var(--font); letter-spacing: -0.01em; color: var(--ink-2); cursor: pointer; }
 .nm-when button[aria-pressed="true"] { background: #FFFFFF; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(23,19,19,.12); }
 .nm-when + .nm { margin-top: 18px; }
-.nm { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
+.nm { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
 .nm-move { position: relative; overflow: hidden; border-radius: var(--r-lg); padding: clamp(24px, 3vw, 34px); }
 .nm-move::before { content: ""; position: absolute; right: -90px; top: -100px; width: 340px; height: 340px; border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255,176,103,.42), rgba(255,138,92,.16) 45%, rgba(255,107,53,0) 100%); }
@@ -454,7 +459,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .nm-events li { display: flex; gap: 12px; padding: 3px 0; }
 .nm-events em { font-style: normal; color: var(--ink-2); min-width: 72px; }
 @media (max-width: 860px) {
-  .nm { grid-template-columns: 1fr; }
+  .nm { grid-template-columns: minmax(0, 1fr); }
   .nm-then { order: 1; }
   .nm-side { order: 2; }
   .nm-title { margin-right: 84px; }
@@ -465,7 +470,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 /* the breakdown (Try it, site.js): what you said, each piece marked and named
    as Nu reads it, then the pieces sorted, the big one in steps, and the
    planner's pick in front */
-.bd { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
+.bd { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; margin-top: clamp(24px, 3vw, 36px); align-items: start; }
 .bd-say, .bd-sort { border-radius: var(--r-lg); padding: 24px 26px; }
 .bd-mess { margin: 6px 0 0; min-height: 170px; font-size: clamp(19px, 1.9vw, 24px); line-height: 2.05; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
 .bd-mess .f { transition: color .5s ease; }
@@ -494,7 +499,9 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .bd-list > li { display: grid; gap: 7px; padding: 12px 0; border-bottom: 1px solid rgba(23,19,19,.08); animation: rise .45s var(--ease-pop) both; }
 .bd-list > li:last-child { border-bottom: 0; }
 .bd-list > li.picked { opacity: .45; }
-.bd-list b { font-size: 15.5px; font-weight: 500; letter-spacing: -0.02em; }
+.bd-list b { font-size: 15.5px; font-weight: 500; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+/* whatever someone types, a long word breaks rather than widening the card */
+.bd-front b, .bd-steps .t { overflow-wrap: anywhere; }
 .bd-list .chips-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .bd-list .chips-row span { padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(23,19,19,.1); font-size: 12px; color: var(--ink-2); background: #fff; }
 .bd-list .chips-row span.proj { border-color: transparent; background: rgba(255,107,53,.14); color: var(--coral-deep); font-weight: 600; }
@@ -522,7 +529,7 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .bd-need { list-style: none; margin: 0 0 2px 28px; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
 .bd-need li { display: flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border-radius: 8px; background: #FBF6F1; font-size: 12.5px; color: var(--ink-2); }
 .bd-need li::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 3px; border: 1.5px solid rgba(23,19,19,.3); }
-@media (max-width: 860px) { .bd { grid-template-columns: 1fr; } .bd-mess { min-height: 0; } .bd-say { position: static; } }
+@media (max-width: 860px) { .bd { grid-template-columns: minmax(0, 1fr); } .bd-mess { min-height: 0; } .bd-say { position: static; } }
 
 /* ─── recovery: a quiet panel ─── */
 .panel { border-radius: 36px; padding: clamp(24px, 3.4vw, 44px); background: #FBF6F1; border: 1px solid var(--line); }
@@ -630,6 +637,8 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .legal td:first-child { color: var(--ink); }
 @media (max-width: 640px) {
   .legal .toc ol { columns: 1; }
+  .legal .toc li { margin-bottom: 0; }
+  .legal .toc a { display: block; padding: 10px 0; }
   .legal .summary, .legal .toc { padding: 20px; }
   .legal table { font-size: 14px; }
   .legal th, .legal td { padding: 10px 12px; min-width: 140px; }
@@ -669,14 +678,16 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .badge span { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hp { position: absolute; left: -9999px; }
-@media (max-width: 520px) { .signup { flex-direction: column; border-radius: 24px; } .signup button { width: 100%; } }
+/* stacked on a phone: the field keeps its height (flex: 1 in a column squashed it to one line of text) */
+@media (max-width: 520px) { .signup { flex-direction: column; border-radius: 24px; } .signup input[type="email"] { flex: none; } .signup button { width: 100%; } }
 
 /* ─── footer ─── */
 footer { background: #FFD6BD; color: var(--on-coral); }
-footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; padding-block: 32px 40px; font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px; padding-block: 22px 30px; font-size: 14px; }
 footer .wordmark { background: var(--on-coral); width: 63px; height: 18px; }
-footer nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
-footer nav a { text-decoration: none; opacity: .75; }
+footer nav { display: flex; flex-wrap: wrap; gap: 0 22px; }
+footer nav a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; opacity: .75; }
+footer .wrap > a:first-child { display: flex; align-items: center; min-height: 44px; }
 footer nav a:hover { opacity: 1; }
 footer .c { margin-left: auto; opacity: .7; }
 
@@ -686,6 +697,12 @@ footer .c { margin-left: auto; opacity: .7; }
 /* ─── sections ease in once; nothing moves for people who asked for less motion ─── */
 .rv { opacity: 0; transform: translateY(16px); transition: opacity .8s var(--ease-pop), transform .8s var(--ease-pop); }
 .rv.in { opacity: 1; transform: none; }
+/* without the script nothing waits to ease in: no JavaScript shows it at once,
+   and a script that never arrives lets it show after a moment (site.js marks
+   the page .js as soon as it runs) */
+@media (scripting: none) { .rv { opacity: 1; transform: none; } }
+html:not(.js) .rv { animation: rv-show .6s ease 2.5s forwards; }
+@keyframes rv-show { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .rv { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; }
   .hx-chip, .pile span, .demo-front, .demo-list li, .bd-reply, .bd-front, .bd-list > li, .bd-steps li, .bd-phase, .bd-mess.typing::after, .nm-note, .nm-changed, .nm-after li, .nm-move.swap .nm-title, .nm-move.swap .nm-about, .nm-move.swap .nm-facts { animation: none !important; }

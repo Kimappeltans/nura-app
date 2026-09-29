@@ -62,7 +62,13 @@ reduced motion on.
 
 The form at the end of the landing page is set up for **Netlify Forms**: deploy
 the folder on Netlify and signups appear under Forms → early-access, with a
-honeypot against bots. Nothing else to configure. On another host, point the
+honeypot against bots. One setting first: Netlify only reads the form at
+deploy time when **form detection** is on for the site (Site configuration →
+Forms → Enable form detection; new sites have it off). Turn it on, then deploy
+again. To check a deploy: `curl -s https://risewithnura.com/ | grep data-netlify`
+prints nothing once Netlify has taken the form in (it removes the attribute);
+if it still prints the form, detection did not run and signups are not being
+kept. On another host, point the
 form's `action` at your own endpoint — `site.js` posts it urlencoded and shows
 "You're on the list" on any 2xx answer. (A local server rejects the post, so
 locally you'll see the retry message.)

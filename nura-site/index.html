@@ -12,7 +12,7 @@
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="fonts/InterTight-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/InterTight-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=41">
+<link rel="stylesheet" href="site.css?v=42">
 </head>
 <body>
 
@@ -96,7 +96,7 @@
     </div>
     <div class="nm rv">
       <div class="nm-move">
-        <img class="nm-ra" src="assets/ra-hello.webp" width="720" height="720" alt="">
+        <img loading="lazy" class="nm-ra" src="assets/ra-hello.webp" width="720" height="720" alt="">
         <span class="nm-k">Your next move</span>
         <b class="nm-title">Send the revised proposal to Maya</b>
         <p class="nm-about">About 15 min</p>
@@ -112,7 +112,7 @@
           <button type="button" data-act="short">I only have 15 minutes</button>
           <button type="button" data-act="done">Already done</button>
         </div>
-        <p class="nm-note" role="status" aria-live="polite" hidden><img src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span><button type="button" class="link" data-act="undo">Undo</button></p>
+        <p class="nm-note" role="status" aria-live="polite" hidden><img loading="lazy" src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span><button type="button" class="link" data-act="undo">Undo</button></p>
       </div>
       <div class="nm-side">
         <div class="nm-card nm-learned">
@@ -165,7 +165,7 @@
         <span class="v"><b id="learn-mins">45</b><small>min</small></span>
       </div>
       <div class="suggest big" id="learn-card">
-        <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+        <img loading="lazy" src="assets/nu-listen.webp" width="720" height="720" alt="">
         <div>
           <p>Things tend to run a bit longer than planned for you. Give “Prepare slides for Monday” 60 minutes instead of 45?</p>
           <small>Across your last 8 timed tasks, the time spent was 1.3× the guess.</small>
@@ -203,7 +203,7 @@
       </div>
       <div class="bd-sort" aria-live="polite">
         <div class="demo-k">Nu sorts it</div>
-        <p class="bd-wait" hidden><img src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span></p>
+        <p class="bd-wait" hidden><img loading="lazy" src="assets/nu-listen.webp" width="720" height="720" alt=""><span></span></p>
         <p class="bd-reply" hidden></p>
         <div class="front bd-front" hidden>
           <small>Start with</small>
@@ -223,7 +223,7 @@
     <div class="panel">
       <div class="head center rv">
         <div>
-          <img class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
+          <img loading="lazy" class="mover rest-ra" src="assets/ra-sit-still.webp" data-clip="assets/ra-sit.webp" data-loop width="336" height="360" alt="">
           <span class="num">04 · Recovery</span>
           <h2>Recovery, <span class="mh">not guilt.</span></h2>
           <p class="lead">Gone for a week? Plan fell apart? Nura doesn't make you catch up. It picks one small thing from where you left off.</p>
@@ -248,7 +248,7 @@
 <!-- the close: the warm horizon, Ra holding up the pebble, and the list -->
 <section class="dawn pad" id="early-access">
   <div class="wrap">
-    <img class="ra mover" src="assets/ra-pebble-still.webp" data-clip="assets/ra-pebble.webp" width="349" height="360" alt="Ra holding up a tiny pebble">
+    <img loading="lazy" class="ra mover" src="assets/ra-pebble-still.webp" data-clip="assets/ra-pebble.webp" width="349" height="360" alt="Ra holding up a tiny pebble">
     <h2 class="rv" style="margin-top: 18px">Start with <span class="mh">one thing.</span></h2>
     <p class="lead rv">Nura works in your browser today. Want the iPhone app? Leave your email and we'll write once, when it's out.</p>
     <form class="signup rv" name="early-access" method="POST" action="/" data-netlify="true" netlify-honeypot="company">
@@ -287,6 +287,6 @@
 </footer>
 
 <script src="assets/nura-parser.js?v=5"></script>
-<script src="site.js?v=34"></script>
+<script src="site.js?v=35"></script>
 </body>
 </html>

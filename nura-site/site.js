@@ -1,5 +1,8 @@
 // Nura — the site: the header hairline, sections easing in, the moving characters, the demos.
 
+// the script is running: sections wait to ease in (site.css shows them anyway if it never does)
+document.documentElement.classList.add('js');
+
 // the header gets its hairline once the page moves
 const header = document.querySelector('header');
 const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
@@ -13,7 +16,8 @@ if (pages) {
   b.type = 'button'; b.className = 'menu-btn';
   b.setAttribute('aria-controls', 'pages');
   b.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="a" d="M5 8h14"/><path class="b" d="M5 16h14"/></svg>';
-  bar.append(b);
+  // before the pages it opens, so Tab goes from the button into them (site.css keeps it at the end of the bar)
+  pages.before(b);
   const set = open => {
     header.classList.toggle('open', open);
     b.setAttribute('aria-expanded', String(open));
@@ -33,7 +37,9 @@ const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const seen = new IntersectionObserver(es => es.forEach(e => {
   if (e.isIntersecting) { e.target.classList.add('in'); seen.unobserve(e.target); }
 }), { rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.rv').forEach(el => still ? el.classList.add('in') : seen.observe(el));
+// (a script that arrived late finds them already shown by site.css: they stay shown)
+const late = performance.now() > 2400;
+document.querySelectorAll('.rv').forEach(el => still || late ? el.classList.add('in') : seen.observe(el));
 
 // The moving characters: real clips, cut out. Each <img data-clip> shows its
 // still until it's on screen. A loop (data-loop) starts once and keeps going;
@@ -237,8 +243,12 @@ if (live && line) {
 const signup = document.querySelector('form.signup');
 if (signup) {
   const state = document.querySelector('.form-state'), btn = signup.querySelector('button');
+  let sending = false;
+  // (the browser checks the address before this runs: type="email" and required)
   signup.addEventListener('submit', async e => {
     e.preventDefault();
+    if (sending) return;                                   // one at a time, however often it's pressed
+    sending = true;
     btn.disabled = true; state.className = 'form-state'; state.textContent = 'Sending…';
     try {
       const r = await fetch(signup.getAttribute('action') || '/', {
@@ -248,9 +258,13 @@ if (signup) {
       if (!r.ok) throw new Error(r.status);
       signup.hidden = true;
       state.className = 'form-state ok'; state.textContent = "Thanks. We'll write when the iPhone app is out.";
+      // the button that had focus is gone: keep the place on the line that replaced it
+      state.tabIndex = -1; state.focus({ preventScroll: true });
     } catch {
       btn.disabled = false;
       state.textContent = "That didn't go through. Please try again in a moment.";
+    } finally {
+      sending = false;
     }
   });
   // "Get early access" anywhere on the page: scroll to the form, then the cursor in the field
@@ -277,9 +291,10 @@ if (learn) {
     };
     requestAnimationFrame(step);
   };
+  let hiding = 0;
   const close = line => {
     card.classList.add('gone'); after.textContent = line; again.hidden = false;
-    setTimeout(() => { card.hidden = true; }, 450);
+    hiding = setTimeout(() => { card.hidden = true; }, 450);
   };
   card.querySelector('.yes').addEventListener('click', () => {
     row.classList.add('bumped'); count(45, 60);
@@ -287,7 +302,7 @@ if (learn) {
   });
   card.querySelector('.no').addEventListener('click', () => close('Not now. This one rests for a week.'));
   again.addEventListener('click', () => {
-    run++; card.hidden = false; row.classList.remove('bumped'); mins.textContent = '45'; after.textContent = ''; again.hidden = true;
+    run++; clearTimeout(hiding); card.hidden = false; row.classList.remove('bumped'); mins.textContent = '45'; after.textContent = ''; again.hidden = true;
     requestAnimationFrame(() => card.classList.remove('gone'));
   });
 }
@@ -762,9 +777,10 @@ if (bd && window.NuraParser) {
 
   let run = 0, folds = 0;
   const go = async (text, typed) => {
-    const me = ++run;
     text = text.trim();
     if (!text) return;
+    const me = ++run;
+    started = true;                                        // a try of your own is never replaced by the example
     const { load, pieces } = read(text);
     list.textContent = ''; front.hidden = true; reply.hidden = true;
     mess.classList.remove('read');
@@ -784,9 +800,11 @@ if (bd && window.NuraParser) {
     for (const m of marks) { if (me !== run) return; m.classList.add('on'); await wait(430); }
     // sorted: a day and a length each, the big one broken into steps
     hold(null);
-    if (load === 'overwhelmed' || load === 'busy' || pieces.some(p => p.kind === 'feel')) {
+    // only a feeling, nothing to do yet: no "here's where to start" over an empty space
+    const none = pieces.every(p => p.kind === 'feel');
+    if (none || load === 'overwhelmed' || load === 'busy' || pieces.some(p => p.kind === 'feel')) {
       reply.innerHTML = '';
-      reply.append(el('b', '', 'Nu: '), document.createTextNode(load === 'busy' ? 'A full one. Here’s the order.' : 'That’s a lot. Here’s where to start.'));
+      reply.append(el('b', '', 'Nu: '), document.createTextNode(none ? 'That’s a lot. What’s one thing on your mind?' : load === 'busy' ? 'A full one. Here’s the order.' : 'That’s a lot. Here’s where to start.'));
       reply.hidden = false;
       await wait(450);
     }
@@ -823,7 +841,10 @@ if (bd && window.NuraParser) {
   bd.querySelector('.demo-form').addEventListener('submit', e => {
     e.preventDefault();
     const input = bd.querySelector('#mess');
+    if (!input.value.trim()) { input.value = ''; input.focus(); return; }
     go(input.value, false); input.value = '';
+    // on a phone the keyboard would cover what Nu sorts
+    if (matchMedia('(max-width: 860px)').matches) input.blur();
   });
   bd.querySelectorAll('.demo-tries button').forEach(b => b.addEventListener('click', () => go(b.textContent, true)));
 }
