@@ -6,7 +6,7 @@ import { type as T } from '../theme';
 import { Mica } from '../ui';
 import { useReducedMotion, decorative } from '../a11y';
 
-const mark = require('../../assets/brand/nura-logo-tight.webp');
+import { STONE as mark } from '../art'; // smaller copy on the web, see art.ts
 
 /**
  * Shown before we know anything — fonts still loading, or the single query
