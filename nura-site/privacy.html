@@ -9,9 +9,10 @@
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="fonts/InterTight-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/InterTight-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=41">
+<link rel="stylesheet" href="site.css?v=42">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
 <header>
   <div class="wrap bar">
@@ -25,7 +26,7 @@
   </div>
 </header>
 
-<main>
+<main id="main">
 <section class="day hero glow">
   <div class="wrap prose legal">
     <span class="kicker">Legal</span>
@@ -115,7 +116,7 @@
 
     <h2 id="where"><span class="n">3.</span> Where your information is stored</h2>
     <p>Nura is designed to keep as much as possible on your device. Some information is synced to your account so it is available on your other devices.</p>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="Where your information is stored">
       <table>
         <thead><tr><th scope="col">Synced to your account</th><th scope="col">Kept only on your device</th></tr></thead>
         <tbody>
@@ -147,7 +148,7 @@
     <p>Some features of Nura use Claude, a family of AI models made by Anthropic, PBC. These features are <b>off by default</b> and run only after you turn them on in the app. When they are off, nothing is sent to an AI model and Nura relies on your device's own processing.</p>
 
     <h3>5.1 What each feature sends</h3>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="What each AI feature sends">
       <table>
         <thead><tr><th scope="col">Feature</th><th scope="col">What is sent</th><th scope="col">When</th></tr></thead>
         <tbody>
@@ -174,7 +175,7 @@
 
     <h2 id="bases"><span class="n">6.</span> Legal bases for processing</h2>
     <p>If you are in the European Economic Area, the United Kingdom or Switzerland, we rely on the following legal bases:</p>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="Legal bases for processing">
       <table>
         <thead><tr><th scope="col">Purpose</th><th scope="col">Legal basis</th></tr></thead>
         <tbody>
@@ -192,7 +193,7 @@
 
     <h3>7.1 Service providers</h3>
     <p>We use a small number of service providers who process personal information on our behalf, under contracts that limit their use of it to providing services to us:</p>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="Service providers">
       <table>
         <thead><tr><th scope="col">Provider</th><th scope="col">Purpose</th><th scope="col">Location</th></tr></thead>
         <tbody>
@@ -220,7 +221,7 @@
 
     <h2 id="retention"><span class="n">9.</span> Data retention</h2>
     <p>We keep personal information only as long as necessary for the purposes described in this Policy, unless a longer period is required by law.</p>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="Data retention">
       <table>
         <thead><tr><th scope="col">Information</th><th scope="col">Retention</th></tr></thead>
         <tbody>
@@ -276,7 +277,7 @@
 
     <h3>12.1 Categories of personal information</h3>
     <p>In the preceding 12 months we have collected the following categories of personal information, as defined by the California Consumer Privacy Act, from the sources and for the purposes described in Sections 2 and 4:</p>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" tabindex="0" aria-label="Categories of personal information">
       <table>
         <thead><tr><th scope="col">Category</th><th scope="col">Examples</th><th scope="col">Disclosed for a business purpose to</th></tr></thead>
         <tbody>
@@ -339,6 +340,6 @@
   </div>
 </footer>
 
-<script src="site.js?v=34"></script>
+<script src="site.js?v=35"></script>
 </body>
 </html>
