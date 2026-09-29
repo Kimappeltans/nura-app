@@ -1,5 +1,5 @@
 import 'react-native-url-polyfill/auto';
-import { createClient, isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
+import { createClient, isAuthRetryableFetchError, type EmailOtpType, type Session } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { sessionStore } from './sessionStore';
 
@@ -15,6 +15,11 @@ import { sessionStore } from './sessionStore';
  * magic link or a password reset comes back to the page with a code in the
  * address, and the client swaps it for the session. The phone has no address
  * bar; its links come back through the nura:// scheme instead.
+ *
+ * A code swaps only where it was asked for (the PKCE verifier stays on that
+ * device), so our emails carry their own token instead (verifyLink, and the
+ * email templates in supabase/README.md) and a code to type in
+ * (useAuthActions → withCode): both work on any device.
  */
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -26,10 +31,13 @@ if (!url || !anonKey) {
   );
 }
 
+/** The web page's address as it was opened, before the client tidies it. */
+const opened = Platform.OS === 'web' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search) : null;
+
 /** This page was opened from a link with a code (an email, or back from
- *  Google), read before the client takes the code out of the address. */
-export const openedFromLink = Platform.OS === 'web' && typeof window !== 'undefined'
-  && /[?&]code=/.test(window.location.search);
+ *  Google) or an email's token, read before the client takes it out of the address. */
+export const openedFromLink = !!opened && (opened.has('code') || opened.has('token_hash'));
 
 export const supabase = createClient(url, anonKey, {
   auth: {
@@ -91,6 +99,37 @@ export async function loadSession(): Promise<Session | null> {
 
 /** Where the client saves the session (its default, from the project URL). */
 const sessionKey = () => (supabase.auth as unknown as { storageKey: string }).storageKey;
+
+/**
+ * Web: the page came back with a code this browser never asked for (no PKCE
+ * verifier here), so the client can't swap it: the link was opened on a
+ * different device or browser from the one that asked. The client leaves
+ * such a code alone; read now, before it starts on one it can swap.
+ */
+export const codeFromElsewhere = !!opened?.has('code') && (() => {
+  try { return !window.localStorage.getItem(`${sessionKey()}-code-verifier`); } catch { return false; }
+})();
+
+const LINK_TYPES: EmailOtpType[] = ['recovery', 'signup', 'invite', 'magiclink', 'email', 'email_change'];
+const linksVerified = new Map<string, Promise<'ok' | 'failed'>>();
+/**
+ * A link from one of our emails with its token in it (…?token_hash=…&type=…,
+ * supabase/README.md, Email templates): unlike a code it needs nothing from
+ * the device that asked, so it signs in wherever it's opened. A recovery one
+ * says PASSWORD_RECOVERY (then app/reset.tsx), the rest SIGNED_IN. Each token
+ * is tried once, however many screens ask; null when there's no token.
+ */
+export function verifyLink(tokenHash: unknown, type: unknown): Promise<'ok' | 'failed'> | null {
+  if (typeof tokenHash !== 'string' || !tokenHash) return null;
+  let done = linksVerified.get(tokenHash);
+  if (!done) {
+    const kind = LINK_TYPES.includes(type as EmailOtpType) ? type as EmailOtpType : 'email';
+    done = supabase.auth.verifyOtp({ token_hash: tokenHash, type: kind })
+      .then(({ error }) => (error ? 'failed' as const : 'ok' as const), () => 'failed' as const);
+    linksVerified.set(tokenHash, done);
+  }
+  return done;
+}
 
 /** The saved session, read straight from storage, with no refresh. */
 async function savedSession(): Promise<Session | null> {

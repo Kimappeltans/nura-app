@@ -7,7 +7,7 @@ import { radius, type as T } from '../theme';
 import { OnbFrame, FooterLink } from '../components/OnbFrame';
 import { useSignupsOpen } from '../useAuthActions';
 import { useAuthActions, useConfirmWait } from '../useAuthActions';
-import { AppleGlyph, GoogleGlyph, Legal } from './Auth';
+import { AppleGlyph, GoogleGlyph, Legal, CodeField } from './Auth';
 import { announce } from '../a11y';
 
 /**
@@ -25,9 +25,9 @@ import { announce } from '../a11y';
  * back to an empty brain dump would only invite writing them twice.
  *
  * Email with "Confirm email" on: made, but no session until the link in the
- * email is opened, so the step waits on "Check your email" (Resend, or a
- * different address) and carries on by itself once the session arrives
- * (useConfirmWait). The tasks from the brain dump are local and stay.
+ * email is opened or its code entered, so the step waits on "Check your
+ * email" (the code, Resend, or a different address) and carries on by
+ * itself once the session arrives (useConfirmWait). The tasks from the brain dump are local and stay.
  *
  * Not skippable: an account is required (Kim, 26 September; see Auth.tsx
  * for the App Store side of that). The same three doors as the sign-in screen (Auth.tsx), via
@@ -43,7 +43,7 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
   beforeRedirect?: () => Promise<void>;
 }) {
   const t = useTheme();
-  const { busy, formError, setFormError, withApple, withGoogle, withPassword, resend } = useAuthActions(onDone, { beforeRedirect });
+  const { busy, formError, setFormError, withApple, withGoogle, withPassword, withCode, resend } = useAuthActions(onDone, { beforeRedirect });
   const [mode, setMode] = useState<Mode>('choose');
   const [creating, setCreating] = useState(true);
   const [name, setName] = useState('');
@@ -53,6 +53,7 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
   const [focused, setFocused] = useState<string | null>(null);
   /** made, waiting on the link in the email */
   const [pending, setPending] = useState<{ email: string; password: string } | null>(null);
+  const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const session = useStore(s => s.session);
   useEffect(() => { announce(formError); }, [formError]);
@@ -70,7 +71,7 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
     const r = await withPassword({ creating, name, email, password, confirm });
     if (r === 'signed-in') onDone();
     if (r === 'check-email') {
-      setSent(false);
+      setSent(false); setCode('');
       setPending({ email: email.trim(), password });
       beforeRedirect?.();
     }
@@ -121,13 +122,17 @@ export default function ProfileStep({ onDone, beforeRedirect }: {
         title="Check your email"
         footer={(
           <>
+            <Primary tone="ra" label={busy === 'code' ? 'Checking…' : 'Continue'} disabled={busy === 'code'}
+              onPress={() => withCode('signup', pending.email, code)} />
             <Ghost label={busy === 'resend' ? 'Sending…' : sent ? 'Sent again' : 'Resend email'} onPress={again} />
             <FooterLink label="Use a different email" onPress={otherEmail} />
           </>
         )}>
         <View style={{ flex: 1, gap: 8, marginTop: 18 }}>
           <Text style={{ color: t.ink, fontSize: 17, lineHeight: 23, fontFamily: T.brand }}>{pending.email}</Text>
-          <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23 }}>Open the link in the email to finish.</Text>
+          <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 23 }}>Enter the code from the email, or open its link.</Text>
+          <CodeField value={code} onChange={setCode} onSubmit={() => withCode('signup', pending.email, code)}
+            {...on('code')} style={{ ...field('code'), marginTop: 10 }} />
           {!!formError && <Text accessibilityLiveRegion="polite" style={{ color: t.raDeep, fontSize: 14, lineHeight: 19, marginTop: 6 }}>{formError}</Text>}
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, marginTop: 'auto', paddingTop: 26 }}>
             <Character name="nu-idle" size={176} />

@@ -28,6 +28,19 @@ import { notify } from './notify';
  * one yet, so "Good morning, Kim" works straight after signing up.
  */
 export type PasswordResult = 'signed-in' | 'check-email' | 'error';
+/** What an email we sent is for: confirming a new account, a new password, or signing in. */
+export type EmailKind = 'signup' | 'recovery' | 'email';
+
+/** A link that came back to a device that never asked for it (src/supabase.ts,
+ *  codeFromElsewhere). Opening it used its code up, so a new email is the way on. */
+export const LINK_ELSEWHERE = {
+  title: 'This link was opened on a different device.',
+  body: 'Ask for a new email on the device you started on. Open it there, or enter its code.',
+};
+export const LINK_EXPIRED = {
+  title: 'This link has expired.',
+  body: 'Ask for a new one from Sign in.',
+};
 
 async function keepName(name: string | null | undefined) {
   const first = name?.trim();
@@ -219,29 +232,56 @@ export function useAuthActions(onDone: () => void, opts: {
     }
   };
 
-  /** Magic link, no password to forget — a sign-in fallback only. */
-  const withEmailLink = async (email: string) => {
-    if (!email.includes('@')) return;
+  /** Magic link, no password to forget — a sign-in fallback only. True when
+   *  it went: the screen then waits on "Check your email", with the code. */
+  const withEmailLink = async (email: string): Promise<boolean> => {
+    setFormError(null);
+    email = email.trim();
+    if (!email.includes('@')) { setFormError('Add your email first.'); return false; }
     setBusy('email'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // signs in only: an account is made on Create your profile, never by a link
     const { error } = await supabase.auth.signInWithOtp({
       email, options: { emailRedirectTo: backTo('/'), shouldCreateUser: false },
     }).catch(e => ({ error: e }));
     setBusy(null);
-    if (error) return fail('Couldn’t send the link', plainAuthError(error));
-    notify('Check your email', `We sent a sign-in link to ${email}.`, onDone);
+    if (error) { fail('Couldn’t send the email', plainAuthError(error)); return false; }
+    return true;
   };
 
-  /** Forgot the password: a link to set a new one, which opens the /reset page. */
-  const resetPassword = async (email: string) => {
+  /** Forgot the password: an email with a code and a link, either of which
+   *  opens the /reset page. True when it went. */
+  const resetPassword = async (email: string): Promise<boolean> => {
     setFormError(null);
-    if (!email.includes('@')) { setFormError('Add your email first.'); return; }
+    email = email.trim();
+    if (!email.includes('@')) { setFormError('Add your email first.'); return false; }
     setBusy('reset'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: backTo('/reset') })
       .catch(e => ({ error: e }));
     setBusy(null);
-    if (error) return fail('Couldn’t send the link', plainAuthError(error));
-    notify('Check your email', `We sent a link to ${email} for setting a new password.`);
+    if (error) { fail('Couldn’t send the email', plainAuthError(error)); return false; }
+    return true;
+  };
+
+  /**
+   * The code from the email, typed in. A link's code swaps only on the device
+   * that asked (PKCE), so the email carries this as well: it works anywhere.
+   * A new password's code says PASSWORD_RECOVERY, so app/_layout.tsx opens
+   * /reset; the others say SIGNED_IN. True when it worked.
+   */
+  const withCode = async (kind: EmailKind, email: string, code: string): Promise<boolean> => {
+    setFormError(null);
+    const token = code.replace(/\D/g, '');
+    if (token.length < 6) { setFormError('Enter the code from the email.'); return false; }
+    setBusy('code'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token, type: kind === 'recovery' ? 'recovery' : 'email' })
+      .catch(e => ({ error: e }));
+    setBusy(null);
+    if (!error) return true;
+    // Supabase says otp_expired for a wrong code as well as an old one
+    setFormError((error as { code?: string }).code === 'otp_expired'
+      ? 'That code didn’t work. Check it, or ask for a new one.'
+      : plainAuthError(error));
+    return false;
   };
 
   /** Checked before anything is sent: name present, password ≥ 8, the two passwords matching. */
@@ -288,5 +328,5 @@ export function useAuthActions(onDone: () => void, opts: {
     return !problem;
   };
 
-  return { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, resend };
+  return { busy, formError, setFormError, withApple, withGoogle, withEmailLink, withPassword, resetPassword, withCode, resend };
 }

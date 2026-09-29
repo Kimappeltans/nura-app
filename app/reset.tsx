@@ -4,27 +4,31 @@ import { View, Text, TextInput, Pressable, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore, useTheme } from '../src/store';
-import { supabase, openedFromLink, inRecovery, onRecovery, endRecovery } from '../src/supabase';
+import { isAuthPKCECodeVerifierMissingError } from '@supabase/supabase-js';
+import { supabase, openedFromLink, codeFromElsewhere, verifyLink, inRecovery, onRecovery, endRecovery } from '../src/supabase';
 import { notify } from '../src/notify';
 import { radius, type as T } from '../src/theme';
 import { Primary, Mica } from '../src/ui';
-import { plainAuthError } from '../src/useAuthActions';
+import { plainAuthError, LINK_ELSEWHERE, LINK_EXPIRED } from '../src/useAuthActions';
 import { announce } from '../src/a11y';
 
 /** Codes already swapped, so a second mount doesn't swap one again and call it broken. */
 const swapped = new Set<string>();
 
 /**
- * A new password, from the link in the reset email (useAuthActions →
- * resetPassword). On the web the link comes back to this page with a code in
- * the address, which the Supabase client swaps for a session by itself
- * (src/supabase.ts); on the phone it opens nura://reset?code=…, and the code
- * is swapped here. The form shows only once that swap says it was a
- * recovery (inRecovery): a session on its own, from signing in, isn't enough.
+ * A new password, from the reset email (useAuthActions → resetPassword):
+ * its code typed in on Sign in (withCode), or its link. A link with the
+ * email's token (…?token_hash=…&type=recovery, supabase/README.md) is
+ * verified here and works on any device. A link with a code swaps only
+ * where the reset was asked for: on the web the Supabase client swaps it by
+ * itself (src/supabase.ts), on the phone (nura://reset?code=…) it's swapped
+ * here, and anywhere else this says so. The form shows only once one of
+ * them says it was a recovery (inRecovery): a session on its own, from
+ * signing in, isn't enough.
  */
 function Reset() {
   const t = useTheme();
-  const { code } = useLocalSearchParams<{ code?: string }>();
+  const { code, token_hash: tokenHash, type } = useLocalSearchParams<{ code?: string; token_hash?: string; type?: string }>();
   const session = useStore(s => s.session);
   const [recovering, setRecovering] = useState(inRecovery);
   const [password, setPassword] = useState('');
@@ -33,28 +37,37 @@ function Reset() {
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [broken, setBroken] = useState(false);
+  /** the link was asked for on another device, so its code can't be swapped here */
+  const [elsewhere, setElsewhere] = useState(codeFromElsewhere);
   // came here from a link at all (an expired one comes back with an error instead of a code)
   const [fromLink] = useState(() => Platform.OS === 'web'
     ? openedFromLink || /[?&#]error(_code)?=/.test(`${window.location.search}${window.location.hash}`)
-    : !!code);
+    : !!code || !!tokenHash);
 
   useEffect(() => onRecovery(setRecovering), []);
+  useEffect(() => {
+    verifyLink(tokenHash, type)?.then(r => { if (r === 'failed') setBroken(true); });
+  }, [tokenHash]);
   useEffect(() => {
     if (Platform.OS === 'web' || !code || swapped.has(code)) return;
     swapped.add(code);
     supabase.auth.exchangeCodeForSession(code)
-      .then(({ error: e }) => { if (e) setBroken(true); })
+      .then(({ error: e }) => {
+        if (isAuthPKCECodeVerifierMissingError(e)) setElsewhere(true);
+        else if (e) setBroken(true);
+      })
       .catch(() => setBroken(true));
   }, [code]);
   // no recovery a few seconds after landing means the link was used or has expired
   useEffect(() => {
-    if (recovering || !fromLink) return;
+    if (recovering || !fromLink || elsewhere) return;
     const late = setTimeout(() => setBroken(true), 6000);
     return () => clearTimeout(late);
-  }, [recovering, fromLink]);
+  }, [recovering, fromLink, elsewhere]);
   // an error, or a link that didn't work, is said as well as shown
   useEffect(() => { announce(error); }, [error]);
-  useEffect(() => { if (broken && !recovering) announce('This link has been used or has expired. Ask for a new one from Sign in.'); }, [broken, recovering]);
+  const trouble = recovering ? null : elsewhere ? LINK_ELSEWHERE : broken ? LINK_EXPIRED : null;
+  useEffect(() => { if (trouble) announce(`${trouble.title} ${trouble.body}`); }, [trouble]);
 
   const save = async () => {
     setError(null);
@@ -85,11 +98,15 @@ function Reset() {
           A new password.
         </Text>
 
-        {!(recovering && session) ? (
+        {trouble ? (
+          <View accessibilityLiveRegion="polite" style={{ gap: 8 }}>
+            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 23, fontFamily: T.brand }}>{trouble.title}</Text>
+            <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22 }}>{trouble.body}</Text>
+          </View>
+        ) : !(recovering && session) ? (
           <Text accessibilityLiveRegion="polite" style={{ color: t.ink2, fontSize: 16, lineHeight: 22 }}>
-            {!fromLink && !recovering ? 'Open the link in your reset email to choose a new password.'
-              : broken && !recovering ? 'This link has been used or has expired. Ask for a new one from Sign in.'
-                : 'Opening your link…'}
+            {!fromLink && !recovering ? 'Open the link in your reset email, or enter its code on Sign in.'
+              : 'Opening your link…'}
           </Text>
         ) : (
           <>
