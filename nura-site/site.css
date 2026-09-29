@@ -101,7 +101,8 @@ header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
 .menu-btn { display: none; }
 @media (max-width: 800px) {
   .bar { gap: 10px; }
-  .bar .btn { margin-left: auto; }
+  .bar .btn { margin-left: auto; white-space: nowrap; }
+  .bar .wordmark { flex: none; }
   /* the logo is a full size target; the menu button comes before the pages
      it opens (site.js), but still sits at the end of the bar */
   .bar > a:first-child { display: flex; align-items: center; min-height: 44px; }
@@ -116,6 +117,10 @@ header.scrolled { border-bottom-color: rgba(23,19,19,.08); }
   header.open .bar nav { display: flex; }
   .bar nav a { display: flex; align-items: center; min-height: 54px; border-bottom: 1px solid rgba(23,19,19,.07); }
   .bar nav a:last-child { border-bottom: 0; }
+}
+/* the narrowest phones: the button gives up some padding before its words wrap */
+@media (max-width: 340px) {
+  .bar .btn { padding-inline: 14px; font-size: 14px; }
 }
 
 /* over the sky hero the header is clear until the page moves */

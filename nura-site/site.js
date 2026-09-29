@@ -103,24 +103,12 @@ if (live && line) {
   // where on the line each thing comes up: two on the way in, the one Nu found once the sun is past noon
   const AT = [0.2, 0.34, 0.66];
 
-  // The line, in the stage's own pixels: it climbs from the page's bottom
-  // corners into the phone, crosses the horizon at Start and at Day ends,
-  // and peaks under the greeting. A monotone curve through those points, so
-  // it never overshoots.
-  const smooth = (xs, ys) => {
-    const n = xs.length, d = [], m = [];
-    for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
-    m[0] = d[0]; m[n - 1] = d[n - 2];
-    for (let i = 1; i < n - 1; i++) {
-      const h0 = xs[i] - xs[i - 1], h1 = xs[i + 1] - xs[i];
-      m[i] = d[i - 1] * d[i] <= 0 ? 0 : 3 * (h0 + h1) / ((2 * h1 + h0) / d[i - 1] + (h1 + 2 * h0) / d[i]);
-    }
-    return x => {
-      let i = 0; while (i < n - 2 && x > xs[i + 1]) i++;
-      const h = xs[i + 1] - xs[i], t = Math.max(0, Math.min(1, (x - xs[i]) / h)), t2 = t * t, t3 = t2 * t;
-      return (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1];
-    };
-  };
+  // The line, in the stage's own pixels: one smooth arch, low over the day
+  // (it crosses the horizon at Start and at Day ends and peaks under the
+  // greeting) and easing out to gentle, nearly straight sides that reach
+  // down toward the page's bottom corners. A hyperbola, y = k * (sqrt(1 + d²/a²) - 1)
+  // from the top: round at the peak with no corner anywhere.
+  const arch = (a, d) => Math.sqrt(1 + (d / a) ** 2) - 1;
   // On a desktop tall enough to hold the whole stage, the stage stays put
   // while the sun crosses it (the run is that much taller than the stage).
   const run = stage.parentElement && stage.parentElement.classList.contains('hx-run') ? stage.parentElement : null;
@@ -137,10 +125,13 @@ if (live && line) {
     const mid = el => { const b = live.querySelector(el).getBoundingClientRect(); return [b.left + b.width / 2 - s.left, b.top + b.height / 2 - s.top]; };
     const [x0, hz] = mid('.day .s'), [x1] = mid('.day .e');
     const W = s.width, H = s.height, C = (x0 + x1) / 2;
-    const rise = (hz - (live.querySelector('.day').getBoundingClientRect().top - s.top)) * 0.64;
-    const foot = Math.min(H - 28, hz + Math.max(120, H * 0.45));   // where it starts and ends, low on the page
-    const low = hz + (foot - hz) * 0.55;
-    yAt = smooth([-30, x0 / 2, x0, C, x1, (x1 + W) / 2, W + 30], [foot, low, hz, hz - rise, hz, low, foot]);
+    const h = (x1 - x0) / 2, D = Math.max(C, W - C) + 30, a = h * 1.8;
+    const top = hz - (live.querySelector('.day').getBoundingClientRect().top - s.top);
+    const drop = Math.min(H - 28 - hz, Math.max(90, H * 0.28));   // how far below the horizon it ends
+    // as steep as reaching that drop needs, but never peaking more than a third of the way to the greeting
+    const lift = Math.min(drop / (arch(a, D) - arch(a, h)), top * 0.34 / arch(a, h));
+    const peak = hz - lift * arch(a, h);
+    yAt = x => peak + lift * arch(a, x - C);
     pts = []; total = 0;
     for (let x = -30, px, py; x <= W + 30; x += 4) {
       const y = yAt(x);

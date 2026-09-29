@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppState, LogBox, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
-import type { Session } from '@supabase/supabase-js';
+import { isAuthPKCECodeVerifierMissingError, type Session } from '@supabase/supabase-js';
 import {
   useFonts, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold,
 } from '@expo-google-fonts/inter-tight';
@@ -14,14 +14,14 @@ import {
   attachResponseHandler, attachDeliveryHandler,
 } from '../src/notifications';
 import { useStore, useRoomsLight, useTheme, type Tab } from '../src/store';
-import { supabase, loadSession, openedFromLink } from '../src/supabase';
+import { supabase, loadSession, openedFromLink, codeFromElsewhere, verifyLink } from '../src/supabase';
 import { runSync, adoptLocalData, hasAdopted } from '../src/sync';
 import { claimDevice, toSignInNext } from '../src/account';
 import { notify } from '../src/notify';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
 import { CaptureSheet } from '../src/components/CaptureSheet';
-import { keepNameFrom } from '../src/useAuthActions';
+import { keepNameFrom, LINK_ELSEWHERE, LINK_EXPIRED } from '../src/useAuthActions';
 import { COLUMN, isDesk, isWide } from '../src/screen';
 import { type as T } from '../src/theme';
 
@@ -102,25 +102,56 @@ async function afterSignIn(session: Session) {
   await useStore.getState().refresh();
 }
 
-/** Web: a link's code or error still in the address after startup means it didn't sign in here. */
-function tidyAddress(session: Session | null) {
-  if (Platform.OS !== 'web' || window.location.pathname === '/reset') return;   // reset.tsx says so itself
+type LinkTrouble = 'elsewhere' | 'expired' | null;
+
+/**
+ * Web: what a link in the address came to, once startup has the session. A
+ * link with the email's token was verified (src/supabase.ts, verifyLink); a
+ * code was swapped by the client if this browser asked for it. Anything
+ * else, a code from another device or an error, is said plainly on its own
+ * screen (LinkNote), not dropped on the usual home.
+ */
+function linkTrouble(session: Session | null, verified: 'ok' | 'failed' | null): LinkTrouble {
+  if (Platform.OS !== 'web' || window.location.pathname === '/reset') return null;   // reset.tsx says so itself
   const q = new URLSearchParams(window.location.search);
   const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const failed = q.has('error') || q.has('error_code') || h.has('error') || h.has('error_code');
-  if (!q.has('code') && !failed) return;
+  const failed = verified === 'failed' || q.has('error') || q.has('error_code') || h.has('error') || h.has('error_code');
+  if (!q.has('code') && !q.has('token_hash') && !failed) return null;
   window.history.replaceState(null, '', window.location.pathname);
-  if (session) return;
-  // opened in a different browser from the one that asked for it: the email
-  // is confirmed all the same, and signing in here carries on
-  toSignInNext();
-  if (failed) notify('This link has expired', 'Sign in, or ask for a new link.');
+  if (verified === 'ok') return null;
+  if (q.has('code') && codeFromElsewhere) return 'elsewhere';
+  return failed || (q.has('code') && !session) ? 'expired' : null;
+}
+
+/** A link that didn't sign in here, said plainly, with one way on. */
+function LinkNote({ trouble, signedIn, onDone }: { trouble: 'elsewhere' | 'expired'; signedIn: boolean; onDone: () => void }) {
+  const t = useTheme();
+  const note = trouble === 'elsewhere' ? LINK_ELSEWHERE : LINK_EXPIRED;
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
+      <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 14, maxWidth: 520, width: '100%', alignSelf: 'center' }}>
+        <Text accessibilityRole="header" style={{ color: t.ink, fontSize: 24, lineHeight: 30, fontFamily: T.display, letterSpacing: -0.6, textAlign: 'center' }}>
+          {note.title}
+        </Text>
+        {!(signedIn && trouble === 'expired') && (
+          <Text style={{ color: t.ink2, fontSize: 16, lineHeight: 22, textAlign: 'center' }}>{note.body}</Text>
+        )}
+        <Pressable onPress={onDone} accessibilityRole="button"
+          style={({ pressed }) => ({
+            height: 52, borderRadius: 26, paddingHorizontal: 34, marginTop: 10, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: t.raBtn[0], opacity: pressed ? 0.92 : 1,
+          })}>
+          <Text style={{ color: t.onRa, fontSize: 15.5, fontFamily: T.display }}>{signedIn ? 'Continue' : 'Sign in'}</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
 }
 
 /**
- * The phone: a sign-in link or an email confirmation opens nura://?code=…,
- * and nothing else swaps that code for the session (the Google sheet swaps
- * its own; nura://reset is app/reset.tsx's).
+ * The phone: a sign-in link or an email confirmation opens nura://?code=…
+ * (or ?token_hash=…, the email's own token), and nothing else swaps it for
+ * the session (the Google sheet swaps its own; nura://reset is app/reset.tsx's).
  */
 const swapped = new Set<string>();
 async function signInFromLink(url: string) {
@@ -133,11 +164,17 @@ async function signInFromLink(url: string) {
     if (!useStore.getState().session) notify('This link has expired', 'Sign in, or ask for a new link.');
     return;
   }
+  const verified = verifyLink(q.token_hash, q.type);
+  if (verified) {
+    if (await verified === 'failed' && !useStore.getState().session) notify(LINK_EXPIRED.title, LINK_EXPIRED.body);
+    return;
+  }
   const code = typeof q.code === 'string' ? q.code : null;
   if (!code || swapped.has(code)) return;
   swapped.add(code);
   const { error } = await supabase.auth.exchangeCodeForSession(code).catch(e => ({ error: e }));
-  if (error && !useStore.getState().session) {
+  if (isAuthPKCECodeVerifierMissingError(error)) notify(LINK_ELSEWHERE.title, LINK_ELSEWHERE.body);
+  else if (error && !useStore.getState().session) {
     notify('That link didn’t sign you in', 'Sign in here, or ask for a new link.');
   }
 }
@@ -154,6 +191,8 @@ export default function Root() {
   /** startup failed, or never finished: "Something went wrong." */
   const [broken, setBroken] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  /** web: a link that didn't sign in here (linkTrouble) */
+  const [trouble, setTrouble] = useState<LinkTrouble>(null);
 
   useEffect(() => onOpenElsewhere(v => { elsewhereNow.current = v; setElsewhere(v); }), []);
   // a font that won't load is no reason to stop: the system font stands in
@@ -215,9 +254,14 @@ export default function Root() {
       // `session` to decide whether to kick off a sync, so a session that
       // arrives after the first refresh would silently miss it until the
       // next mutation. Offline, the saved session still lets you in (supabase.ts).
+      // On the web an email's token in the address is verified first, so it
+      // brings its session (reset.tsx verifies its own, the same promise).
+      const q = Platform.OS === 'web' ? new URLSearchParams(window.location.search) : null;
+      const verified = q && window.location.pathname !== '/reset'
+        ? await verifyLink(q.get('token_hash'), q.get('type')) ?? null : null;
       const session = await loadSession();
       useStore.getState().setSession(session);
-      tidyAddress(session);
+      setTrouble(linkTrouble(session, verified));
       // whose this device is, before anything is shown or synced (src/account.ts)
       if (session) await claimDevice(session.user.id).catch(e => console.warn('[nura] could not check the account', e));
       if (__DEV__) useStore.setState({ devSkipAuth: (await getFlag('dev.skipAuth').catch(() => null)) === '1' });
@@ -295,7 +339,7 @@ export default function Root() {
       if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
         // back from Google, a magic link or a reset link on the web: the code
         // has been swapped for the session, so take it out of the address
-        if (Platform.OS === 'web' && /[?&](code|error)=/.test(window.location.search)) {
+        if (Platform.OS === 'web' && /[?&](code|token_hash|error)=/.test(window.location.search)) {
           window.history.replaceState(null, '', window.location.pathname);
         }
         // after this callback returns: supabase-js is still inside it, and sync asks it for the session
@@ -340,6 +384,10 @@ export default function Root() {
       onRetry={() => { setBroken(false); setAttempt(a => a + 1); }} />;
   }
   if (!fontsReady) return <Loading />;
+  if (trouble) {
+    return <LinkNote trouble={trouble} signedIn={!!session}
+      onDone={() => { if (!session) toSignInNext(); setTrouble(null); }} />;
+  }
 
   return (
     <>
