@@ -603,11 +603,6 @@ body:has(.hero.sky) header:not(.scrolled) { background: transparent; }
 .trio .tile img { height: 140px; width: auto; justify-self: start; object-fit: contain; }
 .trio .tile h3 { font-size: 22px; margin-top: 10px; }
 @media (max-width: 860px) { .trio { grid-template-columns: 1fr; } }
-.does { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
-.does li { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; color: var(--ink-2); }
-.does li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; transform: translateY(-1px); background: var(--coral); }
-.does.nu li::before { background: var(--blue); }
-.does.bb li::before { background: #1E6FD9; }
 
 /* ─── prose (privacy, terms, support) ─── */
 .prose { max-width: 740px; }
@@ -729,7 +724,7 @@ html:not(.js) .rv { animation: rv-show .6s ease 2.5s forwards; }
 @media (max-width: 860px) {
   body { font-size: 16px; }
   .lead { font-size: 17px; }
-  .points li, .tile p, .does li, .roadmap li, .suggest p, .path-steps li, .bd-list b, .demo-list li b,
+  .points li, .tile p, .roadmap li, .suggest p, .path-steps li, .bd-list b, .demo-list li b,
   .learn-after, .form-state, .answers, .legal .toc li, .bd-wait, .bd-reply, .demo-form button, .suggest.big button,
   .bd .demo-form input, .learn-task .t { font-size: 16px; }
   .split.side .points li, .split.side .suggest p, .bd-steps > li, footer .wrap, .legal table, .legal .summary > p,

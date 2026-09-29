@@ -70,7 +70,6 @@
 .story-after .roles { width: fit-content; margin-inline: auto; }
 .story-after .trio .tile img { justify-self: center; }
 .story-after .trio .tile h3, .story-after .trio .tile > p { text-align: center; }
-.story-after .trio .tile .does { width: fit-content; margin-inline: auto; }
 
 .story-pull { margin: 8px 0 0; font-size: clamp(24px, 3.4vw, 34px); font-weight: 650; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink, #171313); max-width: 20em; }
 .roles { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 12px; max-width: 38em; }
@@ -84,3 +83,8 @@
   .saga-step, .saga-step:last-child { justify-content: flex-start; align-items: center; padding-bottom: 14svh; }
   .saga-card { max-width: min(36rem, 44vw); margin-left: max(0px, calc((100vw - 1200px) / 2)); }
 }
+
+/* who made it: a short signed note after the closing call */
+.maker .wrap { display: grid; justify-items: center; text-align: center; }
+.maker .story-p { margin-inline: auto; }
+.maker-sign { margin: 26px 0 0; font-size: 20px; font-weight: 650; color: var(--ink, #171313); }
