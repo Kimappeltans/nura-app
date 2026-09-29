@@ -15,6 +15,7 @@ import { useStore, useTheme } from './store';
 import { sunHeight, skyLabel } from './reward';
 import { MicaHosted } from './screen';
 import { announce, decorative, reduceMotion, useReducedMotion } from './a11y';
+import { STORY } from './art';
 
 /* ------------------------------------------------------------------ *
  *  Icons — line-drawn, rounded caps, one stroke weight everywhere.
@@ -496,12 +497,13 @@ const POSES = {
   // the story poses (assets/story, cut from the Midjourney sources in
   // /nu-characters): Nu coming up out of the water, waving, asking,
   // listening; Ra as the rising sun, waving, resting
-  'nu-surface': require('../assets/story/nu-surface.webp'),
-  'nu-hello': require('../assets/story/nu-hello.webp'),
+  // (the four the opening shows largest come from art.ts: smaller on the web)
+  'nu-surface': STORY['nu-surface'],
+  'nu-hello': STORY['nu-hello'],
   'nu-ask': require('../assets/story/nu-ask.webp'),
   'nu-listen': require('../assets/story/nu-listen.webp'),
-  'ra-sun': require('../assets/story/ra-sun.webp'),
-  'ra-hello': require('../assets/story/ra-hello.webp'),
+  'ra-sun': STORY['ra-sun'],
+  'ra-hello': STORY['ra-hello'],
   'ra-rest': require('../assets/story/ra-rest.webp'),
   // lying down, eyes closed — Night, once the day is done
   'nu-rest': require('../assets/story/nu-rest.webp'),

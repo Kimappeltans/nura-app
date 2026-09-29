@@ -57,6 +57,9 @@
         "READ_CALENDAR"
       ]
     },
+    "web": {
+      "favicon": "./assets/brand/favicon.png"
+    },
     "plugins": [
       "expo-router",
       [

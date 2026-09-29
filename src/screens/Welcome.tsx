@@ -14,7 +14,7 @@ import { decorative } from '../a11y';
  * of empty margin on every side, which made every size value a lie. Cropped
  * to the alpha bounding box, the numbers mean what they say.
  */
-const stone = require('../../assets/brand/nura-logo-tight.webp');
+import { STONE as stone } from '../art'; // smaller copy on the web, see art.ts
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
 
 /**

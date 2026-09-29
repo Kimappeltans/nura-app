@@ -10,7 +10,7 @@ import { logEvent } from '../db';
 import { useScreen, useWide } from '../screen';
 import { useReducedMotion, announce, decorative } from '../a11y';
 
-const stone = require('../../assets/brand/nura-logo-tight.webp');
+import { STONE as stone } from '../art'; // smaller copy on the web, see art.ts
 const wordmark = require('../../assets/brand/wordmark-tight.webp');
 // the stone's own marks, lit: its waves (Nu's) and its sun (Ra's) — drawn
 // along the engraving in the logo (nura-logo-tight), the same size, so they sit in it

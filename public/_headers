@@ -22,3 +22,9 @@
 # the bundles have a hash in their names, so they never change
 /_expo/static/*
   Cache-Control: public, max-age=31536000, immutable
+
+# the same for everything the export puts in assets/ (fonts, images, the
+# SQLite WebAssembly): each file name carries a hash of its contents. Nothing
+# in public/ lives under assets/, so no unhashed file lands here.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

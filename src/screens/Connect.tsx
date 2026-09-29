@@ -12,7 +12,7 @@ import { Primary, Mica, Surface, IconCalendar, IconBell, IconCheck } from '../ui
 import { announce, decorative } from '../a11y';
 
 // tight crop — the original has ~10% invisible margin, see Welcome.tsx
-const stone = require('../../assets/brand/nura-logo-tight.webp');
+import { STONE as stone } from '../art'; // smaller copy on the web, see art.ts
 
 export type SyncMode = 'read' | 'two';
 type Status = 'idle' | 'busy' | 'connected' | 'phone';
