@@ -15,7 +15,13 @@
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const ss = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
   const lerp = (a, b, t) => a + (b - a) * t;
-  const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const rgb = (c) => (c[0] === '#' ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : c.match(/\d+/g).slice(0, 3).map(Number));
+  // how light a colour is, and how far apart two are (WCAG's contrast ratio)
+  const lum = (c) => {
+    const [r, g, b] = rgb(c).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
   const mix = (c1, c2, t) => {
     const a = rgb(c1), b = rgb(c2);
     return `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], t))).join(',')})`;
@@ -151,7 +157,8 @@
     const D = ss(4.5, 5.1, s); // night -> day
 
     // sky
-    el.skyTop.setAttribute('stop-color', ramp([[0, '#05081A'], [3.8, '#070B22'], [4.3, '#161B48'], [4.7, '#5A3C77'], [5.05, '#F1CDB9'], [5.6, '#FAF1E6']], s));
+    const top = ramp([[0, '#05081A'], [3.8, '#070B22'], [4.3, '#161B48'], [4.7, '#5A3C77'], [5.05, '#F1CDB9'], [5.6, '#FAF1E6']], s);
+    el.skyTop.setAttribute('stop-color', top);
     const hor = ramp([[0, '#0E1640'], [3.8, '#111A4A'], [4.3, '#2E3480'], [4.7, '#E0806A'], [5.05, '#FFC8A6'], [5.6, '#FFDCC4']], s);
     el.skyHor.setAttribute('stop-color', hor);
     el.skyBot.setAttribute('stop-color', hor);
@@ -252,19 +259,27 @@
     el.labels.setAttribute('opacity', ss(5.8, 6.0, s).toFixed(3));
     set(el.lRa, { x: (rp2.x - 92).toFixed(1), y: (rp2.y + 8).toFixed(1), 'text-anchor': 'end' });
 
-    // the text follows the sky, light on the night and dark on the day, with no jump between
-    const tone = ss(4.6, 5.0, s);
+    // the text follows the sky, light on the night and dark on the day, with no jump between.
+    // What decides it is what the words sit on (the water's scrim on a phone, the sky just
+    // above the horizon on a desktop); while that turns and neither light nor dark words
+    // would read, the words wait, so they are never grey on a middling sky
+    const behind = small ? [waterBot] : [mix(top, hor, 0.5), mix(top, hor, 0.8)];
+    const tone = ss(0.16, 0.22, behind.reduce((a, c) => a + lum(c), 0) / behind.length);
+    const fg2 = mix('#E6E6F2', '#2E2826', tone);
+    const legible = ss(3.5, 5.5, Math.min(...behind.map((c) => contrast(fg2, c))));
     saga.style.setProperty('--sg-fg', mix('#FFFFFF', '#171313', tone));
-    saga.style.setProperty('--sg-fg2', mix('#E6E6F2', '#2E2826', tone));
-    saga.style.setProperty('--sg-mh', mix('#9A9EC0', '#8A806C', tone));
+    saga.style.setProperty('--sg-fg2', fg2);
+    saga.style.setProperty('--sg-mh', mix('#9A9EC0', '#7B7360', tone));
     saga.style.setProperty('--sg-scrim', waterBot);
 
     // each passage is fully there while it's the one in the middle, and fades as the next arrives.
     // On a small screen it's read over the water, so it goes before it climbs over what stands there.
+    // With Reduce Motion the passages simply scroll, with no fading.
     cards.forEach((cd, i) => {
       if (!cd) return;
       const d = s - i;
-      cd.style.opacity = (1 - (small && d > 0 ? ss(0.12, 0.42, d) : ss(0.25, 0.7, Math.abs(d)))).toFixed(3);
+      const shown = reduce.matches ? 1 : 1 - (small && d > 0 ? ss(0.12, 0.42, d) : ss(0.25, 0.7, Math.abs(d)));
+      cd.style.opacity = (shown * legible).toFixed(3);
     });
 
     const day = D > 0.5;
@@ -272,11 +287,14 @@
   };
 
   // ---------- loop ----------
+  // With Reduce Motion nothing drifts or rises as you scroll: the scene is one passage's
+  // picture at a time, and changes to the next at once
+  const at = () => (reduce.matches ? Math.round(progress()) : progress());
   let visible = true, raf = 0, t0 = performance.now();
   const tick = (now) => {
     raf = 0;
     const t = reduce.matches ? 0 : (now - t0) / 1000;
-    draw(progress(), t);
+    draw(at(), t);
     if (visible && !reduce.matches) raf = requestAnimationFrame(tick);
   };
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
@@ -286,6 +304,6 @@
   window.addEventListener('resize', () => { frame(); kick(); });
   reduce.addEventListener?.('change', kick);
   frame();
-  draw(progress(), 0);
+  draw(at(), 0);
   kick();
 })();
