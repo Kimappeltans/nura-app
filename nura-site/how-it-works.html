@@ -27,9 +27,10 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preload" href="fonts/InterTight-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/InterTight-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=43">
+<link rel="stylesheet" href="site.css?v=44">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
 <header>
   <div class="wrap bar">
@@ -38,13 +39,14 @@
       <a href="how-it-works.html" aria-current="page">How it works</a>
       <a href="about.html">The story</a>
       <a href="privacy.html">Privacy</a>
+      <a href="support.html">Support</a>
       <a href="https://app.risewithnura.com">Sign in</a>
     </nav>
     <a class="btn btn-coral btn-sm" href="index.html#early-access">Request an invite</a>
   </div>
 </header>
 
-<main>
+<main id="main">
 
 <section class="sky hero">
   <div class="wrap hx-copy">
@@ -121,7 +123,7 @@
         </ul>
       </div>
       <div class="rv">
-        <div class="roadmap" aria-label="An example project path">
+        <div class="roadmap" role="figure" aria-label="An example project path">
           <div class="t">Project</div>
           <div class="g">Launch the new pricing page</div>
           <ol>
@@ -196,14 +198,14 @@
     </div>
     <div class="stack-cards tour-cards rv">
       <div class="suggest">
-        <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+        <img loading="lazy" src="assets/nu-listen.webp" width="720" height="720" alt="">
         <div>
           <p>You tend to get things done around 10 AM. Put “Prepare slides for Monday” there?</p>
           <div class="act"><span class="yes">Yes</span><span class="no">Not now</span></div>
         </div>
       </div>
       <div class="suggest">
-        <img src="assets/nu-listen.webp" width="720" height="720" alt="">
+        <img loading="lazy" src="assets/nu-listen.webp" width="720" height="720" alt="">
         <div>
           <p>Welcome back. No catching up needed, just one small thing, like “Send invoice to Studio North”?</p>
           <div class="act"><span class="yes">Yes</span><span class="no">Not now</span></div>
@@ -253,6 +255,6 @@
   </div>
 </footer>
 
-<script src="site.js?v=36"></script>
+<script src="site.js?v=37"></script>
 </body>
 </html>
