@@ -3,6 +3,7 @@ import { setFlag } from '../db';
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +11,7 @@ import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { radius, type as T } from '../theme';
 import { Primary, Ghost, Mica, Character } from '../ui';
-import { useAuthActions, useConfirmWait, useSignupsOpen, type EmailKind } from '../useAuthActions';
+import { useAuthActions, useConfirmWait, useSignupsOpen, INVITE_URL, type EmailKind } from '../useAuthActions';
 import { openLink } from '../links';
 import { announce } from '../a11y';
 import { useWide } from '../screen';
@@ -360,7 +361,11 @@ export default function Auth(
             <View style={wide ? { height: 16 } : { flex: 1, minHeight: 20 }} />
 
             {!pending && signupsOpen === false && (
-              <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>Nura is invite only for now.</Text>
+              <Text style={{ color: t.ink2, fontSize: 14, textAlign: 'center', marginTop: 18 }}>
+                Nura is invite only for now.{' '}
+                <Text accessibilityRole="link" onPress={() => { Linking.openURL(INVITE_URL).catch(() => {}); }}
+                  style={{ color: t.ink, textDecorationLine: 'underline' }}>Request an invite</Text>
+              </Text>
             )}
             {!pending && signupsOpen !== false && (
               <Pressable onPress={() => {

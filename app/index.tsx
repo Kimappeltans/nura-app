@@ -5,21 +5,16 @@ import { useStore, useTheme, PinnedPalette } from '../src/store';
 import { nuTheme } from '../src/theme';
 // Three rooms and one mode. The earlier homes — the river scene
 // (NuHome) and the list-first home (Nu) — are kept in src/legacy.
-import Home from '../src/screens/Home';
-import Tasks from '../src/screens/Tasks';
-import Calendar from '../src/screens/Calendar';
-import You from '../src/screens/You';
-import Ra from '../src/screens/Ra';
+// The rooms themselves (Home, Tasks, Calendar, You, Ra and the desktop's)
+// are in src/roomsAll.ts: on the web they come after the first screen (src/rooms.ts).
+import { useRooms } from '../src/rooms';
 import Onboarding from '../src/screens/Onboarding';
 import Auth from '../src/screens/Auth';
 import Loading from '../src/screens/Loading';
 import { TabBar, type Tab } from '../src/components/TabBar';
 import { DeskRoom, DeskColumn } from '../src/components/Desk';
-// the desktop's own rooms (a wide web window): src/desk
-import DeskHome from '../src/desk/DeskHome';
-import DeskTasks from '../src/desk/DeskTasks';
-import DeskCalendar from '../src/desk/DeskCalendar';
 import { STAGE, useDesk } from '../src/screen';
+import { useFirstVisit } from '../src/firstVisit';
 
 /**
  * The app past onboarding is three rooms in the same dark water, with a tab
@@ -35,12 +30,23 @@ export default function Index() {
   const setTab = (k: Tab) => useStore.setState({ tab: k });
   const desk = useDesk();
   useFocusEffect(useCallback(() => { refresh(); }, []));
+  const firstVisit = useFirstVisit();
+  const rooms = useRooms(!authLoading && !!onboarded && (!!session || devSkipAuth));
 
-  if (onboarded === null || authLoading) return <Loading />;
+  if (onboarded === null || authLoading) {
+    // web, the browser's first visit: nothing here to wait for, so the
+    // opening starts while the database opens (src/firstVisit.ts). The same
+    // <Onboarding /> as below, so it carries on where it is once it has.
+    if (firstVisit && !session) return <Onboarding />;
+    return <Loading />;
+  }
   if (!onboarded) return <Onboarding />;
   // an account is required: signed out, the sign-in screen is all there is
   // (signing in brings the session, and this screen, back by itself)
   if (!session && !devSkipAuth) return <DeskColumn max={STAGE} wide><Auth onClose={() => {}} /></DeskColumn>;
+  // the web, the rooms still on their way (src/rooms.ts): a beat more of Loading
+  if (!rooms) return <Loading />;
+  const { Ra, Home, Tasks, Calendar, You, DeskHome, DeskTasks, DeskCalendar } = rooms;
   if (mode === 'ra') return <Ra />;
 
   // a wide web window: the tab bar is a sidebar, and the room uses the width

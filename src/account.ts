@@ -25,8 +25,19 @@ import { forgetModelSuggestions } from './learn/engine';
 /** Kept through a clear: the device's own settings, not a person's things. */
 const DEVICE_KEYS = ['device.id', 'appearance', 'lang', 'dev.'] as const;
 
-/** Log out lands on the sign-in step of onboarding, not its welcome (Onboarding.tsx). */
-let signInNext = false;
+/** Log out lands on the sign-in step of onboarding, not its welcome (Onboarding.tsx).
+ *  So does the site's Sign in link (https://app.risewithnura.com/?signin): someone
+ *  invited has an account already, and the opening story is not what they asked for.
+ *  Read once, as the page loads, and taken out of the address. */
+let signInNext = (() => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  const q = new URLSearchParams(window.location.search);
+  if (!q.has('signin')) return false;
+  q.delete('signin');
+  const rest = q.toString();
+  window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : '') + window.location.hash);
+  return true;
+})();
 export const landsOnSignIn = () => signInNext;
 export const landedOnSignIn = () => { signInNext = false; };
 /** A sign-in link that didn't sign in here (app/_layout.tsx): the sign-in, not the welcome. */

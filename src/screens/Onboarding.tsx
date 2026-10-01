@@ -53,6 +53,22 @@ export default function Onboarding() {
   // straight after a log out, the sign-in, not the welcome (src/account.ts)
   const [step, setStep] = useState<Step>(() => (landsOnSignIn() ? 'auth' : 'welcome'));
   useEffect(() => { landedOnSignIn(); }, []);
+
+  // Signed in already, and still on the welcome: the sign-in happened somewhere
+  // this screen didn't see (the email's link opened a new tab, or this tab was
+  // reloaded by it). An account that exists has no first minute to walk through,
+  // and sending them round to Sign in again was a loop. A sign-up that left
+  // mid-onboarding saved where it was (onb.resume), and carries on from there.
+  const resuming = useRef(false);
+  useEffect(() => {
+    if (!session || step !== 'welcome') return;
+    let on = true;
+    (async () => {
+      if (resuming.current || await getFlag('onb.resume')) return;
+      if (on && !resuming.current) await finishOnboarding();
+    })();
+    return () => { on = false; };
+  }, [session, step]);
   const [picks, setPicks] = useState<Blocker[]>([]);
   const [rise, setRise] = useState<{ tasks: Task[]; pick: Task } | null>(null);
   const t0 = useRef(Date.now());
@@ -79,6 +95,7 @@ export default function Onboarding() {
     (async () => {
       const saved = await getFlag('onb.resume');
       if (!saved) return;
+      resuming.current = true;
       await setFlag('onb.resume', '');
       try {
         const r = JSON.parse(saved) as { step: 'auth' | 'profile'; dumped?: string[] };
