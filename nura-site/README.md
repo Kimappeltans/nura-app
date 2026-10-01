@@ -12,6 +12,8 @@ about.html          the story behind Nura: Nun, the Benben, Heliopolis, Ra, then
 privacy.html        the Privacy Policy
 terms.html          the Terms of Service
 support.html        contact, and answers to the common questions
+404.html            what Netlify shows for an address that doesn't exist (root paths only)
+robots.txt, sitemap.xml  for search engines: the six pages, as https://risewithnura.com/<page>.html
 site.css / site.js  shared by every page; bump ?v= in the pages after a change
 story.css / story.js  the story on about.html: one pinned scene drawn by scroll
 
@@ -21,7 +23,18 @@ assets/benben-rise.webp    the Benben rising out of the water, between Nu and Ra
 assets/nu.png, ra.png      Nu and Ra cut out with alpha — independent assets
 assets/*-full.png          full-resolution cut-outs, for print or larger renders
 assets/wordmark.png        the wordmark, white on alpha, for CSS masking
+assets/share.jpg           the link preview (og:image), 1200 x 630: headline, Home, Ra
+assets/apple-touch-icon.png  the app icon at 180 px, from ../assets/brand/icon-nura.png
 ```
+
+## Each page's head
+
+Every page carries a canonical address (with `.html`, as the links between
+pages use; the home page is `https://risewithnura.com/`), Open Graph and
+Twitter tags pointing at `assets/share.jpg`, and a description of its own.
+The home page has JSON-LD for Nura (the app, the organisation, the site);
+support.html has a FAQPage block that repeats the questions and answers word
+for word, so change both together. Add a new page to `sitemap.xml` too.
 
 ## The screenshots
 
@@ -62,7 +75,13 @@ reduced motion on.
 
 The form at the end of the landing page is set up for **Netlify Forms**: deploy
 the folder on Netlify and signups appear under Forms → early-access, with a
-honeypot against bots. Nothing else to configure. On another host, point the
+honeypot against bots. One setting first: Netlify only reads the form at
+deploy time when **form detection** is on for the site (Site configuration →
+Forms → Enable form detection; new sites have it off). Turn it on, then deploy
+again. To check a deploy: `curl -s https://risewithnura.com/ | grep data-netlify`
+prints nothing once Netlify has taken the form in (it removes the attribute);
+if it still prints the form, detection did not run and signups are not being
+kept. On another host, point the
 form's `action` at your own endpoint — `site.js` posts it urlencoded and shows
 "You're on the list" on any 2xx answer. (A local server rejects the post, so
 locally you'll see the retry message.)

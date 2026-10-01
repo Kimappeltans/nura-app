@@ -90,32 +90,24 @@ link uses the email up and signs nobody in: that's what a reset asked for in
 the Simulator and opened on a Mac did. So each email carries a code to type
 in, and a link with its own token that works on any device where it opens.
 
-In Authentication, Emails, Templates, set the body of these three (the
-subject can stay):
+In Authentication, Emails, Templates, these three are Nura's own, kept in
+`templates/` (set on 29 September 2026; paste the file into the body, Source
+view, if they ever need setting again):
 
-**Reset password**
+| Template | File | Subject |
+|---|---|---|
+| Reset password | `templates/reset-password.html` | A new password for Nura |
+| Magic link or OTP | `templates/magic-link.html` | Sign in to Nura |
+| Confirm sign up | `templates/confirm-signup.html` | Confirm your email for Nura |
 
-```html
-<h2>A new password for Nura</h2>
-<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
-<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">set a new password here</a>.</p>
-```
-
-**Magic link**
-
-```html
-<h2>Sign in to Nura</h2>
-<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
-<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">sign in here</a>.</p>
-```
-
-**Confirm signup**
-
-```html
-<h2>Confirm your email for Nura</h2>
-<p>Enter this code in Nura: <strong>{{ .Token }}</strong></p>
-<p>Or <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">confirm your email here</a>.</p>
-```
+Each has the wordmark and Ra waving, the code at full size, then a coral
+button with the link: `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`
+(`recovery` for a reset, `email` for the other two). The two images are
+served from the landing site, `nura-site/assets/email/` on
+risewithnura.com: keep them there, or every email loses them. The dashboard's
+own preview shows them broken (its security policy blocks outside images);
+real emails load them. Mail goes out through Resend (Emails, SMTP Settings)
+as Nura <noreply@risewithnura.com>.
 
 `{{ .RedirectTo }}` is where the app asked the link to go (`nura://reset`
 from the phone, `https://…/reset` from the web; the Site URL if that isn't a
@@ -126,10 +118,9 @@ nothing from the device that asked. The code goes in on "Check your email"
 Email OTP Length (Authentication, Providers, Email) can stay at its default.
 A code and its link are one: using either one uses up the other.
 
-Until the templates are changed, emails still arrive with Supabase's own
-link, which works on the device that asked. Opened on another one, the web
-app says so ("This link was opened on a different device.") instead of
-showing the usual home.
+An older email with Supabase's own link still works on the device that
+asked. Opened on another one, the web app says so ("This link was opened on
+a different device.") instead of showing the usual home.
 
 Then paste `ai-usage.sql` into the SQL Editor and run it (running it again
 is harmless). It adds the daily limits for both functions, and it is

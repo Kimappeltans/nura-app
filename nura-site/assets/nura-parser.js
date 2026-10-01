@@ -245,20 +245,21 @@ function firstOccurrence(rule, days, from, after) {
     return d;
 }
 function findTime(s) {
+    var _a;
     let m = s.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i)
         || s.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?\b/i)
         || s.match(/\b(\d{1,2})\s*(am|pm)\b/i);
     if (m) {
         let h = parseInt(m[1], 10);
         const min = m[2] && /^\d{2}$/.test(m[2]) ? parseInt(m[2], 10) : 0;
-        const ap = (m[3] || m[2] || '').toLowerCase();
+        const ap = ((_a = [m[3], m[2]].find(x => !!x && /^(am|pm)$/i.test(x))) !== null && _a !== void 0 ? _a : '').toLowerCase();
         if (ap === 'pm' && h < 12)
             h += 12;
         if (ap === 'am' && h === 12)
             h = 0;
         if (!ap && h < 12 && /\b(tonight|evening|afternoon)\b/i.test(s))
             h += 12;
-        else if (!ap && !m[2] && h >= 1 && h <= 6 && !/\bmorning\b/i.test(s))
+        else if (!ap && h >= 1 && h <= 6 && !m[1].startsWith('0') && !/\bmorning\b/i.test(s))
             h += 12;
         if (h >= 0 && h <= 23)
             return { h, m: min };
