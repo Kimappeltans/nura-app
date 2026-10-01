@@ -18,7 +18,7 @@ import { notify } from '../src/notify';
 import { Celebrate, Toast } from '../src/ui';
 import Loading from '../src/screens/Loading';
 import { CaptureSheet } from '../src/components/CaptureSheet';
-import { keepNameFrom, LINK_ELSEWHERE, LINK_EXPIRED } from '../src/useAuthActions';
+import { keepNameFrom, LINK_ELSEWHERE, LINK_EXPIRED, NO_INVITE, INVITE_URL } from '../src/useAuthActions';
 import { COLUMN, isDesk, isWide } from '../src/screen';
 import { type as T } from '../src/theme';
 import { useAppFonts } from '../src/fonts';
@@ -100,7 +100,7 @@ async function afterSignIn(session: Session) {
   await useStore.getState().refresh();
 }
 
-type LinkTrouble = 'elsewhere' | 'expired' | null;
+type LinkTrouble = 'elsewhere' | 'expired' | 'invite' | null;
 
 /**
  * Web: what a link in the address came to, once startup has the session. A
@@ -117,14 +117,17 @@ function linkTrouble(session: Session | null, verified: 'ok' | 'failed' | null):
   if (!q.has('code') && !q.has('token_hash') && !failed) return null;
   window.history.replaceState(null, '', window.location.pathname);
   if (verified === 'ok') return null;
+  // back from Google with an account nobody has invited: new accounts are closed
+  const why = `${q.get('error_code') ?? h.get('error_code') ?? ''} ${q.get('error_description') ?? h.get('error_description') ?? ''}`.toLowerCase();
+  if (!session && /signup_disabled|signups? not allowed/.test(why)) return 'invite';
   if (q.has('code') && codeFromElsewhere) return 'elsewhere';
   return failed || (q.has('code') && !session) ? 'expired' : null;
 }
 
 /** A link that didn't sign in here, said plainly, with one way on. */
-function LinkNote({ trouble, signedIn, onDone }: { trouble: 'elsewhere' | 'expired'; signedIn: boolean; onDone: () => void }) {
+function LinkNote({ trouble, signedIn, onDone }: { trouble: 'elsewhere' | 'expired' | 'invite'; signedIn: boolean; onDone: () => void }) {
   const t = useTheme();
-  const note = trouble === 'elsewhere' ? LINK_ELSEWHERE : LINK_EXPIRED;
+  const note = trouble === 'invite' ? NO_INVITE : trouble === 'elsewhere' ? LINK_ELSEWHERE : LINK_EXPIRED;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.base }}>
       <View accessibilityLiveRegion="polite" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 14, maxWidth: 520, width: '100%', alignSelf: 'center' }}>
@@ -141,6 +144,10 @@ function LinkNote({ trouble, signedIn, onDone }: { trouble: 'elsewhere' | 'expir
           })}>
           <Text style={{ color: t.onRa, fontSize: 15.5, fontFamily: T.display }}>{signedIn ? 'Continue' : 'Sign in'}</Text>
         </Pressable>
+        {trouble === 'invite' && (
+          <Text accessibilityRole="link" onPress={() => { Linking.openURL(INVITE_URL).catch(() => {}); }}
+            style={{ color: t.ink, fontSize: 15.5, textDecorationLine: 'underline', marginTop: 6 }}>Request an invite</Text>
+        )}
       </View>
     </SafeAreaView>
   );

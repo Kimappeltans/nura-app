@@ -41,6 +41,14 @@ export const LINK_EXPIRED = {
   title: 'This link has expired.',
   body: 'Ask for a new one from Sign in.',
 };
+/** Invite only: an address or a Google account nobody has invited yet. Said plainly, with where to ask,
+ *  so nobody is sent round between Sign in and a Create that isn't there. */
+export const INVITE_URL = 'https://risewithnura.com/#early-access';
+export const NO_INVITE = {
+  title: 'This email doesn’t have an invite yet.',
+  body: 'Nura is invite only for now. Request an invite at risewithnura.com, and sign in here once yours arrives.',
+};
+const NO_INVITE_LINE = 'This email doesn’t have an invite yet. Request one at risewithnura.com.';
 
 async function keepName(name: string | null | undefined) {
   const first = name?.trim();
@@ -65,6 +73,8 @@ const backTo = (path: string) => (Platform.OS === 'web' ? `${window.location.ori
  * that can't work. Null until known; asked once, and again after a failure.
  */
 let signupsKnown: Promise<boolean> | null = null;
+/** The last answer, for the wording of an error: closed means invite only. */
+let signupsClosed = false;
 export function useSignupsOpen(): boolean | null {
   const [open, setOpen] = useState<boolean | null>(null);
   useEffect(() => {
@@ -72,7 +82,7 @@ export function useSignupsOpen(): boolean | null {
       headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     })
       .then(r => r.json())
-      .then(s => !s?.disable_signup)
+      .then(s => { signupsClosed = !!s?.disable_signup; return !signupsClosed; })
       // offline: let the form show; Supabase still says no if it's closed
       .catch(() => { signupsKnown = null; return true; });
     let alive = true;
@@ -111,16 +121,17 @@ function friendlyAuthError(e: unknown): string {
     case 'over_request_rate_limit': return 'Too many tries. Wait a minute, then try again.';
     case 'otp_expired': return 'This link has expired. Ask for a new one.';
     case 'same_password': return 'That’s your current password. Pick a new one.';
-    case 'signup_disabled': return 'New accounts are closed for now.';
+    case 'signup_disabled': return NO_INVITE_LINE;
     // Supabase's own mail only goes to the project's team until custom SMTP is set up
     case 'email_address_not_authorized': return 'Nura can’t email this address yet. Try again later.';
     // a sign-in link for an address with no account (signInWithOtp, shouldCreateUser: false)
-    case 'otp_disabled': return 'There’s no account with this email yet. Create one first.';
+    case 'otp_disabled': return signupsClosed ? NO_INVITE_LINE : 'There’s no account with this email yet. Create one first.';
   }
   if (msg.includes('invalid login credentials')) return 'That email and password don’t match.';
   if (msg.includes('already registered')) return 'There’s already an account with this email. Sign in instead.';
   if (msg.includes('email not confirmed')) return 'Open the link in the email we sent to finish.';
-  if (msg.includes('signups not allowed for otp')) return 'There’s no account with this email yet. Create one first.';
+  if (msg.includes('signups not allowed for otp')) return signupsClosed ? NO_INVITE_LINE : 'There’s no account with this email yet. Create one first.';
+  if (msg.includes('signups not allowed')) return NO_INVITE_LINE;
   return 'Something went wrong. Try again in a moment.';
 }
 
