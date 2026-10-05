@@ -697,6 +697,11 @@ footer nav a { display: inline-flex; align-items: center; min-height: 44px; text
 footer .wrap > a:first-child { display: flex; align-items: center; min-height: 44px; }
 footer nav a:hover { opacity: 1; }
 footer .c { margin-left: auto; opacity: .7; }
+/* a phone: the footer's pages stay on one line, spread across it (Kim, 4 October) */
+@media (max-width: 480px) {
+  footer nav { flex: 1 1 100%; flex-wrap: nowrap; justify-content: space-between; gap: 0 6px; font-size: 14px; }
+  footer nav a { white-space: nowrap; }
+}
 
 /* ─── the moving characters ─── */
 .mover { height: auto; pointer-events: none; }

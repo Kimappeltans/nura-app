@@ -72,10 +72,12 @@
   const stars = Array.from({ length: 130 }, () => {
     const c = document.createElementNS(NS, 'circle');
     const r = rnd() < 0.12 ? 2.2 : 0.8 + rnd() * 1.1;
-    set(c, { cx: (-1600 + rnd() * 4800).toFixed(1), cy: (10 + Math.pow(rnd(), 1.4) * 560).toFixed(1), r, fill: '#DCE4FF' });
+    const x = -1600 + rnd() * 4800, y = 10 + Math.pow(rnd(), 1.4) * 560;
+    set(c, { cx: x.toFixed(1), cy: y.toFixed(1), r, fill: '#DCE4FF' });
     el.stars.appendChild(c);
-    return { c, base: 0.35 + rnd() * 0.65, sp: 0.6 + rnd() * 1.8, ph: rnd() * 6.28 };
+    return { c, x, y, base: 0.35 + rnd() * 0.65, sp: 0.6 + rnd() * 1.8, ph: rnd() * 6.28 };
   });
+  let inView = stars;   // the ones in the picture (frame): only they twinkle
   const ripples = Array.from({ length: 3 }, () => {
     const e = document.createElementNS(NS, 'ellipse');
     el.ripples.appendChild(e);
@@ -85,7 +87,15 @@
   // ---------- framing: keep the composition in view at any aspect ratio ----------
   let vb = { x: 0, w: 1600 }, small = false;
   const waterG = q('#sg-waterg');
+  // The window's height with a phone's address bar showing (100svh, story.css). The bar
+  // slides away as the page moves and the window grows with it, but this stays the same:
+  // measured against window.innerHeight, the whole scene jumped each time the bar went
+  // or came back.
+  const probe = saga.appendChild(document.createElement('div'));
+  probe.className = 'saga-vh';
+  let view = window.innerHeight;
   const frame = () => {
+    view = probe.offsetHeight || window.innerHeight;
     const hdr = document.querySelector('header');
     const hdrH = hdr && /sticky|fixed/.test(getComputedStyle(hdr).position) ? hdr.offsetHeight : 0;
     saga.style.setProperty('--hdr', hdrH + 'px');
@@ -103,23 +113,37 @@
       // The text is read over the water, so the water is only as high as the text needs:
       // the horizon sits just above where the tallest passage starts, with room under it
       // for the two rows of labels. The scene is a little bigger too (620 units across).
-      H = Math.max(1000, (620 * sh) / sw);
-      const vh = window.innerHeight, line = vh * 0.55;
-      let top = Infinity;                       // the highest a passage's text reaches where it's read
-      steps.forEach((st) => {
-        const cd = st.querySelector('.saga-card');
+      // It is sized by the part of the stage above a phone's address bar (shown): what
+      // the bar uncovers when it slides away is deeper water.
+      const line = view * 0.55, shown = Math.max(1, Math.min(sh, view - hdrH));
+      H = (Math.max(1000, (620 * shown) / sw) / shown) * sh;
+      // the highest each passage's text reaches where it's read: the last one, which sits
+      // highest, and the rest
+      saga.style.setProperty('--sg-drop', '0px');
+      let lastTop = Infinity, rest = Infinity;
+      steps.forEach((st, i) => {
+        const cd = cards[i];
         if (!cd) return;
         const pb = parseFloat(getComputedStyle(st).paddingBottom) || 0;
-        top = Math.min(top, line + st.offsetHeight / 2 - pb - cd.offsetHeight);
+        const at = line + st.offsetHeight / 2 - pb - cd.offsetHeight;
+        if (i === steps.length - 1) lastTop = at; else rest = Math.min(rest, at);
       });
-      const text = (Number.isFinite(top) ? top : vh * 0.62) - hdrH;   // in the stage's own pixels
-      const hz = Math.max(0.4 * sh, Math.min(0.62 * sh, text - (104 * sh) / H - 10));
+      let top = Math.min(rest, lastTop);
+      const names = (104 * sh) / H + 10;        // the room the figures' names take under the horizon
+      const text = (Number.isFinite(top) ? top : view * 0.62) - hdrH;   // in the stage's own pixels
+      const hz = Math.max(0.4 * shown, Math.min(0.62 * shown, text - names));
       // never lower than the pyramid's tip (232) with air above it: on a short or
       // wide-ish window the top of the pyramid was cut off under the header
       y0 = Math.min(645 - (hz / sh) * H, 190);
       cx = sw / 2;
+      // On a short phone that puts the horizon lower than the last passage leaves room for,
+      // and its words lay over the figures and their names. The last passage comes down by
+      // the difference (story.css), never lower than the others sit.
+      const drop = Math.max(0, Math.min(((645 - y0) * sh) / H + names + hdrH - lastTop, view * 0.26));
+      saga.style.setProperty('--sg-drop', Math.round(drop) + 'px');
+      top = Math.min(rest, lastTop + drop);
       // the water deepens behind the text only, not over what stands on it
-      stage.style.setProperty('--sg-scrim-h', Math.round(sh - text + 64) + 'px');
+      stage.style.setProperty('--sg-scrim-h', Math.round(sh - ((Number.isFinite(top) ? top : view * 0.62) - hdrH) + 64) + 'px');
     }
     small = sw < 900;
     // the names under the figures: closer to them on a small screen, where the text follows soon after
@@ -128,11 +152,12 @@
     vb = { x: 790 - cx * k, w: W, y0, H };
     svg.setAttribute('viewBox', `${vb.x.toFixed(1)} ${y0.toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}`);
     waterG.setAttribute('y2', (y0 + H).toFixed(1));
+    inView = stars.filter((st) => st.x > vb.x - 4 && st.x < vb.x + W + 4 && st.y > y0 - 4);
   };
 
   // ---------- scroll -> s ----------
   const progress = () => {
-    const line = window.innerHeight * 0.55;
+    const line = view * 0.55;
     const c = steps.map((st) => { const r = st.getBoundingClientRect(); return r.top + r.height / 2; });
     if (line <= c[0]) return 0;
     for (let i = 0; i < c.length - 1; i++) {
@@ -152,6 +177,9 @@
   };
 
   // ---------- draw ----------
+  // the words' colours are written only when they change: each write re-styles every passage
+  const tint = {};
+  const css = (k, v) => { if (tint[k] !== v) { tint[k] = v; saga.style.setProperty(k, v); } };
   let lastDay = null;
   const draw = (s, t) => {
     const D = ss(4.5, 5.1, s); // night -> day
@@ -166,7 +194,7 @@
 
     const starO = ramp([[0, 1], [4.0, 1], [4.8, 0]], s);
     el.stars.setAttribute('opacity', starO.toFixed(3));
-    if (starO > 0.01) for (const st of stars) st.c.setAttribute('opacity', (st.base * (0.6 + 0.4 * Math.sin(t * st.sp + st.ph))).toFixed(2));
+    if (starO > 0.01) for (const st of inView) st.c.setAttribute('opacity', (st.base * (0.6 + 0.4 * Math.sin(t * st.sp + st.ph))).toFixed(2));
 
     // water level: high, then the flood goes down
     const L = ramp([[0, 560], [0.4, 564], [1.2, 640], [6.5, 650]], s);
@@ -267,10 +295,10 @@
     const tone = ss(0.16, 0.22, behind.reduce((a, c) => a + lum(c), 0) / behind.length);
     const fg2 = mix('#E6E6F2', '#2E2826', tone);
     const legible = ss(3.5, 5.5, Math.min(...behind.map((c) => contrast(fg2, c))));
-    saga.style.setProperty('--sg-fg', mix('#FFFFFF', '#171313', tone));
-    saga.style.setProperty('--sg-fg2', fg2);
-    saga.style.setProperty('--sg-mh', mix('#9A9EC0', '#7B7360', tone));
-    saga.style.setProperty('--sg-scrim', waterBot);
+    css('--sg-fg', mix('#FFFFFF', '#171313', tone));
+    css('--sg-fg2', fg2);
+    css('--sg-mh', mix('#9A9EC0', '#7B7360', tone));
+    css('--sg-scrim', waterBot);
 
     // each passage is fully there while it's the one in the middle, and fades as the next arrives.
     // On a small screen it's read over the water, so it goes before it climbs over what stands there.
@@ -303,6 +331,8 @@
   window.addEventListener('scroll', kick, { passive: true });
   window.addEventListener('resize', () => { frame(); kick(); });
   reduce.addEventListener?.('change', kick);
+  // the passages settle with the font, and the horizon is set by how tall they are
+  document.fonts?.ready.then(() => { frame(); kick(); });
   frame();
   draw(at(), 0);
   kick();
