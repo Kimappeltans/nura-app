@@ -124,11 +124,18 @@ if (live && line) {
   // while the sun crosses it (the run is that much taller than the stage).
   const run = stage.parentElement && stage.parentElement.classList.contains('hx-run') ? stage.parentElement : null;
   const PIN_TOP = 84;
+  // The window's height with a phone's address bar showing (100svh). The bar slides away
+  // as the page moves and the window grows with it, but this stays the same: measured
+  // against innerHeight, the sun jumped along its line each time the bar went or came back.
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:100vh;height:100svh;visibility:hidden;pointer-events:none';
+  stage.append(probe);
+  const viewH = () => probe.offsetHeight || innerHeight;
   const pinIt = () => {
     if (!run) return;
-    const pin = !still && innerWidth >= 900 && innerHeight >= stage.offsetHeight + PIN_TOP + 16;
+    const pin = !still && innerWidth >= 900 && viewH() >= stage.offsetHeight + PIN_TOP + 16;
     run.classList.toggle('pin', pin);
-    run.style.height = pin ? `${stage.offsetHeight + Math.round(innerHeight * 0.8)}px` : '';
+    run.style.height = pin ? `${stage.offsetHeight + Math.round(viewH() * 0.8)}px` : '';
   };
   let pts = [], total = 0, from = 0, to = 0, yAt = () => 0;
   const lay = () => {
@@ -227,11 +234,11 @@ if (live && line) {
     // from the stage coming into the window to the end of the stretch it stays put for
     // (without the pin: until most of the stage has gone by)
     const scrolled = () => {
-      const top = (run ?? stage).getBoundingClientRect().top + scrollY;
-      const start = top - innerHeight * 0.5;
+      const top = (run ?? stage).getBoundingClientRect().top + scrollY, vh = viewH();
+      const start = top - vh * 0.5;
       const end = run && run.classList.contains('pin')
         ? top + run.offsetHeight - stage.offsetHeight - PIN_TOP
-        : top + stage.offsetHeight * 0.7 - innerHeight * 0.4;
+        : top + stage.offsetHeight * 0.7 - vh * 0.4;
       return Math.min(1, Math.max(0, (scrollY - Math.max(0, start)) / Math.max(240, end - Math.max(0, start))));
     };
     let dawn = 0, queued = false;
